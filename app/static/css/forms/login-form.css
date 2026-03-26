@@ -1,0 +1,83 @@
+/* =========================
+   OCEAN BLUE - PRO LOGIN
+========================= */
+
+:root {
+  --input-bg: rgba(15, 23, 42, 0.6); /* Fundo escuro para contraste */
+  --input-border: rgba(255, 255, 255, 0.1);
+  --accent-primary: #38bdf8;
+}
+
+body {
+  /* Mantendo a identidade do fundo que criamos para a Home */
+  background: radial-gradient(circle at top right, #1e293b, #020617);
+  font-family: 'Inter', sans-serif;
+}
+
+/* Redesenho do Card de Login */
+.login-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border-radius: 1.5rem;
+}
+
+/* Inputs Refinados */
+.input-field {
+  width: 100%;
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  padding: 0.875rem 1rem;
+  border-radius: 0.75rem;
+  color: #f8fafc;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  background: rgba(15, 23, 42, 0.8);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+}
+
+.input-field::placeholder {
+  color: #64748b;
+}
+
+/* Botão Sólido e Imponente */
+.btn-submit {
+  width: 100%;
+  background: var(--accent-primary);
+  color: #020617;
+  font-weight: 600;
+  padding: 0.875rem;
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  letter-spacing: 0.025em;
+}
+
+.btn-submit:hover {
+  background: #7dd3fc;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.3);
+}
+
+.btn-submit:active {
+  transform: translateY(0);
+}
+
+/* Label Estilizada */
+.input-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}

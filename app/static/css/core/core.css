@@ -1,0 +1,180 @@
+/* =========================
+   OCEAN BLUE - REFINED PRO
+========================= */
+
+:root {
+  /* Cores Profissionais */
+  --bg-dark: #0f172a; /* Slate 900 */
+  --bg-deep: #020617;
+  --accent-blue: #38bdf8;
+  --accent-soft: #7dd3fc;
+  
+  /* Glassmorphism Refinado */
+  --glass-bg: rgba(30, 41, 59, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --glass-hover: rgba(56, 189, 248, 0.1);
+
+  /* Texto */
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+
+  /* Efeitos */
+  --shadow-soft: 0 20px 25px -5px rgb(0 0 0 / 0.3);
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  background: radial-gradient(circle at top right, #1e293b, var(--bg-deep));
+  color: var(--text-main);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+/* Glass Card */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  transition: var(--transition-smooth);
+}
+
+/* Redesenho dos Cards */
+.module-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Alinhamento à esquerda é mais sério */
+  padding: 2rem;
+  text-decoration: none;
+  border-radius: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.module-card:hover {
+  border-color: var(--accent-blue);
+  background: var(--glass-hover);
+  transform: translateY(-4px);
+}
+
+.module-card .icon-wrapper {
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent-blue);
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  transition: var(--transition-smooth);
+}
+
+.module-card:hover .icon-wrapper {
+  background: var(--accent-blue);
+  color: var(--bg-deep);
+}
+
+/* Removemos a animação 'float' infantil */
+.float { animation: none; }
+
+
+/* Animação para o Dropdown */
+@keyframes slideInTop {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-in-top {
+    animation: slideInTop 0.2s ease-out forwards;
+}
+
+/* Garante que o dropdown se destaque do fundo */
+#userDropdown {
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(20px);
+}
+
+/* =========================
+   OCEAN BLUE - STOCK MODULE
+========================= */
+
+:root {
+  --search-bg: rgba(15, 23, 42, 0.4);
+  --accent-stock: #38bdf8;
+}
+
+/* Barra de Busca Estilizada */
+.search-container {
+  background: var(--search-bg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.search-container:focus-within {
+  border-color: var(--accent-stock);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.search-input {
+  background: transparent;
+  border: none;
+  color: white;
+  outline: none;
+  width: 100%;
+  padding: 1rem;
+}
+
+/* Cards de Ação */
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.action-card:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: var(--accent-stock);
+  transform: translateX(8px);
+}
+
+.action-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent-stock);
+  border-radius: 12px;
+}
+
+/* =========================
+   OCEAN BLUE - FLASH MENSAGE
+========================= */
+
+@keyframes slideIn {
+    from { 
+        opacity: 0; 
+        transform: translateX(100%) scale(0.9); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateX(0) scale(1); 
+    }
+}
+
+.animate-slide-in {
+    animation: slideIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Bordas de status sutis para reforçar a categoria */
+.flash-success { border-left: 4px solid #10b981; }
+.flash-error { border-left: 4px solid #f43f5e; }
+.flash-info { border-left: 4px solid #38bdf8; }

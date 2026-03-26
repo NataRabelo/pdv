@@ -1,0 +1,45 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    container_name: blueocean_api
+    restart: always
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - blueocean_network
+    volumes:
+      - .:/app  # apenas dev
+
+  db:
+    image: postgres:16
+    container_name: blueocean_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - blueocean_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:5432:5432"  # opcional
+
+volumes:
+  postgres_data:
+
+networks:
+  blueocean_network:
+    driver: bridge

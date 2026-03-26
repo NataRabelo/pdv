@@ -1,0 +1,46 @@
+<div id="toast-container" class="fixed top-6 right-6 z-[9999] flex flex-col gap-4 pointer-events-none">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-toast flash-{{ category }} pointer-events-auto min-w-[320px] bg-slate-800/90 backdrop-blur-xl border border-white/10 p-4 rounded-xl shadow-2xl flex items-start gap-3 animate-slide-in">
+                    <div class="flex-shrink-0 mt-0.5">
+                        {% if category == 'success' %}
+                            <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+                        {% elif category == 'error' %}
+                            <i data-lucide="alert-circle" class="w-5 h-5 text-rose-400"></i>
+                        {% else %}
+                            <i data-lucide="info" class="w-5 h-5 text-sky-400"></i>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="flex-1">
+                        <p class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                            {{ 'Sucesso' if category == 'success' else 'Erro' if category == 'error' else 'Aviso' }}
+                        </p>
+                        <p class="text-sm text-white font-medium">{{ message }}</p>
+                    </div>
+
+                    <button onclick="this.parentElement.remove()" class="text-slate-500 hover:text-white transition-colors">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+
+<script>
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+
+    setTimeout(() => {
+        const toasts = document.querySelectorAll('.flash-toast');
+        toasts.forEach(toast => {
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateX(20px)';
+            toast.style.transition = 'all 0.5s ease';
+            setTimeout(() => toast.remove(), 500);
+        });
+    }, 6000);
+</script>

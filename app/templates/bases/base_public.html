@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>{% block title %}OceanBlue{% endblock %}</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/core.css') }}">
+
+  {% block styles %}{% endblock %}
+</head>
+
+<body class="{% block body_class %}min-h-screen{% endblock %}">
+
+  {% include "componentes/flash_mensagem.html" %}
+
+  {% block content %}{% endblock %}
+
+  <script>
+    lucide.createIcons();
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
