@@ -12,7 +12,7 @@ class CategoriaRepository():
     
     @staticmethod
     def update(categoria: CategoriaProduto):
-        db.session.commit(categoria)
+        db.session.commit()
         
         return categoria
     

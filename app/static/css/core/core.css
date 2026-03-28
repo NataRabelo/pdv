@@ -94,6 +94,47 @@ body {
 }
 
 /* =========================
+   ESTILO DE INPUT PREMIUM
+========================= */
+
+.input-field {
+    width: 100%;
+    background: rgba(15, 23, 42, 0.6); /* Slate 900 com transparência */
+    border: 1px solid rgba(255, 255, 255, 0.1); /* Borda quase invisível */
+    border-radius: 12px;
+    padding: 0.75rem 1rem; /* Padding mais equilibrado */
+    color: #f8fafc;
+    font-size: 0.95rem;
+    outline: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Estado de Hover (Passar o mouse) */
+.input-field:hover {
+    background: rgba(15, 23, 42, 0.8);
+    border-color: rgba(56, 189, 248, 0.3); /* Um leve brilho azul */
+}
+
+/* Estado de Foco (Clicar para digitar) */
+.input-field:focus {
+    background: #0f172a; /* Fundo sólido para foco total */
+    border-color: #38bdf8; /* Azul OceanBlue */
+    box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.15); /* Glow externo suave */
+}
+
+/* Placeholder (O texto de exemplo dentro) */
+.input-field::placeholder {
+    color: #475569; /* Cinza médio para não confundir com o texto digitado */
+    font-size: 0.9rem;
+}
+
+/* Ajuste para Textarea (Descrição) */
+textarea.input-field {
+    min-height: 100px;
+    resize: none;
+}
+
+/* =========================
    OCEAN BLUE - STOCK MODULE
 ========================= */
 
@@ -178,3 +219,5 @@ body {
 .flash-success { border-left: 4px solid #10b981; }
 .flash-error { border-left: 4px solid #f43f5e; }
 .flash-info { border-left: 4px solid #38bdf8; }
+
+

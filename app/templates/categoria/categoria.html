@@ -1,0 +1,81 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue • Categorias{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/categoria.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Categoria dos produtos" %}
+{% include "componentes/header_subpages.html"%}
+
+<main class="flex-1 max-w-6xl mx-auto w-full p-6">
+
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h2 class="text-2xl font-bold text-white">Categorias de Produtos</h2>
+            <p class="text-slate-400 text-sm">Gerencie os grupos organizacionais do seu estoque.</p>
+        </div>
+        <button onclick="openModal('modal-cadastro')" class="btn-submit !w-auto px-6 flex items-center gap-2">
+            <i data-lucide="plus" class="w-4 h-4"></i> Nova Categoria
+        </button>
+    </div>
+
+    <div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Nome da Categoria</th>
+                    <th>Descrição</th>
+                    <th class="text-right">Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for categoria in categorias %}
+                <tr class="table-row">
+                    <td class="table-cell font-semibold text-white">
+                        {{ categoria.nome }}
+                    </td>
+                    <td class="table-cell text-slate-400">
+                        {{ categoria.descricao }}
+                    </td>
+                    <td class="table-cell text-right">
+                        <div class="flex justify-end gap-2">
+
+                            <!-- EDITAR -->
+                            <button
+                                onclick="abrirModalEdicao('{{ categoria.id }}', '{{ categoria.nome }}', '{{ categoria.descricao }}')"
+                                class="p-2 hover:bg-sky-500/10 text-sky-400 rounded-lg transition-colors">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+
+                            <!-- DELETAR -->
+                            <form method="POST" action="{{ url_for('categoria.deletar', id=categoria.id) }}">
+                                <button type="submit"
+                                    class="p-2 hover:bg-rose-500/10 text-rose-400 rounded-lg transition-colors">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </form>
+
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</main>
+{% include "categoria/modal_cadastrar.html"%}
+{% include "categoria/modal_editar.html"%}
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/header/header.js') }}"></script>
+<script src="{{ url_for('static', filename='js/module/categoria.js') }}"></script>
+{% endblock %}

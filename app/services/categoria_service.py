@@ -1,4 +1,5 @@
 from app.repositorys.categoria_repository import CategoriaRepository
+from app.security.jwt import get_tenant_id
 from flask_jwt_extended import get_jwt_identity
 from app.models.db import CategoriaProduto
 
@@ -8,8 +9,9 @@ class CategoriaService():
     def cadastrar(data: dict):
         nome        = data.get('nome')
         descricao   = data.get('descricao')
+        tenant_id   = get_tenant_id()
 
-        if nome:
+        if not nome:
             raise ValueError('Categoria precisa de um nome')
         v_nome = CategoriaRepository.get_by_name(nome)
         if v_nome:
@@ -17,7 +19,8 @@ class CategoriaService():
         
         categoria = CategoriaProduto(
             nome        = nome ,
-            descricao   = descricao
+            descricao   = descricao,
+            tenant_id   = tenant_id
         )
 
         categoria = CategoriaRepository.create(categoria)
@@ -28,8 +31,8 @@ class CategoriaService():
     def atualizar(data: dict, id: int):
         categoria = CategoriaRepository.get_by_id(id)
 
-        categoria.nome      = data.get("name", categoria.nome)
-        categoria.descricao = data.get("descricao", categoria.descricao)
+        categoria.nome      = data.get("edit-nome", categoria.nome)
+        categoria.descricao = data.get("edit-descricao", categoria.descricao)
 
         categoria = CategoriaRepository.update(categoria)
 
@@ -37,8 +40,12 @@ class CategoriaService():
     
     @staticmethod
     def deletar(id: int):
+        categoria = CategoriaRepository.get_by_id(id)
+
+        if not categoria:
+            raise ValueError("Categoria não encontrada")
         #todo: criar regra para somente excluir caterogias que não estão sendo usadas 
-        categoria = CategoriaRepository.delete(id)
+        return CategoriaRepository.delete(categoria)
 
     @staticmethod
     def listar():

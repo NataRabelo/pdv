@@ -10,7 +10,7 @@ def categoria():
     try:
         categorias = CategoriaService.listar()
         return render_template(
-            "categoria/listar.html", 
+            "categoria/categoria.html", 
             categorias=categorias
             )
 
