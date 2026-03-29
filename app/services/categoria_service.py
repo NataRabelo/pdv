@@ -1,54 +1,72 @@
 from app.repositorys.categoria_repository import CategoriaRepository
 from app.security.jwt import get_tenant_id
-from flask_jwt_extended import get_jwt_identity
 from app.models.db import CategoriaProduto
 
-class CategoriaService():
+
+class CategoriaService:
 
     @staticmethod
     def cadastrar(data: dict):
-        nome        = data.get('nome')
-        descricao   = data.get('descricao')
-        tenant_id   = get_tenant_id()
+        nome = data.get('nome')
+        descricao = data.get('descricao')
+        tenant_id = get_tenant_id()
 
         if not nome:
             raise ValueError('Categoria precisa de um nome')
-        v_nome = CategoriaRepository.get_by_name(nome)
-        if v_nome:
-            raise ValueError('Categoria já cadastrada com o mesmo nome')
-        
+
+        # 🔒 valida por tenant
+        existente = CategoriaRepository.get_by_name(nome, tenant_id)
+        if existente:
+            raise ValueError('Categoria já cadastrada com esse nome')
+
         categoria = CategoriaProduto(
-            nome        = nome ,
-            descricao   = descricao,
-            tenant_id   = tenant_id
+            nome=nome,
+            descricao=descricao,
+            tenant_id=tenant_id
         )
 
-        categoria = CategoriaRepository.create(categoria)
-        
-        return categoria 
-    
+        return CategoriaRepository.create(categoria)
+
     @staticmethod
     def atualizar(data: dict, id: int):
-        categoria = CategoriaRepository.get_by_id(id)
+        tenant_id = get_tenant_id()
 
-        categoria.nome      = data.get("edit-nome", categoria.nome)
-        categoria.descricao = data.get("edit-descricao", categoria.descricao)
+        categoria = CategoriaRepository.get_by_id(id, tenant_id)
+        if not categoria:
+            raise ValueError("Categoria não encontrada")
 
-        categoria = CategoriaRepository.update(categoria)
+        nome = data.get("nome")
+        descricao = data.get("descricao")
 
-        return categoria
-    
+        # valida nome
+        if nome:
+            existente = CategoriaRepository.get_by_name(nome, tenant_id)
+            if existente and existente.id != id:
+                raise ValueError("Já existe outra categoria com esse nome")
+
+            categoria.nome = nome
+
+        if descricao is not None:
+            categoria.descricao = descricao
+
+        return CategoriaRepository.update(categoria)
+
     @staticmethod
     def deletar(id: int):
-        categoria = CategoriaRepository.get_by_id(id)
+        tenant_id = get_tenant_id()
+
+        categoria = CategoriaRepository.get_by_id(id, tenant_id)
 
         if not categoria:
             raise ValueError("Categoria não encontrada")
-        #todo: criar regra para somente excluir caterogias que não estão sendo usadas 
+
+        # 🔒 regra futura
+        # verificar se está sendo usada antes de deletar
+
         return CategoriaRepository.delete(categoria)
 
     @staticmethod
     def listar():
-        categorias = CategoriaRepository.list()
+        tenant_id = get_tenant_id()
 
-        return categorias
+        return CategoriaRepository.list(tenant_id)
