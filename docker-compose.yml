@@ -15,7 +15,7 @@ services:
     networks:
       - blueocean_network
     volumes:
-      - .:/app  # apenas dev
+      - .:/app
 
   db:
     image: postgres:16
@@ -35,7 +35,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "127.0.0.1:5432:5432"  # opcional
+      - "5432:5432"
 
 volumes:
   postgres_data:

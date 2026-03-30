@@ -1,16 +1,30 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, jsonify, request, render_template
+from flask_jwt_extended import jwt_required, get_jwt
+
 from app.services.categoria_service import CategoriaService
-from flask_jwt_extended import jwt_required
 
 categoria_bp = Blueprint("categoria", __name__)
 
 
+# =========================
+# PAGE (HTML)
+# =========================
+@categoria_bp.route("/view", methods=["GET"])
+@jwt_required()
+def pagina():
+    return render_template("categoria/categoria.html")
+
+
+# =========================
 # LISTAR
-@categoria_bp.route("/api/categorias", methods=["GET"])
+# =========================
+@categoria_bp.route("/", methods=["GET"])
 @jwt_required()
 def listar():
     try:
-        categorias = CategoriaService.listar()
+        tenant_id = get_jwt().get("tenant_id")
+
+        categorias = CategoriaService.listar(tenant_id)
 
         return jsonify({
             "success": True,
@@ -21,23 +35,23 @@ def listar():
                     "descricao": c.descricao
                 } for c in categorias
             ]
-        }), 200
+        })
 
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 500
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
+# =========================
 # CRIAR
-@categoria_bp.route("/api/categorias", methods=["POST"])
+# =========================
+@categoria_bp.route("/", methods=["POST"])
 @jwt_required()
-def cadastrar():
+def criar():
     try:
-        data = request.get_json()
+        tenant_id = get_jwt().get("tenant_id")
+        data = request.json
 
-        categoria = CategoriaService.cadastrar(data)
+        categoria = CategoriaService.criar(data, tenant_id)
 
         return jsonify({
             "success": True,
@@ -45,57 +59,49 @@ def cadastrar():
                 "id": categoria.id,
                 "nome": categoria.nome,
                 "descricao": categoria.descricao
-            },
-            "message": "Categoria criada com sucesso"
+            }
         }), 201
 
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 400
+        return jsonify({"success": False, "message": str(e)}), 400
 
 
+# =========================
 # ATUALIZAR
-@categoria_bp.route("/api/categorias/<int:id>", methods=["PUT"])
+# =========================
+@categoria_bp.route("/<int:categoria_id>", methods=["PUT"])
 @jwt_required()
-def editar(id):
+def atualizar(categoria_id):
     try:
-        data = request.get_json()
+        tenant_id = get_jwt().get("tenant_id")
+        data = request.json
 
-        categoria = CategoriaService.atualizar(data, id)
+        CategoriaService.atualizar(categoria_id, data, tenant_id)
 
         return jsonify({
             "success": True,
-            "data": {
-                "id": categoria.id,
-                "nome": categoria.nome,
-                "descricao": categoria.descricao
-            },
-            "message": "Categoria atualizada"
-        }), 200
+            "message": "Atualizado com sucesso"
+        })
 
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 400
+        return jsonify({"success": False, "message": str(e)}), 400
 
 
+# =========================
 # DELETAR
-@categoria_bp.route("/api/categorias/<int:id>", methods=["DELETE"])
+# =========================
+@categoria_bp.route("/<int:categoria_id>", methods=["DELETE"])
 @jwt_required()
-def deletar(id):
+def deletar(categoria_id):
     try:
-        CategoriaService.deletar(id)
+        tenant_id = get_jwt().get("tenant_id")
+
+        CategoriaService.deletar(categoria_id, tenant_id)
 
         return jsonify({
             "success": True,
-            "message": "Categoria deletada"
-        }), 200
+            "message": "Deletado com sucesso"
+        })
 
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        }), 400
+        return jsonify({"success": False, "message": str(e)}), 400

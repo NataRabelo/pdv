@@ -6,89 +6,40 @@
 min-h-screen flex flex-col
 {% endblock %}
 
-{% block styles %}  
+{% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modules/estoque.css') }}">
 {% endblock %}
 
 {% block content %}
-  {% set modulo_name = "Estoque" %}
-  {% include "componentes/header_subpages.html"%}
+{% set modulo_name = "Estoque" %}
+{% include "componentes/header_subpages.html"%}
 
-  <main class="flex-1 max-w-5xl mx-auto w-full p-6 md:p-12">
-    
-    <section class="mb-16">
-      <div class="mb-6">
-        <h2 class="text-2xl font-bold text-white">Consulta Rápida</h2>
-        <p class="text-slate-400 text-sm">Pesquise por nome, código de barras ou SKU.</p>
-      </div>
-      
-      <div class="search-container flex items-center px-4">
-        <i data-lucide="search" class="text-slate-500 w-6 h-6"></i>
-        <input type="text" class="search-input" placeholder="O que você está procurando hoje?">
-        <kbd class="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded bg-white/5 border border-white/10 text-[10px] text-slate-500">
-          <span class="text-xs">⌘</span> K
-        </kbd>
-      </div>
-    </section>
+<main class="flex-1 max-w-5xl mx-auto w-full p-6 md:p-12">
 
-    <section>
-      <div class="mb-8">
-        <h3 class="text-sm font-bold uppercase tracking-[0.2em] text-sky-500/80">Operações e Gestão</h3>
-      </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        <a href="/estoque/cadastrar-produto" class="action-card">
-          <div class="action-icon">
-            <i data-lucide="plus-circle" class="w-7 h-7"></i>
-          </div>
-          <div>
-            <h4 class="text-lg font-bold text-white">Novo Produto</h4>
-            <p class="text-slate-400 text-sm">Registrar novos itens no catálogo geral.</p>
-          </div>
-          <i data-lucide="chevron-right" class="ml-auto w-5 h-5 text-slate-600"></i>
+        <a href="/api/produtos/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="plus-circle"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Novo Produto</h4>
+                <p class="text-slate-400 text-sm">Cadastrar produto</p>
+            </div>
         </a>
 
-        <a href="/estoque/categorias" class="action-card">
-          <div class="action-icon">
-            <i data-lucide="layers" class="w-7 h-7"></i>
-          </div>
-          <div>
-            <h4 class="text-lg font-bold text-white">Categorias</h4>
-            <p class="text-slate-400 text-sm">Organizar produtos por grupos e famílias.</p>
-          </div>
-          <i data-lucide="chevron-right" class="ml-auto w-5 h-5 text-slate-600"></i>
+        <a href="/api/categorias/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="layers"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Categorias</h4>
+                <p class="text-slate-400 text-sm">Gerenciar categorias</p>
+            </div>
         </a>
 
-        <a href="/estoque/inventario" class="action-card">
-          <div class="action-icon">
-            <i data-lucide="clipboard-list" class="w-7 h-7"></i>
-          </div>
-          <div>
-            <h4 class="text-lg font-bold text-white">Inventário</h4>
-            <p class="text-slate-400 text-sm">Conferência de saldo e posição de estoque.</p>
-          </div>
-          <i data-lucide="chevron-right" class="ml-auto w-5 h-5 text-slate-600"></i>
-        </a>
+    </div>
 
-        <a href="/estoque/movimentacao" class="action-card">
-          <div class="action-icon">
-            <i data-lucide="arrow-left-right" class="w-7 h-7"></i>
-          </div>
-          <div>
-            <h4 class="text-lg font-bold text-white">Movimentação</h4>
-            <p class="text-slate-400 text-sm">Entradas manuais e transferências internas.</p>
-          </div>
-          <i data-lucide="chevron-right" class="ml-auto w-5 h-5 text-slate-600"></i>
-        </a>
+</main>
 
-      </div>
-    </section>
-
-  </main>
-{% endblock %}
-
-{% block scripts %}
-<script src="{{ url_for('static', filename='js/header/header.js') }}"></script>
 {% endblock %}

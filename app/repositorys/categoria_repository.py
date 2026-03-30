@@ -1,52 +1,33 @@
-from app.models.db import CategoriaProduto
 from app.extensions import db
+from app.models.db import CategoriaProduto
 
 
 class CategoriaRepository:
 
     @staticmethod
-    def create(categoria: CategoriaProduto):
+    def listar_por_tenant(tenant_id):
+        return CategoriaProduto.query.filter_by(
+            tenant_id=tenant_id
+        ).order_by(CategoriaProduto.id.desc()).all()
+
+    @staticmethod
+    def buscar_por_id(categoria_id, tenant_id):
+        return CategoriaProduto.query.filter_by(
+            id=categoria_id,
+            tenant_id=tenant_id
+        ).first()
+
+    @staticmethod
+    def criar(categoria):
         db.session.add(categoria)
         db.session.commit()
         return categoria
 
     @staticmethod
-    def update(categoria: CategoriaProduto):
+    def atualizar():
         db.session.commit()
-        return categoria
 
     @staticmethod
-    def delete(categoria: CategoriaProduto):
+    def deletar(categoria):
         db.session.delete(categoria)
         db.session.commit()
-        return True
-
-    @staticmethod
-    def list(tenant_id: int):
-        return (
-            db.session.query(CategoriaProduto)
-            .filter(CategoriaProduto.tenant_id == tenant_id)
-            .all()
-        )
-
-    @staticmethod
-    def get_by_id(id: int, tenant_id: int):
-        return (
-            db.session.query(CategoriaProduto)
-            .filter(
-                CategoriaProduto.id == id,
-                CategoriaProduto.tenant_id == tenant_id
-            )
-            .first()
-        )
-
-    @staticmethod
-    def get_by_name(nome: str, tenant_id: int):
-        return (
-            db.session.query(CategoriaProduto)
-            .filter(
-                CategoriaProduto.nome == nome,
-                CategoriaProduto.tenant_id == tenant_id
-            )
-            .first()
-        )
