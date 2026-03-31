@@ -1,0 +1,382 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue • Produtos{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/produto.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Produtos" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+
+    <section class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Produtos</h1>
+                <p class="text-slate-400 mt-2">
+                    Gerencie os produtos do seu estoque com cadastro, edição e exclusão.
+                </p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <button type="button" onclick="produtoPage.openCreateModal()"
+                    class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Novo produto
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Listagem</h2>
+                    <p class="text-sm text-slate-400">
+                        Consulte e pesquise os produtos cadastrados.
+                    </p>
+                </div>
+
+                <div class="w-full md:w-80 relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </span>
+                    <input id="input-busca" type="text"
+                        placeholder="Buscar por nome, descrição, categoria, empresa ou código de barras..."
+                        class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1200px]">
+                <thead class="bg-slate-950/70">
+                    <tr class="border-b border-slate-800">
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Produto
+                        </th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Categoria
+                        </th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Empresa
+                        </th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Cód. barras
+                        </th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Estoque
+                        </th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Compra
+                        </th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Venda
+                        </th>
+                        <th
+                            class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[140px]">
+                            Ações
+                        </th>
+                    </tr>
+                </thead>
+
+                <tbody id="produto-table-body" class="divide-y divide-slate-800">
+                    <tr>
+                        <td colspan="8" class="px-5 py-8 text-center text-slate-400">
+                            Carregando produtos...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<!-- MODAL CADASTRO -->
+<div id="modal-cadastro"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Novo Produto</h3>
+                <p class="text-sm text-slate-400 mt-1">Preencha os dados para cadastrar um novo produto.</p>
+            </div>
+            <button type="button" data-close-modal="modal-cadastro"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-cadastro" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="md:col-span-2">
+                    <label for="cadastro-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
+                    <input id="cadastro-nome" name="nome" type="text" required maxlength="120"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                        placeholder="Ex.: Refrigerante 2L">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="cadastro-descricao"
+                        class="block text-sm font-medium text-slate-300 mb-2">Descrição</label>
+                    <textarea id="cadastro-descricao" name="descricao" rows="3" maxlength="255"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+                        placeholder="Descreva o produto"></textarea>
+                </div>
+
+                <div>
+                    <label for="cadastro-categoria_id"
+                        class="block text-sm font-medium text-slate-300 mb-2">Categoria</label>
+                    <select id="cadastro-categoria_id" name="categoria_id"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="">Sem categoria</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="cadastro-empresa_id"
+                        class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                    <select id="cadastro-empresa_id" name="empresa_id" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="">Selecione</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="cadastro-codigo_barras" class="block text-sm font-medium text-slate-300 mb-2">Código de
+                        barras</label>
+                    <input id="cadastro-codigo_barras" name="codigo_barras" type="text" maxlength="50"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                        placeholder="Ex.: 7890000000000">
+                </div>
+
+                <div>
+                    <label for="cadastro-estoque_minimo" class="block text-sm font-medium text-slate-300 mb-2">Estoque
+                        mínimo</label>
+                    <input id="cadastro-estoque_minimo" name="estoque_minimo" type="number" min="0" step="0.001"
+                        value="0"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="cadastro-valor_compra" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        compra</label>
+                    <input id="cadastro-valor_compra" name="valor_compra" type="number" min="0" step="0.01" value="0"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="cadastro-valor_venda" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        venda</label>
+                    <input id="cadastro-valor_venda" name="valor_venda" type="number" min="0" step="0.01" value="0"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div class="flex items-center gap-3 pt-8">
+                    <input id="cadastro-possui_ncm" name="possui_ncm" type="checkbox"
+                        class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/30">
+                    <label for="cadastro-possui_ncm" class="text-sm font-medium text-slate-300">
+                        Possui NCM
+                    </label>
+                </div>
+
+                <div>
+                    <label for="cadastro-ncm" class="block text-sm font-medium text-slate-300 mb-2">NCM</label>
+                    <input id="cadastro-ncm" name="ncm" type="text" maxlength="20" disabled
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition disabled:opacity-50"
+                        placeholder="Informe o NCM">
+                </div>
+
+                <div class="md:col-span-2 flex items-center gap-3">
+                    <input id="cadastro-ativo" name="ativo" type="checkbox" checked
+                        class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/30">
+                    <label for="cadastro-ativo" class="text-sm font-medium text-slate-300">
+                        Produto ativo
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-cadastro"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Salvar produto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDIÇÃO -->
+<div id="modal-edicao"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Editar Produto</h3>
+                <p class="text-sm text-slate-400 mt-1">Atualize os dados do produto selecionado.</p>
+            </div>
+            <button type="button" data-close-modal="modal-edicao"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-edicao" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="md:col-span-2">
+                    <label for="edicao-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
+                    <input id="edicao-nome" name="nome" type="text" required maxlength="120"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="edicao-descricao"
+                        class="block text-sm font-medium text-slate-300 mb-2">Descrição</label>
+                    <textarea id="edicao-descricao" name="descricao" rows="3" maxlength="255"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"></textarea>
+                </div>
+
+                <div>
+                    <label for="edicao-categoria_id"
+                        class="block text-sm font-medium text-slate-300 mb-2">Categoria</label>
+                    <select id="edicao-categoria_id" name="categoria_id"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="">Sem categoria</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="edicao-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                    <select id="edicao-empresa_id" name="empresa_id" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="">Selecione</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="edicao-codigo_barras" class="block text-sm font-medium text-slate-300 mb-2">Código de
+                        barras</label>
+                    <input id="edicao-codigo_barras" name="codigo_barras" type="text" maxlength="50"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+
+                <div>
+                    <label for="edicao-estoque_minimo" class="block text-sm font-medium text-slate-300 mb-2">Estoque
+                        mínimo</label>
+                    <input id="edicao-estoque_minimo" name="estoque_minimo" type="number" min="0" step="0.001" value="0"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="edicao-valor_compra" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        compra</label>
+                    <input id="edicao-valor_compra" name="valor_compra" type="number" min="0" step="0.01" value="0"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="edicao-valor_venda" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        venda</label>
+                    <input id="edicao-valor_venda" name="valor_venda" type="number" min="0" step="0.01" value="0"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div class="flex items-center gap-3 pt-8">
+                    <input id="edicao-possui_ncm" name="possui_ncm" type="checkbox"
+                        class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/30">
+                    <label for="edicao-possui_ncm" class="text-sm font-medium text-slate-300">
+                        Possui NCM
+                    </label>
+                </div>
+
+                <div>
+                    <label for="edicao-ncm" class="block text-sm font-medium text-slate-300 mb-2">NCM</label>
+                    <input id="edicao-ncm" name="ncm" type="text" maxlength="20" disabled
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition disabled:opacity-50"
+                        placeholder="Informe o NCM">
+                </div>
+
+                <div class="md:col-span-2 flex items-center gap-3">
+                    <input id="edicao-ativo" name="ativo" type="checkbox"
+                        class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-sky-500 focus:ring-sky-500/30">
+                    <label for="edicao-ativo" class="text-sm font-medium text-slate-300">
+                        Produto ativo
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-edicao"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="square-pen" class="w-4 h-4"></i>
+                    Atualizar produto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EXCLUSÃO -->
+<div id="modal-delete"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div
+                    class="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Confirmar exclusão</h3>
+                    <p class="text-sm text-slate-400">Esta ação não poderá ser desfeita.</p>
+                </div>
+            </div>
+        </div>
+
+        <form id="form-delete" class="px-6 py-6">
+            <p class="text-slate-300 leading-relaxed">
+                Tem certeza que deseja excluir este produto?
+            </p>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6">
+                <button type="button" data-close-modal="modal-delete"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold px-5 py-3 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    Excluir produto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="{{ url_for('static', filename='js/core/crud.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modulos/produto.js') }}"></script>
+{% endblock %}

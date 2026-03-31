@@ -12,7 +12,7 @@ produto_bp = Blueprint("produto", __name__)
 @produto_bp.route("/view", methods=["GET"])
 @jwt_required()
 def pagina():
-    return render_template("produto/produto.html")
+    return render_template("modulos/produto/produto.html")
 
 
 # =========================

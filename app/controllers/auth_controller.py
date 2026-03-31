@@ -10,7 +10,7 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "GET":
-        return render_template("login/login.html")
+        return render_template("pages/login.html")
 
     try:
         funcionario = AuthService.logar(request.form)
@@ -22,11 +22,11 @@ def login():
 
     except ValueError as e:
         flash(str(e), "warning")
-        return render_template("login/login.html"), 401
+        return render_template("pages/login.html"), 401
 
     except Exception as e:
         flash("Erro interno ao tentar realizar o login: " + str(e), "danger")
-        return render_template("login/login.html"), 500
+        return render_template("pages/login.html"), 500
 
 
 @auth_bp.route("/logout", methods=["GET"])

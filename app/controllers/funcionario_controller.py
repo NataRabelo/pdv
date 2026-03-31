@@ -1,66 +1,66 @@
-from flask import Blueprint, jsonify, request, render_template
+from flask import Blueprint,jsonify, request, render_template
 from flask_jwt_extended import jwt_required, get_jwt
 
-from app.services.categoria_service import CategoriaService
+from app.services.funcionario_service import FuncionarioService
 
-categoria_bp = Blueprint("categoria", __name__)
+funcionario_bp = Blueprint("funcionario", __name__)
 
 
 # =========================
 # PAGE (HTML)
 # =========================
-@categoria_bp.route("/view", methods=["GET"])
+@funcionario_bp.route("/view", methods=["GET"])
 @jwt_required()
 def pagina():
-    return render_template("modulos/categoria/categoria.html")
+    return render_template("modulos/funcionario/funcionario.html")
 
 
 # =========================
 # LISTAR
 # =========================
-@categoria_bp.route("/", methods=["GET"])
+@funcionario_bp.route('/', methods=["GET"])
 @jwt_required()
 def listar():
     try:
-        tenant_id   = get_jwt().get("tenant_id")
-        categorias  = CategoriaService.listar(tenant_id)
+        tenant_id = get_jwt().get("tenant_id")
+        funcionarios = FuncionarioService.listar(tenant_id)
 
         return jsonify({
             "success": True,
             "data": [
                 {
-                    "id": c.id,
-                    "nome": c.nome,
-                    "descricao": c.descricao
-                } for c in categorias
+                    "id": f.id,
+                    "nome": f.nome,
+                    "cpf": f.cpf
+                } for f in funcionarios
             ]
         })
-
+    
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
-
+    
 
 # =========================
 # CRIAR
 # =========================
-@categoria_bp.route("/", methods=["POST"])
+@funcionario_bp.route("/", methods=["POST"])
 @jwt_required()
 def criar():
     try:
         tenant_id = get_jwt().get("tenant_id")
         data = request.json
 
-        categoria = CategoriaService.criar(data, tenant_id)
+        funcionario = FuncionarioService.criar(data, tenant_id)
 
         return jsonify({
             "success": True,
             "data": {
-                "id": categoria.id,
-                "nome": categoria.nome,
-                "descricao": categoria.descricao
+                "id": funcionario.id,
+                "nome": funcionario.nome,
+                "cpf": funcionario.cpf
             }
         }), 201
-
+    
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 400
 
@@ -68,39 +68,39 @@ def criar():
 # =========================
 # ATUALIZAR
 # =========================
-@categoria_bp.route("/<int:categoria_id>", methods=["PUT"])
+@funcionario_bp.route("/<int:funcionario_id>", methods=["PUT"])
 @jwt_required()
-def atualizar(categoria_id):
+def atualizar(funcionario_id):
     try:
         tenant_id = get_jwt().get("tenant_id")
         data = request.json
 
-        CategoriaService.atualizar(categoria_id, data, tenant_id)
+        FuncionarioService.atualizar(funcionario_id, data, tenant_id)
 
         return jsonify({
             "success": True,
             "message": "Atualizado com sucesso"
         })
-
+    
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 400
-
+        return jsonify({"success": False, "message": str(e)}), 400 
+    
 
 # =========================
 # DELETAR
 # =========================
-@categoria_bp.route("/<int:categoria_id>", methods=["DELETE"])
+@funcionario_bp.route("/<int:funcionario_id>", methods=["DELETE"])
 @jwt_required()
-def deletar(categoria_id):
+def deletar(funcionario_id):
     try:
         tenant_id = get_jwt().get("tenant_id")
 
-        CategoriaService.deletar(categoria_id, tenant_id)
+        FuncionarioService.deletar(funcionario_id, tenant_id)
 
         return jsonify({
             "success": True,
             "message": "Deletado com sucesso"
         })
-
+        
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 400

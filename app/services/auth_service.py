@@ -12,7 +12,7 @@ class AuthService:
         if not usuario or not senha:
             raise ValueError("Usuário e senha são necessários")
 
-        funcionario = FuncionarioRepository.get_by_usuario(usuario)
+        funcionario = FuncionarioRepository.busca_funcionario_por_usuario(usuario)
 
         if not funcionario or not verify_password(senha, funcionario.senha_hash):
             raise ValueError("Credenciais inválidas")
