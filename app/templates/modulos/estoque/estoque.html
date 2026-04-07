@@ -1,0 +1,266 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue • Movimentação de Estoque{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/estoque.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Movimentação de Estoque" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <section class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Estoque operacional</h1>
+                <p class="text-slate-400 mt-2">
+                    Faça entradas e saídas manuais, acompanhe saldos e mantenha a base pronta para baixas automáticas do PDV.
+                </p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <a href="/api/produtos/view"
+                    class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+                    <i data-lucide="package-plus" class="w-4 h-4"></i>
+                    Produtos
+                </a>
+
+                <button type="button" id="btn-nova-movimentacao"
+                    class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
+                    <i data-lucide="arrow-right-left" class="w-4 h-4"></i>
+                    Nova movimentação
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <article class="estoque-kpi-card">
+            <span class="estoque-kpi-label">Produtos monitorados</span>
+            <strong id="kpi-total-produtos" class="estoque-kpi-value">0</strong>
+            <p class="estoque-kpi-help">Cadastros com saldo por empresa.</p>
+        </article>
+
+        <article class="estoque-kpi-card">
+            <span class="estoque-kpi-label">Itens abaixo do mínimo</span>
+            <strong id="kpi-abaixo-minimo" class="estoque-kpi-value text-amber-300">0</strong>
+            <p class="estoque-kpi-help">Produtos que precisam de reposição.</p>
+        </article>
+
+        <article class="estoque-kpi-card">
+            <span class="estoque-kpi-label">Quantidade total em estoque</span>
+            <strong id="kpi-quantidade-total" class="estoque-kpi-value">0</strong>
+            <p class="estoque-kpi-help">Soma das quantidades atuais.</p>
+        </article>
+    </section>
+
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden mb-8">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Posição de estoque</h2>
+                    <p class="text-sm text-slate-400">
+                        Saldo atual por produto e empresa.
+                    </p>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                    <select id="filtro-empresa"
+                        class="w-full sm:w-64 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
+                        <option value="">Todas as empresas</option>
+                    </select>
+
+                    <div class="w-full sm:w-80 relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                        </span>
+                        <input id="input-busca-estoque" type="text"
+                            placeholder="Buscar por produto, empresa, categoria ou código..."
+                            class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1100px]">
+                <thead class="bg-slate-950/70">
+                    <tr class="border-b border-slate-800">
+                        <th class="estoque-th">Produto</th>
+                        <th class="estoque-th">Categoria</th>
+                        <th class="estoque-th">Empresa</th>
+                        <th class="estoque-th text-right">Estoque atual</th>
+                        <th class="estoque-th text-right">Estoque mínimo</th>
+                        <th class="estoque-th text-right">Compra</th>
+                        <th class="estoque-th text-right">Venda</th>
+                        <th class="estoque-th text-center">Status</th>
+                    </tr>
+                </thead>
+
+                <tbody id="estoque-table-body" class="divide-y divide-slate-800">
+                    <tr>
+                        <td colspan="8" class="px-5 py-8 text-center text-slate-400">
+                            Carregando posição de estoque...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="estoque-pagination"></div>
+    </section>
+
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Últimas movimentações</h2>
+                    <p class="text-sm text-slate-400">
+                        Histórico recente para auditoria e conferência.
+                    </p>
+                </div>
+
+                <span class="text-xs uppercase tracking-[0.18em] text-slate-500">Manual hoje, PDV em preparação</span>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1000px]">
+                <thead class="bg-slate-950/70">
+                    <tr class="border-b border-slate-800">
+                        <th class="estoque-th">Data</th>
+                        <th class="estoque-th">Produto</th>
+                        <th class="estoque-th">Empresa</th>
+                        <th class="estoque-th">Origem</th>
+                        <th class="estoque-th">Tipo</th>
+                        <th class="estoque-th">Motivo</th>
+                        <th class="estoque-th text-right">Quantidade</th>
+                        <th class="estoque-th text-right">Valor total</th>
+                    </tr>
+                </thead>
+
+                <tbody id="movimento-table-body" class="divide-y divide-slate-800">
+                    <tr>
+                        <td colspan="8" class="px-5 py-8 text-center text-slate-400">
+                            Carregando movimentações...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="movimento-pagination"></div>
+    </section>
+</main>
+
+<div id="modal-movimentacao"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Nova movimentação manual</h3>
+                <p class="text-sm text-slate-400 mt-1">Registre entradas e saídas mantendo rastreabilidade por empresa.</p>
+            </div>
+            <button type="button" data-close-modal="modal-movimentacao"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-movimentacao" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="movimento-tipo_movimento" class="block text-sm font-medium text-slate-300 mb-2">Tipo</label>
+                    <select id="movimento-tipo_movimento" name="tipo_movimento" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="ENTRADA">Entrada</option>
+                        <option value="SAIDA">Saída</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="movimento-motivo" class="block text-sm font-medium text-slate-300 mb-2">Motivo</label>
+                    <select id="movimento-motivo" name="motivo" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                    </select>
+                </div>
+
+                <div>
+                    <label for="movimento-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                    <select id="movimento-empresa_id" name="empresa_id" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="">Selecione</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="movimento-produto_empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Produto</label>
+                    <select id="movimento-produto_empresa_id" name="produto_empresa_id" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="">Selecione primeiro a empresa</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="movimento-quantidade" class="block text-sm font-medium text-slate-300 mb-2">Quantidade</label>
+                    <input id="movimento-quantidade" name="quantidade" type="text" inputmode="numeric" value="0" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="movimento-valor_unitario" class="block text-sm font-medium text-slate-300 mb-2">Valor unitário</label>
+                    <input id="movimento-valor_unitario" name="valor_unitario" type="text" inputmode="decimal" value=""
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"
+                        placeholder="Opcional">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="movimento-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observação</label>
+                    <textarea id="movimento-observacao" name="observacao" rows="4" maxlength="255"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+                        placeholder="Detalhe a compra, ajuste, perda ou contexto da movimentação"></textarea>
+                </div>
+            </div>
+
+            <div class="movimento-hint-box">
+                <div>
+                    <p class="movimento-hint-label">Produto selecionado</p>
+                    <p id="hint-produto" class="movimento-hint-value">Nenhum produto selecionado.</p>
+                </div>
+                <div>
+                    <p class="movimento-hint-label">Saldo atual</p>
+                    <p id="hint-estoque" class="movimento-hint-value">0</p>
+                </div>
+                <div>
+                    <p class="movimento-hint-label">Mínimo</p>
+                    <p id="hint-minimo" class="movimento-hint-value">0</p>
+                </div>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-movimentacao"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Registrar movimentação
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modulos/estoque.js') }}"></script>
+{% endblock %}

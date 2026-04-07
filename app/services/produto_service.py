@@ -2,57 +2,63 @@ from decimal import Decimal, InvalidOperation
 
 from app.models.db import Produto, ProdutoEmpresa
 from app.repositorys.produto_repository import ProdutoRepository
+from app.services.acesso_empresa_service import AcessoEmpresaService
 
 
 class ProdutoService:
 
     @staticmethod
-    def listar(tenant_id):
-        return ProdutoRepository.listar(tenant_id)
+    def listar(tenant_id, escopo):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        return ProdutoRepository.listar(tenant_id, empresa_ids)
 
     @staticmethod
-    def listar_categorias(tenant_id):
-        return ProdutoRepository.listar_categorias(tenant_id)
+    def listar_categorias(tenant_id, escopo):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        return ProdutoRepository.listar_categorias(tenant_id, empresa_ids)
 
     @staticmethod
-    def listar_empresas(tenant_id):
-        return ProdutoRepository.listar_empresas(tenant_id)
+    def listar_empresas(tenant_id, escopo):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        return ProdutoRepository.listar_empresas(tenant_id, empresa_ids)
 
     @staticmethod
-    def criar(data, tenant_id, funcionario_id=None):
+    def criar(data, tenant_id, escopo, funcionario_id=None):
         nome = (data.get("nome") or "").strip()
         descricao = (data.get("descricao") or "").strip() or None
-        categoria_id = data.get("categoria_id")
-        empresa_id = data.get("empresa_id")
+        categoria_id = ProdutoService._to_int(data.get("categoria_id"), "Categoria")
+        empresa_id = ProdutoService._to_int(data.get("empresa_id"), "Empresa")
         codigo_barras = (data.get("codigo_barras") or "").strip() or None
         possui_ncm = bool(data.get("possui_ncm"))
         ncm = (data.get("ncm") or "").strip() or None
-        estoque_minimo = ProdutoService._to_decimal(data.get("estoque_minimo", 0), "estoque mínimo", 3)
+        estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
         valor_compra = ProdutoService._to_decimal(data.get("valor_compra", 0), "valor de compra", 2)
         valor_venda = ProdutoService._to_decimal(data.get("valor_venda", 0), "valor de venda", 2)
         ativo = ProdutoService._to_bool(data.get("ativo", True))
 
         if not nome:
-            raise ValueError("Nome do produto é obrigatório.")
+            raise ValueError("Nome do produto e obrigatorio.")
 
         if not empresa_id:
-            raise ValueError("Empresa é obrigatória.")
+            raise ValueError("Empresa e obrigatoria.")
+
+        AcessoEmpresaService.validar_empresa(empresa_id, escopo)
 
         empresa = ProdutoRepository.buscar_empresa_por_id(empresa_id, tenant_id)
         if not empresa:
-            raise ValueError("Empresa não encontrada.")
+            raise ValueError("Empresa nao encontrada.")
 
         categoria = None
         if categoria_id:
             categoria = ProdutoRepository.buscar_categoria_por_id(categoria_id, tenant_id)
             if not categoria:
-                raise ValueError("Categoria não encontrada.")
+                raise ValueError("Categoria nao encontrada.")
 
         if ProdutoRepository.buscar_produto_por_nome(nome, tenant_id):
-            raise ValueError("Já existe um produto com esse nome.")
+            raise ValueError("Ja existe um produto com esse nome.")
 
         if codigo_barras and ProdutoRepository.buscar_produto_por_codigo_barras(codigo_barras, tenant_id):
-            raise ValueError("Já existe um produto com esse código de barras.")
+            raise ValueError("Ja existe um produto com esse codigo de barras.")
 
         if possui_ncm and not ncm:
             raise ValueError("Informe o NCM quando 'possui NCM' estiver marcado.")
@@ -75,7 +81,7 @@ class ProdutoService:
             tenant_id=tenant_id,
             produto_id=produto.id,
             empresa_id=empresa.id,
-            estoque_atual=Decimal("0"),
+            estoque_atual=0,
             estoque_minimo=estoque_minimo,
             valor_compra=valor_compra,
             valor_venda=valor_venda,
@@ -84,43 +90,47 @@ class ProdutoService:
         ProdutoRepository.adicionar(produto_empresa)
         ProdutoRepository.salvar()
 
-        return ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa.id, tenant_id)
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        return ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa.id, tenant_id, empresa_ids)
 
     @staticmethod
-    def atualizar(produto_empresa_id, data, tenant_id):
-        produto_empresa = ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa_id, tenant_id)
+    def atualizar(produto_empresa_id, data, tenant_id, escopo):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        produto_empresa = ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa_id, tenant_id, empresa_ids)
         if not produto_empresa:
-            raise ValueError("Produto não encontrado.")
+            raise ValueError("Produto nao encontrado.")
 
         produto = produto_empresa.produto
 
         nome = (data.get("nome") or "").strip()
         descricao = (data.get("descricao") or "").strip() or None
-        categoria_id = data.get("categoria_id")
-        empresa_id = data.get("empresa_id")
+        categoria_id = ProdutoService._to_int(data.get("categoria_id"), "Categoria")
+        empresa_id = ProdutoService._to_int(data.get("empresa_id"), "Empresa")
         codigo_barras = (data.get("codigo_barras") or "").strip() or None
         possui_ncm = ProdutoService._to_bool(data.get("possui_ncm", False))
         ncm = (data.get("ncm") or "").strip() or None
-        estoque_minimo = ProdutoService._to_decimal(data.get("estoque_minimo", 0), "estoque mínimo", 3)
+        estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
         valor_compra = ProdutoService._to_decimal(data.get("valor_compra", 0), "valor de compra", 2)
         valor_venda = ProdutoService._to_decimal(data.get("valor_venda", 0), "valor de venda", 2)
         ativo = ProdutoService._to_bool(data.get("ativo", True))
 
         if not nome:
-            raise ValueError("Nome do produto é obrigatório.")
+            raise ValueError("Nome do produto e obrigatorio.")
 
         if not empresa_id:
-            raise ValueError("Empresa é obrigatória.")
+            raise ValueError("Empresa e obrigatoria.")
+
+        AcessoEmpresaService.validar_empresa(empresa_id, escopo)
 
         empresa = ProdutoRepository.buscar_empresa_por_id(empresa_id, tenant_id)
         if not empresa:
-            raise ValueError("Empresa não encontrada.")
+            raise ValueError("Empresa nao encontrada.")
 
         categoria = None
         if categoria_id:
             categoria = ProdutoRepository.buscar_categoria_por_id(categoria_id, tenant_id)
             if not categoria:
-                raise ValueError("Categoria não encontrada.")
+                raise ValueError("Categoria nao encontrada.")
 
         produto_existente = ProdutoRepository.buscar_produto_por_nome(
             nome,
@@ -128,7 +138,7 @@ class ProdutoService:
             ignorar_produto_id=produto.id
         )
         if produto_existente:
-            raise ValueError("Já existe um produto com esse nome.")
+            raise ValueError("Ja existe um produto com esse nome.")
 
         codigo_existente = ProdutoRepository.buscar_produto_por_codigo_barras(
             codigo_barras,
@@ -136,7 +146,7 @@ class ProdutoService:
             ignorar_produto_id=produto.id
         )
         if codigo_existente:
-            raise ValueError("Já existe um produto com esse código de barras.")
+            raise ValueError("Ja existe um produto com esse codigo de barras.")
 
         if possui_ncm and not ncm:
             raise ValueError("Informe o NCM quando 'possui NCM' estiver marcado.")
@@ -147,7 +157,7 @@ class ProdutoService:
             tenant_id,
             ignorar_produto_empresa_id=produto_empresa.id
         ):
-            raise ValueError("Esse produto já está vinculado a essa empresa.")
+            raise ValueError("Esse produto ja esta vinculado a essa empresa.")
 
         produto.nome = nome
         produto.descricao = descricao
@@ -165,13 +175,14 @@ class ProdutoService:
 
         ProdutoRepository.salvar()
 
-        return ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa.id, tenant_id)
+        return ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa.id, tenant_id, empresa_ids)
 
     @staticmethod
-    def deletar(produto_empresa_id, tenant_id):
-        produto_empresa = ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa_id, tenant_id)
+    def deletar(produto_empresa_id, tenant_id, escopo):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        produto_empresa = ProdutoRepository.buscar_produto_empresa_por_id(produto_empresa_id, tenant_id, empresa_ids)
         if not produto_empresa:
-            raise ValueError("Produto não encontrado.")
+            raise ValueError("Produto nao encontrado.")
 
         produto_id = produto_empresa.produto_id
         produto = produto_empresa.produto
@@ -192,13 +203,28 @@ class ProdutoService:
         try:
             valor = Decimal(str(value).replace(",", "."))
         except (InvalidOperation, ValueError):
-            raise ValueError(f"Valor inválido para {field_name}.")
+            raise ValueError(f"Valor invalido para {field_name}.")
 
         if valor < 0:
-            raise ValueError(f"{field_name.capitalize()} não pode ser negativo.")
+            raise ValueError(f"{field_name.capitalize()} nao pode ser negativo.")
 
         quant = "0." + ("0" * (casas - 1)) + "1" if casas > 0 else "1"
         return valor.quantize(Decimal(quant))
+
+    @staticmethod
+    def _to_non_negative_int(value, field_name):
+        if value in (None, ""):
+            value = 0
+
+        try:
+            valor = int(str(value).strip().replace(".", "").replace(",", ""))
+        except (TypeError, ValueError):
+            raise ValueError(f"Valor invalido para {field_name}.")
+
+        if valor < 0:
+            raise ValueError(f"{field_name.capitalize()} nao pode ser negativo.")
+
+        return valor
 
     @staticmethod
     def _to_bool(value):
@@ -209,3 +235,13 @@ class ProdutoService:
             return True
 
         return False
+
+    @staticmethod
+    def _to_int(value, field_name):
+        if value in (None, ""):
+            return None
+
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field_name} invalida.")

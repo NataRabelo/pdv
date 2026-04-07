@@ -7,8 +7,8 @@ from app.models.db import Produto, ProdutoEmpresa, CategoriaProduto, Empresa
 class ProdutoRepository:
 
     @staticmethod
-    def listar(tenant_id):
-        return (
+    def listar(tenant_id, empresa_ids=None):
+        query = (
             ProdutoEmpresa.query
             .options(
                 joinedload(ProdutoEmpresa.produto).joinedload(Produto.categoria),
@@ -16,12 +16,16 @@ class ProdutoRepository:
             )
             .filter(ProdutoEmpresa.tenant_id == tenant_id)
             .order_by(ProdutoEmpresa.id.desc())
-            .all()
         )
 
+        if empresa_ids is not None:
+            query = query.filter(ProdutoEmpresa.empresa_id.in_(empresa_ids))
+
+        return query.all()
+
     @staticmethod
-    def buscar_produto_empresa_por_id(produto_empresa_id, tenant_id):
-        return (
+    def buscar_produto_empresa_por_id(produto_empresa_id, tenant_id, empresa_ids=None):
+        query = (
             ProdutoEmpresa.query
             .options(
                 joinedload(ProdutoEmpresa.produto).joinedload(Produto.categoria),
@@ -31,8 +35,12 @@ class ProdutoRepository:
                 ProdutoEmpresa.id == produto_empresa_id,
                 ProdutoEmpresa.tenant_id == tenant_id
             )
-            .first()
         )
+
+        if empresa_ids is not None:
+            query = query.filter(ProdutoEmpresa.empresa_id.in_(empresa_ids))
+
+        return query.first()
 
     @staticmethod
     def buscar_categoria_por_id(categoria_id, tenant_id):
@@ -60,28 +68,42 @@ class ProdutoRepository:
         )
 
     @staticmethod
-    def listar_categorias(tenant_id):
-        return (
-            CategoriaProduto.query
-            .filter(
-                CategoriaProduto.tenant_id == tenant_id,
-                CategoriaProduto.ativo.is_(True)
-            )
-            .order_by(CategoriaProduto.nome.asc())
-            .all()
+    def listar_categorias(tenant_id, empresa_ids=None):
+        query = CategoriaProduto.query.filter(
+            CategoriaProduto.tenant_id == tenant_id,
+            CategoriaProduto.ativo.is_(True)
         )
 
+        if empresa_ids is not None:
+            query = (
+                query
+                .join(Produto, Produto.categoria_id == CategoriaProduto.id)
+                .join(ProdutoEmpresa, ProdutoEmpresa.produto_id == Produto.id)
+                .filter(
+                    Produto.tenant_id == tenant_id,
+                    ProdutoEmpresa.tenant_id == tenant_id,
+                    ProdutoEmpresa.empresa_id.in_(empresa_ids)
+                )
+                .distinct()
+            )
+
+        return query.order_by(CategoriaProduto.nome.asc()).all()
+
     @staticmethod
-    def listar_empresas(tenant_id):
-        return (
+    def listar_empresas(tenant_id, empresa_ids=None):
+        query = (
             Empresa.query
             .filter(
                 Empresa.tenant_id == tenant_id,
                 Empresa.ativo.is_(True)
             )
             .order_by(Empresa.nome_fantasia.asc())
-            .all()
         )
+
+        if empresa_ids is not None:
+            query = query.filter(Empresa.id.in_(empresa_ids))
+
+        return query.all()
 
     @staticmethod
     def buscar_produto_por_nome(nome, tenant_id, ignorar_produto_id=None):

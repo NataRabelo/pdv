@@ -1,6 +1,6 @@
 {% extends "bases/base.html" %}
 
-{% block title %}OceanBlue • Categorias{% endblock %}
+{% block title %}OceanBlue • Permissions{% endblock %}
 
 {% block body_class %}
 min-h-screen flex flex-col bg-slate-950 text-white
@@ -8,99 +8,84 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
 {% block styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
-<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/categoria.css') }}">
 {% endblock %}
 
 {% block content %}
-{% set modulo_name = "Categorias" %}
+{% set modulo_name = "Permissions" %}
 {% include "componentes/header_subpages.html" %}
 
 <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-
-    <!-- Header da página -->
     <section class="mb-8">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold tracking-tight text-white">Categorias de Produtos</h1>
-                <p class="text-slate-400 mt-2">
-                    Gerencie as categorias do seu estoque com cadastro, edição e exclusão.
-                </p>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Permissions</h1>
+                <p class="text-slate-400 mt-2">Cadastre e mantenha as permissions que serao vinculadas nas roles.</p>
             </div>
 
             <div class="flex items-center gap-3">
-                <button type="button" onclick="categoriaPage.openCreateModal()"
+                <a href="/api/roles/view"
+                    class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium px-4 py-3 transition-all duration-200 border border-slate-700">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    Roles
+                </a>
+
+                <button type="button" onclick="permissionPage.openCreateModal()"
                     class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
                     <i data-lucide="plus" class="w-4 h-4"></i>
-                    Nova categoria
+                    Nova Permission
                 </button>
             </div>
         </div>
     </section>
 
-    <!-- Card principal -->
     <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
-
-        <!-- Toolbar -->
         <div class="border-b border-slate-800 px-5 py-4">
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h2 class="text-lg font-semibold text-white">Listagem</h2>
-                    <p class="text-sm text-slate-400">
-                        Consulte e pesquise as categorias cadastradas.
-                    </p>
+                    <p class="text-sm text-slate-400">Consulte e pesquise as permissions cadastradas.</p>
                 </div>
 
                 <div class="w-full md:w-80 relative">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
                         <i data-lucide="search" class="w-4 h-4"></i>
                     </span>
-                    <input id="input-busca" type="text" placeholder="Buscar por nome ou descrição..."
+                    <input id="input-busca" type="text" placeholder="Buscar por nome, codigo ou descricao..."
                         class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition">
                 </div>
             </div>
         </div>
 
-        <!-- Tabela -->
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[700px]">
+            <table class="w-full min-w-[920px]">
                 <thead class="bg-slate-950/70">
                     <tr class="border-b border-slate-800">
-                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
-                            Nome
-                        </th>
-                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
-                            Descrição
-                        </th>
-                        <th
-                            class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[140px]">
-                            Ações
-                        </th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Permission</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Descricao</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Status</th>
+                        <th class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[140px]">Acoes</th>
                     </tr>
                 </thead>
 
-                <tbody id="categoria-table-body" class="divide-y divide-slate-800">
+                <tbody id="permission-table-body" class="divide-y divide-slate-800">
                     <tr>
-                        <td colspan="3" class="px-5 py-8 text-center text-slate-400">
-                            Carregando categorias...
-                        </td>
+                        <td colspan="4" class="px-5 py-8 text-center text-slate-400">Carregando permissions...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        <div id="categoria-pagination"></div>
+        <div id="permission-pagination"></div>
     </section>
 </main>
 
-<!-- MODAL CADASTRO -->
 <div id="modal-cadastro"
     class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-
         <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
             <div>
-                <h3 class="text-xl font-bold text-white">Nova Categoria</h3>
-                <p class="text-sm text-slate-400 mt-1">Preencha os dados para cadastrar uma nova categoria.</p>
+                <h3 class="text-xl font-bold text-white">Nova Permission</h3>
+                <p class="text-sm text-slate-400 mt-1">Cadastre uma nova permissao reutilizavel no sistema.</p>
             </div>
             <button type="button" data-close-modal="modal-cadastro"
                 class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
@@ -110,21 +95,30 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
         <form id="form-cadastro" class="px-6 py-6 space-y-5">
             <div>
-                <label for="cadastro-nome" class="block text-sm font-medium text-slate-300 mb-2">
-                    Nome
-                </label>
+                <label for="cadastro-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
                 <input id="cadastro-nome" name="nome" type="text" required maxlength="120"
                     class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
-                    placeholder="Ex.: Bebidas">
+                    placeholder="Ex.: Criar Categoria">
             </div>
 
             <div>
-                <label for="cadastro-descricao" class="block text-sm font-medium text-slate-300 mb-2">
-                    Descrição
-                </label>
+                <label for="cadastro-codigo" class="block text-sm font-medium text-slate-300 mb-2">Codigo</label>
+                <input id="cadastro-codigo" name="codigo" type="text" required maxlength="120"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                    placeholder="Ex.: criar_categoria">
+            </div>
+
+            <div>
+                <label for="cadastro-descricao" class="block text-sm font-medium text-slate-300 mb-2">Descricao</label>
                 <textarea id="cadastro-descricao" name="descricao" rows="4" maxlength="255"
                     class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
-                    placeholder="Descreva a categoria"></textarea>
+                    placeholder="Explique o objetivo desta permission"></textarea>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input id="cadastro-ativo" name="ativo" type="checkbox" checked
+                    class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                <label for="cadastro-ativo" class="text-sm text-slate-300">Permission ativa</label>
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
@@ -136,22 +130,20 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <button type="submit"
                     class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
                     <i data-lucide="save" class="w-4 h-4"></i>
-                    Salvar categoria
+                    Salvar Permission
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- MODAL EDIÇÃO -->
 <div id="modal-edicao"
     class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-
         <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
             <div>
-                <h3 class="text-xl font-bold text-white">Editar Categoria</h3>
-                <p class="text-sm text-slate-400 mt-1">Atualize os dados da categoria selecionada.</p>
+                <h3 class="text-xl font-bold text-white">Editar Permission</h3>
+                <p class="text-sm text-slate-400 mt-1">Atualize os dados da permission selecionada.</p>
             </div>
             <button type="button" data-close-modal="modal-edicao"
                 class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
@@ -161,21 +153,27 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
         <form id="form-edicao" class="px-6 py-6 space-y-5">
             <div>
-                <label for="edicao-nome" class="block text-sm font-medium text-slate-300 mb-2">
-                    Nome
-                </label>
+                <label for="edicao-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
                 <input id="edicao-nome" name="nome" type="text" required maxlength="120"
-                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
-                    placeholder="Ex.: Bebidas">
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
             </div>
 
             <div>
-                <label for="edicao-descricao" class="block text-sm font-medium text-slate-300 mb-2">
-                    Descrição
-                </label>
+                <label for="edicao-codigo" class="block text-sm font-medium text-slate-300 mb-2">Codigo</label>
+                <input id="edicao-codigo" name="codigo" type="text" required maxlength="120"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+            </div>
+
+            <div>
+                <label for="edicao-descricao" class="block text-sm font-medium text-slate-300 mb-2">Descricao</label>
                 <textarea id="edicao-descricao" name="descricao" rows="4" maxlength="255"
-                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
-                    placeholder="Descreva a categoria"></textarea>
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"></textarea>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input id="edicao-ativo" name="ativo" type="checkbox"
+                    class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                <label for="edicao-ativo" class="text-sm text-slate-300">Permission ativa</label>
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
@@ -187,35 +185,30 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <button type="submit"
                     class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold px-5 py-3 transition">
                     <i data-lucide="square-pen" class="w-4 h-4"></i>
-                    Atualizar categoria
+                    Atualizar Permission
                 </button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- MODAL EXCLUSÃO -->
 <div id="modal-delete"
     class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-
         <div class="px-6 py-5 border-b border-slate-800">
             <div class="flex items-center gap-3">
-                <div
-                    class="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
+                <div class="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
                     <i data-lucide="trash-2" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-bold text-white">Confirmar exclusão</h3>
-                    <p class="text-sm text-slate-400">Esta ação não poderá ser desfeita.</p>
+                    <h3 class="text-lg font-bold text-white">Confirmar exclusao</h3>
+                    <p class="text-sm text-slate-400">Esta acao nao podera ser desfeita.</p>
                 </div>
             </div>
         </div>
 
         <form id="form-delete" class="px-6 py-6">
-            <p class="text-slate-300 leading-relaxed">
-                Tem certeza que deseja excluir esta categoria?
-            </p>
+            <p class="text-slate-300 leading-relaxed">Tem certeza que deseja excluir esta permission?</p>
 
             <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6">
                 <button type="button" data-close-modal="modal-delete"
@@ -226,7 +219,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <button type="submit"
                     class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold px-5 py-3 transition">
                     <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    Excluir categoria
+                    Excluir Permission
                 </button>
             </div>
         </form>
@@ -235,7 +228,6 @@ min-h-screen flex flex-col bg-slate-950 text-white
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/lucide@latest"></script>
 <script src="{{ url_for('static', filename='js/core/crud.js') }}"></script>
-<script src="{{ url_for('static', filename='js/modulos/categoria.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modulos/permission.js') }}"></script>
 {% endblock %}

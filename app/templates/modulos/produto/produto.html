@@ -98,6 +98,8 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 </tbody>
             </table>
         </div>
+
+        <div id="produto-pagination"></div>
     </section>
 </main>
 
@@ -154,7 +156,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <div>
                     <label for="cadastro-codigo_barras" class="block text-sm font-medium text-slate-300 mb-2">Código de
                         barras</label>
-                    <input id="cadastro-codigo_barras" name="codigo_barras" type="text" maxlength="50"
+                    <input id="cadastro-codigo_barras" name="codigo_barras" type="text" maxlength="50" inputmode="numeric"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
                         placeholder="Ex.: 7890000000000">
                 </div>
@@ -162,7 +164,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <div>
                     <label for="cadastro-estoque_minimo" class="block text-sm font-medium text-slate-300 mb-2">Estoque
                         mínimo</label>
-                    <input id="cadastro-estoque_minimo" name="estoque_minimo" type="number" min="0" step="0.001"
+                    <input id="cadastro-estoque_minimo" name="estoque_minimo" type="text" inputmode="numeric"
                         value="0"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
@@ -170,14 +172,14 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <div>
                     <label for="cadastro-valor_compra" class="block text-sm font-medium text-slate-300 mb-2">Valor de
                         compra</label>
-                    <input id="cadastro-valor_compra" name="valor_compra" type="number" min="0" step="0.01" value="0"
+                    <input id="cadastro-valor_compra" name="valor_compra" type="text" inputmode="decimal" value="0,00"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
 
                 <div>
                     <label for="cadastro-valor_venda" class="block text-sm font-medium text-slate-300 mb-2">Valor de
                         venda</label>
-                    <input id="cadastro-valor_venda" name="valor_venda" type="number" min="0" step="0.01" value="0"
+                    <input id="cadastro-valor_venda" name="valor_venda" type="text" inputmode="decimal" value="0,00"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
 
@@ -191,9 +193,9 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
                 <div>
                     <label for="cadastro-ncm" class="block text-sm font-medium text-slate-300 mb-2">NCM</label>
-                    <input id="cadastro-ncm" name="ncm" type="text" maxlength="20" disabled
+                    <input id="cadastro-ncm" name="ncm" type="text" maxlength="10" inputmode="numeric" disabled
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition disabled:opacity-50"
-                        placeholder="Informe o NCM">
+                        placeholder="0000.00.00">
                 </div>
 
                 <div class="md:col-span-2 flex items-center gap-3">
@@ -271,28 +273,28 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <div>
                     <label for="edicao-codigo_barras" class="block text-sm font-medium text-slate-300 mb-2">Código de
                         barras</label>
-                    <input id="edicao-codigo_barras" name="codigo_barras" type="text" maxlength="50"
+                    <input id="edicao-codigo_barras" name="codigo_barras" type="text" maxlength="50" inputmode="numeric"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
                 </div>
 
                 <div>
                     <label for="edicao-estoque_minimo" class="block text-sm font-medium text-slate-300 mb-2">Estoque
                         mínimo</label>
-                    <input id="edicao-estoque_minimo" name="estoque_minimo" type="number" min="0" step="0.001" value="0"
+                    <input id="edicao-estoque_minimo" name="estoque_minimo" type="text" inputmode="numeric" value="0"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
 
                 <div>
                     <label for="edicao-valor_compra" class="block text-sm font-medium text-slate-300 mb-2">Valor de
                         compra</label>
-                    <input id="edicao-valor_compra" name="valor_compra" type="number" min="0" step="0.01" value="0"
+                    <input id="edicao-valor_compra" name="valor_compra" type="text" inputmode="decimal" value="0,00"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
 
                 <div>
                     <label for="edicao-valor_venda" class="block text-sm font-medium text-slate-300 mb-2">Valor de
                         venda</label>
-                    <input id="edicao-valor_venda" name="valor_venda" type="number" min="0" step="0.01" value="0"
+                    <input id="edicao-valor_venda" name="valor_venda" type="text" inputmode="decimal" value="0,00"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
 
@@ -306,9 +308,9 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
                 <div>
                     <label for="edicao-ncm" class="block text-sm font-medium text-slate-300 mb-2">NCM</label>
-                    <input id="edicao-ncm" name="ncm" type="text" maxlength="20" disabled
+                    <input id="edicao-ncm" name="ncm" type="text" maxlength="10" inputmode="numeric" disabled
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition disabled:opacity-50"
-                        placeholder="Informe o NCM">
+                        placeholder="0000.00.00">
                 </div>
 
                 <div class="md:col-span-2 flex items-center gap-3">
@@ -376,7 +378,6 @@ min-h-screen flex flex-col bg-slate-950 text-white
 {% endblock %}
 
 {% block scripts %}
-<script src="https://unpkg.com/lucide@latest"></script>
 <script src="{{ url_for('static', filename='js/core/crud.js') }}"></script>
 <script src="{{ url_for('static', filename='js/modulos/produto.js') }}"></script>
 {% endblock %}

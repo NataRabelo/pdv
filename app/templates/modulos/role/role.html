@@ -1,0 +1,251 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue • Roles{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Roles" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <section class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Roles</h1>
+                <p class="text-slate-400 mt-2">Gerencie perfis de acesso e relacione cada role com suas permissions.</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="/api/permissions/view"
+                    class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium px-4 py-3 transition-all duration-200 border border-slate-700">
+                    <i data-lucide="key-round" class="w-4 h-4"></i>
+                    Permissions
+                </a>
+
+                <button type="button" onclick="rolePage.openCreateModal()"
+                    class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Nova Role
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Listagem</h2>
+                    <p class="text-sm text-slate-400">Consulte e pesquise as roles cadastradas.</p>
+                </div>
+
+                <div class="w-full md:w-80 relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </span>
+                    <input id="input-busca" type="text" placeholder="Buscar por nome, codigo ou permission..."
+                        class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[980px]">
+                <thead class="bg-slate-950/70">
+                    <tr class="border-b border-slate-800">
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Role</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Descricao</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Permissions</th>
+                        <th class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[140px]">Acoes</th>
+                    </tr>
+                </thead>
+
+                <tbody id="role-table-body" class="divide-y divide-slate-800">
+                    <tr>
+                        <td colspan="4" class="px-5 py-8 text-center text-slate-400">Carregando roles...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="role-pagination"></div>
+    </section>
+</main>
+
+<div id="modal-cadastro"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Nova Role</h3>
+                <p class="text-sm text-slate-400 mt-1">Defina o perfil e escolha as permissions que ele recebe.</p>
+            </div>
+            <button type="button" data-close-modal="modal-cadastro"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-cadastro" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="cadastro-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
+                    <input id="cadastro-nome" name="nome" type="text" required maxlength="100"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                        placeholder="Ex.: Estoquista">
+                </div>
+
+                <div>
+                    <label for="cadastro-codigo" class="block text-sm font-medium text-slate-300 mb-2">Codigo</label>
+                    <input id="cadastro-codigo" name="codigo" type="text" required maxlength="80"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                        placeholder="Ex.: estoquista">
+                </div>
+            </div>
+
+            <div>
+                <label for="cadastro-descricao" class="block text-sm font-medium text-slate-300 mb-2">Descricao</label>
+                <textarea id="cadastro-descricao" name="descricao" rows="3" maxlength="255"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+                    placeholder="Descreva a funcao da role"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Permissions</label>
+                <div id="cadastro-permissions" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <p class="text-sm text-slate-500">Carregando permissions...</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input id="cadastro-ativo" name="ativo" type="checkbox" checked
+                    class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                <label for="cadastro-ativo" class="text-sm text-slate-300">Role ativa</label>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-cadastro"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Salvar Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-edicao"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Editar Role</h3>
+                <p class="text-sm text-slate-400 mt-1">Atualize dados da role e suas permissions.</p>
+            </div>
+            <button type="button" data-close-modal="modal-edicao"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-edicao" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="edicao-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
+                    <input id="edicao-nome" name="nome" type="text" required maxlength="100"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+
+                <div>
+                    <label for="edicao-codigo" class="block text-sm font-medium text-slate-300 mb-2">Codigo</label>
+                    <input id="edicao-codigo" name="codigo" type="text" required maxlength="80"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+            </div>
+
+            <div>
+                <label for="edicao-descricao" class="block text-sm font-medium text-slate-300 mb-2">Descricao</label>
+                <textarea id="edicao-descricao" name="descricao" rows="3" maxlength="255"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"></textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-300 mb-2">Permissions</label>
+                <div id="edicao-permissions" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <p class="text-sm text-slate-500">Carregando permissions...</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input id="edicao-ativo" name="ativo" type="checkbox"
+                    class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                <label for="edicao-ativo" class="text-sm text-slate-300">Role ativa</label>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-edicao"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="square-pen" class="w-4 h-4"></i>
+                    Atualizar Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-delete"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Confirmar exclusao</h3>
+                    <p class="text-sm text-slate-400">Esta acao nao podera ser desfeita.</p>
+                </div>
+            </div>
+        </div>
+
+        <form id="form-delete" class="px-6 py-6">
+            <p class="text-slate-300 leading-relaxed">Tem certeza que deseja excluir esta role?</p>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6">
+                <button type="button" data-close-modal="modal-delete"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold px-5 py-3 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    Excluir Role
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/core/crud.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modulos/role.js') }}"></script>
+{% endblock %}

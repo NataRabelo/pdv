@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
         modalEditId: "modal-edicao",
         modalDeleteId: "modal-delete",
         searchInputId: "input-busca",
+        paginationContainerId: "categoria-pagination",
+        pageSize: 10,
         fields: ["nome", "descricao"],
 
         messages: {

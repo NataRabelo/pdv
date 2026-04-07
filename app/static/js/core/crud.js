@@ -11,8 +11,14 @@ window.CrudPage = class CrudPage {
             modalDeleteId: "",
             searchInputId: "",
             fields: [],
+            pageSize: 10,
+            paginationContainerId: "",
             renderRow: null,
             mapItemToEditForm: null,
+            beforeOpenCreateModal: null,
+            beforeOpenEditModal: null,
+            beforeSubmitCreate: null,
+            beforeSubmitEdit: null,
             messages: {
                 loadError: "Erro ao carregar registros.",
                 createSuccess: "Registro criado com sucesso.",
@@ -26,8 +32,10 @@ window.CrudPage = class CrudPage {
         };
 
         this.items = [];
+        this.filteredItems = [];
         this.currentEditId = null;
         this.currentDeleteId = null;
+        this.currentPage = 1;
     }
 
     init() {
@@ -44,9 +52,12 @@ window.CrudPage = class CrudPage {
     }
 
     getHeaders(isJson = true) {
-        const headers = {
-            "Authorization": `Bearer ${this.getToken()}`
-        };
+        const headers = {};
+
+        const token = this.getToken();
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
 
         if (isJson) {
             headers["Content-Type"] = "application/json";
@@ -56,7 +67,10 @@ window.CrudPage = class CrudPage {
     }
 
     async request(url, options = {}) {
-        const response = await fetch(url, options);
+        const response = await fetch(url, {
+            credentials: "same-origin",
+            ...options
+        });
 
         let result;
         try {
@@ -83,6 +97,7 @@ window.CrudPage = class CrudPage {
             });
 
             this.items = Array.isArray(result.data) ? result.data : [];
+            this.currentPage = 1;
             this.renderTable(this.items);
         } catch (error) {
             this.showMessage(error.message || this.config.messages.loadError, "error");
@@ -93,7 +108,16 @@ window.CrudPage = class CrudPage {
         const tableBody = document.getElementById(this.config.tableBodyId);
         if (!tableBody) return;
 
-        if (!data.length) {
+        this.filteredItems = Array.isArray(data) ? data : [];
+
+        const totalPages = this.getTotalPages();
+        if (this.currentPage > totalPages) {
+            this.currentPage = totalPages;
+        }
+
+        const pageItems = this.getPaginatedItems();
+
+        if (!pageItems.length) {
             tableBody.innerHTML = `
                 <tr>
                     <td colspan="99" class="text-center py-6 text-slate-400">
@@ -101,10 +125,12 @@ window.CrudPage = class CrudPage {
                     </td>
                 </tr>
             `;
+            this.renderPagination();
             return;
         }
 
-        tableBody.innerHTML = data.map(item => this.config.renderRow(item, this)).join("");
+        tableBody.innerHTML = pageItems.map(item => this.config.renderRow(item, this)).join("");
+        this.renderPagination();
 
         if (window.lucide) {
             lucide.createIcons();
@@ -115,6 +141,7 @@ window.CrudPage = class CrudPage {
         const value = (term || "").toLowerCase().trim();
 
         if (!value) {
+            this.currentPage = 1;
             this.renderTable(this.items);
             return;
         }
@@ -126,7 +153,97 @@ window.CrudPage = class CrudPage {
             });
         });
 
+        this.currentPage = 1;
         this.renderTable(filtered);
+    }
+
+    getTotalPages() {
+        const pageSize = Math.max(Number(this.config.pageSize) || 10, 1);
+        const totalItems = this.filteredItems.length;
+        return Math.max(Math.ceil(totalItems / pageSize), 1);
+    }
+
+    getPaginatedItems() {
+        const pageSize = Math.max(Number(this.config.pageSize) || 10, 1);
+        const start = (this.currentPage - 1) * pageSize;
+        const end = start + pageSize;
+        return this.filteredItems.slice(start, end);
+    }
+
+    renderPagination() {
+        const container = document.getElementById(this.config.paginationContainerId);
+        if (!container) return;
+
+        const totalItems = this.filteredItems.length;
+        const totalPages = this.getTotalPages();
+        const pageSize = Math.max(Number(this.config.pageSize) || 10, 1);
+
+        if (!totalItems || totalPages <= 1) {
+            container.innerHTML = totalItems
+                ? `<div class="pagination-summary">Exibindo ${totalItems} registro(s).</div>`
+                : "";
+            return;
+        }
+
+        const startItem = ((this.currentPage - 1) * pageSize) + 1;
+        const endItem = Math.min(this.currentPage * pageSize, totalItems);
+        const pageNumbers = this.buildPageNumbers(totalPages);
+
+        container.innerHTML = `
+            <div class="pagination-shell">
+                <div class="pagination-summary">Exibindo ${startItem}-${endItem} de ${totalItems} registros</div>
+                <div class="pagination-controls">
+                    <button type="button" class="pagination-btn" data-page="${this.currentPage - 1}" ${this.currentPage === 1 ? "disabled" : ""}>
+                        Anterior
+                    </button>
+                    ${pageNumbers.map((page) => page === "..."
+                        ? `<span class="pagination-ellipsis">...</span>`
+                        : `<button type="button" class="pagination-btn ${page === this.currentPage ? "pagination-btn-active" : ""}" data-page="${page}">${page}</button>`
+                    ).join("")}
+                    <button type="button" class="pagination-btn" data-page="${this.currentPage + 1}" ${this.currentPage === totalPages ? "disabled" : ""}>
+                        Próxima
+                    </button>
+                </div>
+            </div>
+        `;
+
+        container.querySelectorAll("[data-page]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const page = Number(button.getAttribute("data-page"));
+                if (!Number.isInteger(page)) return;
+                this.goToPage(page);
+            });
+        });
+    }
+
+    buildPageNumbers(totalPages) {
+        if (totalPages <= 7) {
+            return Array.from({ length: totalPages }, (_, index) => index + 1);
+        }
+
+        if (this.currentPage <= 4) {
+            return [1, 2, 3, 4, 5, "...", totalPages];
+        }
+
+        if (this.currentPage >= totalPages - 3) {
+            return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        }
+
+        return [
+            1,
+            "...",
+            this.currentPage - 1,
+            this.currentPage,
+            this.currentPage + 1,
+            "...",
+            totalPages
+        ];
+    }
+
+    goToPage(page) {
+        const totalPages = this.getTotalPages();
+        this.currentPage = Math.min(Math.max(page, 1), totalPages);
+        this.renderTable(this.filteredItems);
     }
 
     collectFormData(form) {
@@ -169,7 +286,11 @@ window.CrudPage = class CrudPage {
             e.preventDefault();
 
             try {
-                const data = this.collectFormData(form);
+                let data = this.collectFormData(form);
+
+                if (typeof this.config.beforeSubmitCreate === "function") {
+                    data = await this.config.beforeSubmitCreate(data);
+                }
 
                 await this.request(this.config.apiBaseUrl, {
                     method: "POST",
@@ -202,7 +323,11 @@ window.CrudPage = class CrudPage {
             }
 
             try {
-                const data = this.collectFormData(form);
+                let data = this.collectFormData(form);
+
+                if (typeof this.config.beforeSubmitEdit === "function") {
+                    data = await this.config.beforeSubmitEdit(data);
+                }
 
                 await this.request(`${this.config.apiBaseUrl}${this.currentEditId}`, {
                     method: "PUT",
@@ -279,12 +404,16 @@ window.CrudPage = class CrudPage {
         });
     }
 
-    openCreateModal() {
+    async openCreateModal() {
+        if (typeof this.config.beforeOpenCreateModal === "function") {
+            await this.config.beforeOpenCreateModal();
+        }
+
         this.clearForm(this.config.formCreateId);
         this.openModal(this.config.modalCreateId);
     }
 
-    openEditModal(id) {
+    async openEditModal(id) {
         const item = this.items.find(x => String(x.id) === String(id));
 
         if (!item) {
@@ -297,6 +426,10 @@ window.CrudPage = class CrudPage {
         const mappedData = this.config.mapItemToEditForm
             ? this.config.mapItemToEditForm(item)
             : item;
+
+        if (typeof this.config.beforeOpenEditModal === "function") {
+            await this.config.beforeOpenEditModal(item);
+        }
 
         this.fillForm(this.config.formEditId, mappedData);
         this.openModal(this.config.modalEditId);

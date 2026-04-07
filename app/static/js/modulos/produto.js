@@ -11,6 +11,8 @@ document.addEventListener("DOMContentLoaded", () => {
         modalEditId: "modal-edicao",
         modalDeleteId: "modal-delete",
         searchInputId: "input-busca",
+        paginationContainerId: "produto-pagination",
+        pageSize: 10,
         fields: ["nome", "descricao", "categoria_nome", "empresa_nome", "codigo_barras"],
 
         messages: {
@@ -31,17 +33,20 @@ document.addEventListener("DOMContentLoaded", () => {
             codigo_barras: item.codigo_barras || "",
             possui_ncm: !!item.possui_ncm,
             ncm: item.ncm || "",
-            estoque_minimo: normalizeDecimalForInput(item.estoque_minimo, 3),
-            valor_compra: normalizeDecimalForInput(item.valor_compra, 2),
-            valor_venda: normalizeDecimalForInput(item.valor_venda, 2),
+            estoque_minimo: formatIntegerForDisplay(item.estoque_minimo),
+            valor_compra: formatDecimalForDisplay(item.valor_compra, 2),
+            valor_venda: formatDecimalForDisplay(item.valor_venda, 2),
             ativo: !!item.ativo
         }),
+
+        beforeSubmitCreate: (payload) => normalizeProdutoPayload(payload, false),
+        beforeSubmitEdit: (payload) => normalizeProdutoPayload(payload, true),
 
         renderRow: (item) => {
             const categoria = item.categoria_nome || "Sem categoria";
             const empresa = item.empresa_nome || "-";
             const codigoBarras = item.codigo_barras || "-";
-            const estoqueAtual = formatNumber(item.estoque_atual, 3);
+            const estoqueAtual = formatInteger(item.estoque_atual);
             const valorCompra = formatCurrency(item.valor_compra);
             const valorVenda = formatCurrency(item.valor_venda);
             const ativoBadge = item.ativo
@@ -135,6 +140,7 @@ function enhanceProdutoPage(page) {
         this.bindSearch();
         this.bindModalClose();
         this.bindNcmToggle();
+        this.bindMasks();
         await this.loadAuxiliares();
         await this.load();
     };
@@ -165,9 +171,22 @@ function enhanceProdutoPage(page) {
         setupNcmToggle("edicao-possui_ncm", "edicao-ncm");
     };
 
+    page.bindMasks = function () {
+        setupIntegerMask("cadastro-estoque_minimo");
+        setupIntegerMask("edicao-estoque_minimo");
+        setupDecimalMask("cadastro-valor_compra", 2);
+        setupDecimalMask("edicao-valor_compra", 2);
+        setupDecimalMask("cadastro-valor_venda", 2);
+        setupDecimalMask("edicao-valor_venda", 2);
+        setupDigitsMask("cadastro-codigo_barras", 50);
+        setupDigitsMask("edicao-codigo_barras", 50);
+        setupNcmMask("cadastro-ncm");
+        setupNcmMask("edicao-ncm");
+    };
+
     const originalOpenCreateModal = page.openCreateModal.bind(page);
-    page.openCreateModal = function () {
-        originalOpenCreateModal();
+    page.openCreateModal = async function () {
+        await originalOpenCreateModal();
         this.populateAuxiliares();
 
         const ativo = document.getElementById("cadastro-ativo");
@@ -180,6 +199,10 @@ function enhanceProdutoPage(page) {
             ncm.value = "";
             ncm.disabled = true;
         }
+
+        applyIntegerDisplay("cadastro-estoque_minimo");
+        applyDecimalDisplay("cadastro-valor_compra", 2);
+        applyDecimalDisplay("cadastro-valor_venda", 2);
     };
 
     const originalFillForm = page.fillForm.bind(page);
@@ -238,8 +261,8 @@ function enhanceProdutoPage(page) {
         const valorVenda = form.querySelector('[name="valor_venda"]');
 
         if (estoqueMinimo) estoqueMinimo.value = "0";
-        if (valorCompra) valorCompra.value = "0";
-        if (valorVenda) valorVenda.value = "0";
+        if (valorCompra) valorCompra.value = "0,00";
+        if (valorVenda) valorVenda.value = "0,00";
     };
 }
 
@@ -283,17 +306,53 @@ function setupNcmToggle(checkboxId, inputId) {
     applyState();
 }
 
-function normalizeDecimalForInput(value, decimals = 2) {
+function normalizeProdutoPayload(payload, isEdit) {
+    const data = { ...payload };
+
+    data.nome = (data.nome || "").trim();
+    data.descricao = (data.descricao || "").trim();
+    data.categoria_id = data.categoria_id || "";
+    data.empresa_id = data.empresa_id || "";
+    data.codigo_barras = normalizeDigits(data.codigo_barras, 50);
+    data.possui_ncm = getCheckboxValue(isEdit ? "edicao-possui_ncm" : "cadastro-possui_ncm");
+    data.ncm = normalizeNcm(data.ncm);
+    data.estoque_minimo = normalizeIntegerForApi(data.estoque_minimo);
+    data.valor_compra = normalizeDecimalForApi(data.valor_compra, 2);
+    data.valor_venda = normalizeDecimalForApi(data.valor_venda, 2);
+    data.ativo = getCheckboxValue(isEdit ? "edicao-ativo" : "cadastro-ativo");
+
+    if (!data.possui_ncm) {
+        data.ncm = "";
+    }
+
+    return data;
+}
+
+function normalizeDecimalForApi(value, decimals = 2) {
+    const normalized = parseDecimalInput(value);
+    const fixed = normalized.toFixed(decimals);
+    return decimals > 0 ? fixed : String(Math.trunc(normalized));
+}
+
+function formatDecimalForDisplay(value, decimals = 2) {
     if (value === null || value === undefined || value === "") {
-        return "0";
+        return formatNumber(0, decimals);
     }
 
     const parsed = Number(String(value).replace(",", "."));
     if (Number.isNaN(parsed)) {
+        return formatNumber(0, decimals);
+    }
+
+    return formatNumber(parsed, decimals);
+}
+
+function formatIntegerForDisplay(value) {
+    if (value === null || value === undefined || value === "") {
         return "0";
     }
 
-    return parsed.toFixed(decimals);
+    return formatInteger(value);
 }
 
 function formatCurrency(value) {
@@ -310,6 +369,144 @@ function formatNumber(value, decimals = 3) {
         minimumFractionDigits: decimals,
         maximumFractionDigits: decimals
     }).format(Number.isNaN(parsed) ? 0 : parsed);
+}
+
+function formatInteger(value) {
+    const parsed = Number.parseInt(String(value ?? 0).replace(/\D/g, ""), 10);
+    return new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(Number.isNaN(parsed) ? 0 : parsed);
+}
+
+function setupDecimalMask(inputId, decimals = 2) {
+    const input = document.getElementById(inputId);
+    if (!input || input.dataset.maskBound === "true") return;
+
+    input.dataset.maskBound = "true";
+    input.setAttribute("inputmode", "decimal");
+
+    const applyMask = () => {
+        input.value = formatDecimalFromDigits(input.value, decimals);
+    };
+
+    input.addEventListener("input", applyMask);
+    input.addEventListener("blur", applyMask);
+    applyMask();
+}
+
+function setupIntegerMask(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input || input.dataset.maskBound === "true") return;
+
+    input.dataset.maskBound = "true";
+    input.setAttribute("inputmode", "numeric");
+
+    const applyMask = () => {
+        input.value = formatIntegerInput(input.value);
+    };
+
+    input.addEventListener("input", applyMask);
+    input.addEventListener("blur", applyMask);
+    applyMask();
+}
+
+function setupDigitsMask(inputId, maxLength = 50) {
+    const input = document.getElementById(inputId);
+    if (!input || input.dataset.maskBound === "true") return;
+
+    input.dataset.maskBound = "true";
+    input.setAttribute("inputmode", "numeric");
+
+    input.addEventListener("input", () => {
+        input.value = normalizeDigits(input.value, maxLength);
+    });
+}
+
+function setupNcmMask(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input || input.dataset.maskBound === "true") return;
+
+    input.dataset.maskBound = "true";
+    input.setAttribute("inputmode", "numeric");
+
+    input.addEventListener("input", () => {
+        input.value = formatNcm(input.value);
+    });
+}
+
+function formatDecimalFromDigits(value, decimals = 2) {
+    const digits = String(value ?? "").replace(/\D/g, "");
+
+    if (!digits) {
+        return formatNumber(0, decimals);
+    }
+
+    const numericValue = Number(digits) / (10 ** decimals);
+    return formatNumber(numericValue, decimals);
+}
+
+function parseDecimalInput(value) {
+    const raw = String(value ?? "").trim();
+    if (!raw) return 0;
+
+    const normalized = raw
+        .replace(/\./g, "")
+        .replace(",", ".");
+
+    const parsed = Number(normalized);
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function parseIntegerInput(value) {
+    const digits = String(value ?? "").replace(/\D/g, "");
+    if (!digits) return 0;
+
+    const parsed = Number.parseInt(digits, 10);
+    return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function normalizeDigits(value, maxLength = 50) {
+    return String(value ?? "").replace(/\D/g, "").slice(0, maxLength);
+}
+
+function normalizeIntegerForApi(value) {
+    return String(parseIntegerInput(value));
+}
+
+function formatNcm(value) {
+    const digits = normalizeDigits(value, 8);
+
+    if (digits.length <= 4) return digits;
+    if (digits.length <= 6) return digits.replace(/^(\d{4})(\d+)/, "$1.$2");
+    return digits.replace(/^(\d{4})(\d{2})(\d{0,2}).*/, "$1.$2.$3");
+}
+
+function normalizeNcm(value) {
+    return normalizeDigits(value, 8);
+}
+
+function getCheckboxValue(inputId) {
+    const input = document.getElementById(inputId);
+    return !!input?.checked;
+}
+
+function applyDecimalDisplay(inputId, decimals = 2) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    input.value = formatDecimalForDisplay(input.value, decimals);
+}
+
+function applyIntegerDisplay(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    input.value = formatIntegerInput(input.value);
+}
+
+function formatIntegerInput(value) {
+    return formatInteger(parseIntegerInput(value));
 }
 
 function escapeHtml(value) {

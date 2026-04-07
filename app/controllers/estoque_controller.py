@@ -1,19 +1,140 @@
-from flask import Blueprint, render_template, url_for, redirect, request, flash
-from app.services.categoria_service import CategoriaService
-from flask_jwt_extended import jwt_required
+from flask import Blueprint, jsonify, render_template, request
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-estoque_bp = Blueprint("estoque", __name__, url_prefix='/estoque')
+from app.security.decorators import permission_required
+from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.estoque_service import EstoqueService
 
-@estoque_bp.route("/categorias", methods=['GET'])
+estoque_bp = Blueprint("estoque", __name__)
+
+
+@estoque_bp.route("/view", methods=["GET"])
 @jwt_required()
-def categoria():
-    try:
-        categorias = CategoriaService.listar()
-        return render_template(
-            "modulos/categoria/categoria.html", 
-            categorias=categorias
-            )
+def pagina():
+    return render_template("modulos/estoque/estoque.html")
 
+
+@estoque_bp.route("/", methods=["GET"])
+@permission_required("visualizar_produto")
+def listar_saldos():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        empresa_id = request.args.get("empresa_id", type=int)
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        registros = EstoqueService.listar_saldos(tenant_id, escopo, empresa_id=empresa_id)
+
+        return jsonify({
+            "success": True,
+            "data": [
+                {
+                    "id": item.id,
+                    "produto_id": item.produto.id,
+                    "empresa_id": item.empresa.id,
+                    "empresa_nome": item.empresa.nome_fantasia,
+                    "categoria_id": item.produto.categoria.id if item.produto.categoria else None,
+                    "categoria_nome": item.produto.categoria.nome if item.produto.categoria else "",
+                    "nome": item.produto.nome,
+                    "descricao": item.produto.descricao,
+                    "codigo_barras": item.produto.codigo_barras,
+                    "estoque_atual": int(item.estoque_atual),
+                    "estoque_minimo": int(item.estoque_minimo),
+                    "valor_compra": str(item.valor_compra),
+                    "valor_venda": str(item.valor_venda),
+                    "ativo": item.ativo,
+                    "abaixo_minimo": item.estoque_atual <= item.estoque_minimo,
+                }
+                for item in registros
+            ]
+        })
     except Exception as e:
-        flash('Erro ao acessar as categorias: ' + str(e), 'warning')
-        return redirect(url_for('main.home'))
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@estoque_bp.route("/movimentos", methods=["GET"])
+@permission_required("visualizar_produto")
+def listar_movimentos():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        empresa_id = request.args.get("empresa_id", type=int)
+        limite = request.args.get("limite", default=50, type=int)
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        movimentos = EstoqueService.listar_movimentos(tenant_id, escopo, empresa_id=empresa_id, limite=limite)
+
+        return jsonify({
+            "success": True,
+            "data": [
+                {
+                    "id": item.id,
+                    "empresa_id": item.empresa.id,
+                    "empresa_nome": item.empresa.nome_fantasia,
+                    "produto_id": item.produto.id,
+                    "produto_nome": item.produto.nome,
+                    "funcionario_nome": item.funcionario.nome if item.funcionario else None,
+                    "tipo_movimento": item.tipo_movimento.value,
+                    "motivo": item.motivo.value,
+                    "quantidade": int(item.quantidade),
+                    "valor_unitario": str(item.valor_unitario) if item.valor_unitario is not None else None,
+                    "valor_total": str(item.valor_total) if item.valor_total is not None else None,
+                    "observacao": item.observacao,
+                    "venda_id": item.venda_id,
+                    "origem": "PDV" if item.venda_id else "MANUAL",
+                    "data_movimento": item.data_movimento.isoformat(),
+                }
+                for item in movimentos
+            ]
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@estoque_bp.route("/auxiliares", methods=["GET"])
+@permission_required("visualizar_produto")
+def auxiliares():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        dados = EstoqueService.listar_auxiliares(tenant_id, escopo)
+
+        return jsonify({
+            "success": True,
+            "data": dados
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@estoque_bp.route("/movimentos/manual", methods=["POST"])
+@permission_required("editar_produto")
+def criar_movimento_manual():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        data = request.get_json(silent=True) or {}
+        movimento = EstoqueService.registrar_movimentacao_manual(data, tenant_id, escopo, funcionario_id)
+
+        return jsonify({
+            "success": True,
+            "message": "Movimentacao registrada com sucesso.",
+            "data": {
+                "id": movimento.id,
+                "empresa_id": movimento.empresa.id,
+                "empresa_nome": movimento.empresa.nome_fantasia,
+                "produto_id": movimento.produto.id,
+                "produto_nome": movimento.produto.nome,
+                "funcionario_nome": movimento.funcionario.nome if movimento.funcionario else None,
+                "tipo_movimento": movimento.tipo_movimento.value,
+                "motivo": movimento.motivo.value,
+                "quantidade": int(movimento.quantidade),
+                "valor_unitario": str(movimento.valor_unitario) if movimento.valor_unitario is not None else None,
+                "valor_total": str(movimento.valor_total) if movimento.valor_total is not None else None,
+                "observacao": movimento.observacao,
+                "venda_id": movimento.venda_id,
+                "data_movimento": movimento.data_movimento.isoformat(),
+            }
+        }), 201
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400

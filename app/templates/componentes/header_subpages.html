@@ -1,11 +1,11 @@
 <header class="p-4 flex justify-between items-center border-b border-white/5 bg-black/10 backdrop-blur-md sticky top-0 z-50">
     <div class="flex items-center gap-4">
-        <a href="/home" class="p-2 hover:bg-white/10 rounded-lg transition-all text-slate-400 hover:text-white group" title="Voltar ao Início">
+        <button type="button" data-back-button class="p-2 hover:bg-white/10 rounded-lg transition-all text-slate-400 hover:text-white group" title="Voltar">
             <i data-lucide="arrow-left" class="w-5 h-5 group-hover:-translate-x-1 transition-transform"></i>
-        </a>
-        
+        </button>
+
         <div class="h-6 w-[1px] bg-white/10"></div>
-        
+
         <h1 class="text-lg font-semibold flex items-center gap-2 text-white">
             <i data-lucide="package" class="w-5 h-5 text-sky-400"></i>
             <span class="tracking-tight">{{ modulo_name }}</span>
@@ -15,10 +15,10 @@
     <div class="relative inline-block text-left">
         <button id="userMenuBtn" class="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/5 transition-all group">
             <div class="text-right hidden sm:block">
-                <p class="text-xs font-medium text-slate-200">Usuário Administrativo</p>
+                <p class="text-xs font-medium text-slate-200">Usuario Administrativo</p>
                 <p class="text-[9px] uppercase tracking-[0.15em] text-emerald-500 font-bold">Unidade Matriz</p>
             </div>
-            
+
             <div class="relative">
                 <div class="w-9 h-9 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center text-xs font-bold text-sky-400 group-hover:border-sky-500/50 transition-all">
                     UA
@@ -37,15 +37,15 @@
             <a href="/perfil" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
                 <i data-lucide="user" class="w-4 h-4"></i> Meu Perfil
             </a>
-            
+
             <a href="/configuracoes" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="settings" class="w-4 h-4"></i> Configurações
+                <i data-lucide="settings" class="w-4 h-4"></i> Configuracoes
             </a>
 
             <div class="h-[1px] bg-white/5 my-2"></div>
 
             <a href="/home" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 transition-colors">
-                <i data-lucide="layout-grid" class="w-4 h-4"></i> Mudar de Módulo
+                <i data-lucide="layout-grid" class="w-4 h-4"></i> Mudar de Modulo
             </a>
 
             <a href="/logout" class="flex items-center gap-3 px-4 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors mt-1 font-medium">

@@ -1,9 +1,9 @@
-window.categoriaPage = null;
+window.funcionarioPage = null;
 
-document.addEventListener("DOMContentLoaded", () => {
-    window.categoriaPage = new CrudPage({
-        apiBaseUrl: "/api/categorias/",
-        tableBodyId: "categoria-table-body",
+document.addEventListener("DOMContentLoaded", async () => {
+    window.funcionarioPage = new CrudPage({
+        apiBaseUrl: "/api/funcionarios/",
+        tableBodyId: "funcionario-table-body",
         formCreateId: "form-cadastro",
         formEditId: "form-edicao",
         formDeleteId: "form-delete",
@@ -11,76 +11,237 @@ document.addEventListener("DOMContentLoaded", () => {
         modalEditId: "modal-edicao",
         modalDeleteId: "modal-delete",
         searchInputId: "input-busca",
-        fields: ["nome", "descricao"],
-
+        paginationContainerId: "funcionario-pagination",
+        pageSize: 10,
+        fields: ["nome", "usuario", "cpf", "empresa_nome", "empresa_resumo", "role_nome"],
         messages: {
-            loadError: "Erro ao carregar categorias.",
-            createSuccess: "Categoria cadastrada com sucesso.",
-            createError: "Erro ao cadastrar categoria.",
-            updateSuccess: "Categoria atualizada com sucesso.",
-            updateError: "Erro ao atualizar categoria.",
-            deleteSuccess: "Categoria excluída com sucesso.",
-            deleteError: "Erro ao excluir categoria."
+            loadError: "Erro ao carregar funcionarios.",
+            createSuccess: "Funcionario cadastrado com sucesso.",
+            createError: "Erro ao cadastrar funcionario.",
+            updateSuccess: "Funcionario atualizado com sucesso.",
+            updateError: "Erro ao atualizar funcionario.",
+            deleteSuccess: "Funcionario excluido com sucesso.",
+            deleteError: "Erro ao excluir funcionario."
         },
-
         mapItemToEditForm: (item) => ({
+            id: item.id || "",
             nome: item.nome || "",
-            descricao: item.descricao || ""
+            cpf: item.cpf || "",
+            usuario: item.usuario || "",
+            senha: "",
+            empresa_id: item.empresa_id || "",
+            role_id: item.role_id || "",
+            ativo: Boolean(item.ativo)
         }),
-
-        renderRow: (item) => {
-            return `
-                <tr class="hover:bg-slate-800/40 transition">
-                    <td class="px-5 py-4 align-middle">
-                        <div class="flex items-center gap-3">
-                            <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
-                                <i data-lucide="folder-tree" class="w-4 h-4"></i>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-white">${escapeHtml(item.nome || "-")}</p>
-                                <p class="text-xs text-slate-500">ID #${item.id}</p>
-                            </div>
+        beforeOpenCreateModal: async () => {
+            await Promise.all([carregarEmpresas(), carregarRoles()]);
+            limparFormularioEdicao();
+        },
+        beforeOpenEditModal: async (item) => {
+            await Promise.all([carregarEmpresas(item.empresa_id), carregarRoles(item.role_id)]);
+            preencherCheckboxAtivo("edicao-ativo", item.ativo);
+        },
+        beforeSubmitCreate: (payload) => normalizarPayload(payload, false),
+        beforeSubmitEdit: (payload) => normalizarPayload(payload, true),
+        renderRow: (item) => `
+            <tr class="hover:bg-slate-800/40 transition">
+                <td class="px-5 py-4 align-middle">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center justify-center w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                            <i data-lucide="user-round" class="w-4 h-4"></i>
                         </div>
-                    </td>
+                        <div>
+                            <p class="font-semibold text-white">${escapeHtml(item.nome || "-")}</p>
+                            <p class="text-xs text-slate-500">${escapeHtml(item.role_nome || "Sem role")}</p>
+                        </div>
+                    </div>
+                </td>
 
-                    <td class="px-5 py-4 align-middle">
+                <td class="px-5 py-4 align-middle">
+                    <p class="text-slate-300 leading-relaxed">${escapeHtml(item.usuario || "-")}</p>
+                </td>
+
+                <td class="px-5 py-4 align-middle">
+                    <p class="text-slate-300 leading-relaxed">${escapeHtml(item.cpf || "-")}</p>
+                </td>
+
+                <td class="px-5 py-4 align-middle">
+                    <div class="space-y-1">
                         <p class="text-slate-300 leading-relaxed">
-                            ${escapeHtml(item.descricao || "Sem descrição cadastrada.")}
+                            ${escapeHtml(item.empresa_resumo || item.empresa_nome || "-")}
                         </p>
-                    </td>
+                        ${item.quantidade_empresas > 1 ? `
+                            <p class="text-xs text-slate-500">${escapeHtml(item.empresa_nome || "-")}</p>
+                        ` : ""}
+                    </div>
+                </td>
 
-                    <td class="px-5 py-4 align-middle">
-                        <div class="flex items-center justify-center gap-2">
-                            <button
-                                type="button"
-                                onclick="categoriaPage.openEditModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
-                                title="Editar categoria"
-                            >
-                                <i data-lucide="square-pen" class="w-4 h-4"></i>
-                            </button>
+                <td class="px-5 py-4 align-middle">
+                    <div class="flex items-center justify-center gap-2">
+                        <button
+                            type="button"
+                            onclick="funcionarioPage.openEditModal(${item.id})"
+                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
+                            title="Editar funcionario"
+                        >
+                            <i data-lucide="square-pen" class="w-4 h-4"></i>
+                        </button>
 
-                            <button
-                                type="button"
-                                onclick="categoriaPage.openDeleteModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
-                                title="Excluir categoria"
-                            >
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
+                        <button
+                            type="button"
+                            onclick="funcionarioPage.openDeleteModal(${item.id})"
+                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
+                            title="Excluir funcionario"
+                        >
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `
     });
 
-    window.categoriaPage.init();
+    await Promise.all([carregarEmpresas(), carregarRoles()]);
+    window.funcionarioPage.init();
+
+    aplicarMascaraCpf("cadastro-cpf");
+    aplicarMascaraCpf("edicao-cpf");
 
     if (window.lucide) {
         lucide.createIcons();
     }
 });
+
+async function carregarEmpresas(selectedId = "") {
+    const selects = [
+        document.getElementById("cadastro-empresa_id"),
+        document.getElementById("edicao-empresa_id")
+    ].filter(Boolean);
+
+    try {
+        const response = await fetch("/api/funcionarios/empresas-disponiveis", {
+            credentials: "same-origin",
+            headers: getAuthHeaders()
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || "Erro ao carregar empresas.");
+        }
+
+        for (const select of selects) {
+            const currentValue = select.id === "edicao-empresa_id" ? String(selectedId || "") : String(select.value || "");
+            select.innerHTML = `<option value="">Selecione uma empresa</option>`;
+
+            result.data.forEach((empresa) => {
+                const option = document.createElement("option");
+                option.value = empresa.id;
+                option.textContent = empresa.nome_fantasia || empresa.razao_social || `Empresa #${empresa.id}`;
+
+                if (String(empresa.id) === currentValue) {
+                    option.selected = true;
+                }
+
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+async function carregarRoles(selectedId = "") {
+    const selects = [
+        document.getElementById("cadastro-role_id"),
+        document.getElementById("edicao-role_id")
+    ].filter(Boolean);
+
+    try {
+        const response = await fetch("/api/funcionarios/roles-disponiveis", {
+            credentials: "same-origin",
+            headers: getAuthHeaders()
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || "Erro ao carregar roles.");
+        }
+
+        for (const select of selects) {
+            const currentValue = select.id === "edicao-role_id" ? String(selectedId || "") : String(select.value || "");
+            select.innerHTML = `<option value="">Selecione uma role</option>`;
+
+            result.data.forEach((role) => {
+                const option = document.createElement("option");
+                option.value = role.id;
+                option.textContent = role.nome;
+                option.title = role.descricao || "";
+
+                if (String(role.id) === currentValue) {
+                    option.selected = true;
+                }
+
+                select.appendChild(option);
+            });
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function normalizarPayload(payload, isEdit) {
+    const data = { ...payload };
+
+    data.nome = (data.nome || "").trim();
+    data.cpf = (data.cpf || "").trim();
+    data.usuario = (data.usuario || "").trim();
+    data.senha = (data.senha || "").trim();
+    data.empresa_id = data.empresa_id || "";
+    data.role_id = data.role_id || "";
+    data.ativo = obterCheckboxAtivo(isEdit ? "edicao-ativo" : "cadastro-ativo");
+
+    if (isEdit && !data.senha) {
+        delete data.senha;
+    }
+
+    return data;
+}
+
+function obterCheckboxAtivo(id) {
+    const checkbox = document.getElementById(id);
+    return checkbox ? checkbox.checked : true;
+}
+
+function preencherCheckboxAtivo(id, value) {
+    const checkbox = document.getElementById(id);
+    if (checkbox) {
+        checkbox.checked = Boolean(value);
+    }
+}
+
+function limparFormularioEdicao() {
+    preencherCheckboxAtivo("cadastro-ativo", true);
+    preencherCheckboxAtivo("edicao-ativo", true);
+}
+
+function aplicarMascaraCpf(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    input.addEventListener("input", () => {
+        let value = input.value.replace(/\D/g, "").slice(0, 11);
+
+        if (value.length > 9) {
+            value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, "$1.$2.$3-$4");
+        } else if (value.length > 6) {
+            value = value.replace(/^(\d{3})(\d{3})(\d{0,3}).*/, "$1.$2.$3");
+        } else if (value.length > 3) {
+            value = value.replace(/^(\d{3})(\d{0,3}).*/, "$1.$2");
+        }
+
+        input.value = value;
+    });
+}
 
 function escapeHtml(value) {
     if (value === null || value === undefined) return "";
@@ -91,4 +252,12 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function getAuthHeaders() {
+    const token = localStorage.getItem("token");
+    return {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
 }

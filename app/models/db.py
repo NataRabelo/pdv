@@ -1,14 +1,11 @@
-from datetime import datetime, date
+from datetime import date, datetime
 import enum
 
-from app.extensions import db
-from sqlalchemy import CheckConstraint, UniqueConstraint, Index
+from sqlalchemy import CheckConstraint, Index, UniqueConstraint
 from sqlalchemy.orm import validates
 
+from app.extensions import db
 
-# =========================================================
-# ENUMS
-# =========================================================
 
 class TipoEmpresa(enum.Enum):
     MATRIZ = "MATRIZ"
@@ -57,10 +54,6 @@ class StatusVenda(enum.Enum):
     CANCELADA = "CANCELADA"
 
 
-# =========================================================
-# MODELO BASE
-# =========================================================
-
 class ModeloBase(db.Model):
     __abstract__ = True
 
@@ -69,10 +62,6 @@ class ModeloBase(db.Model):
     atualizado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=False, index=True)
 
-
-# =========================================================
-# TENANT / MARCA
-# =========================================================
 
 class Tenant(db.Model):
     __tablename__ = "tenants"
@@ -85,11 +74,9 @@ class Tenant(db.Model):
     empresas = db.relationship("Empresa", backref="tenant", lazy=True, cascade="all, delete-orphan")
     funcionarios = db.relationship("Funcionario", backref="tenant", lazy=True, cascade="all, delete-orphan")
     produtos = db.relationship("Produto", backref="tenant", lazy=True, cascade="all, delete-orphan")
+    roles = db.relationship("Role", backref="tenant", lazy=True, cascade="all, delete-orphan")
+    permissions = db.relationship("Permission", backref="tenant", lazy=True, cascade="all, delete-orphan")
 
-
-# =========================================================
-# EMPRESAS / LOJAS
-# =========================================================
 
 class Empresa(ModeloBase):
     __tablename__ = "empresas"
@@ -106,18 +93,64 @@ class Empresa(ModeloBase):
     )
 
 
-# =========================================================
-# FUNCIONÁRIOS
-# =========================================================
+class Role(ModeloBase):
+    __tablename__ = "role"
+
+    nome = db.Column(db.String(100), nullable=False)
+    codigo = db.Column(db.String(80), nullable=False)
+    descricao = db.Column(db.String(255), nullable=True)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "nome", name="uq_role_tenant_nome"),
+        UniqueConstraint("tenant_id", "codigo", name="uq_role_tenant_codigo"),
+    )
+
+
+class Permission(ModeloBase):
+    __tablename__ = "permissions"
+
+    nome = db.Column(db.String(120), nullable=False)
+    codigo = db.Column(db.String(120), nullable=False)
+    descricao = db.Column(db.String(255), nullable=True)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "codigo", name="uq_permission_tenant_codigo"),
+    )
+
+
+class RolePermission(ModeloBase):
+    __tablename__ = "role_permission"
+
+    role_id = db.Column(db.Integer, db.ForeignKey("role.id"), nullable=False)
+    permission_id = db.Column(db.Integer, db.ForeignKey("permissions.id"), nullable=False)
+
+    role = db.relationship(
+        "Role",
+        backref=db.backref("permissions_links", lazy=True, cascade="all, delete-orphan")
+    )
+    permission = db.relationship(
+        "Permission",
+        backref=db.backref("roles_links", lazy=True, cascade="all, delete-orphan")
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "role_id", "permission_id", name="uq_role_permission"),
+    )
+
 
 class Funcionario(ModeloBase):
     __tablename__ = "funcionarios"
 
+    role_id = db.Column(db.Integer, db.ForeignKey("role.id"), nullable=False)
     nome = db.Column(db.String(150), nullable=False)
     cpf = db.Column(db.String(14), nullable=False)
     usuario = db.Column(db.String(80), nullable=False)
     senha_hash = db.Column(db.String(255), nullable=False)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+    role = db.relationship("Role", backref=db.backref("funcionarios", lazy=True))
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "cpf", name="uq_funcionario_tenant_cpf"),
@@ -130,14 +163,12 @@ class FuncionarioEmpresa(ModeloBase):
 
     funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=False)
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
-
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
     funcionario = db.relationship(
         "Funcionario",
         backref=db.backref("empresas_vinculadas", lazy=True, cascade="all, delete-orphan")
     )
-
     empresa = db.relationship(
         "Empresa",
         backref=db.backref("funcionarios_vinculados", lazy=True, cascade="all, delete-orphan")
@@ -147,10 +178,6 @@ class FuncionarioEmpresa(ModeloBase):
         UniqueConstraint("tenant_id", "funcionario_id", "empresa_id", name="uq_funcionario_empresa"),
     )
 
-
-# =========================================================
-# CADASTROS GERAIS DA MARCA
-# =========================================================
 
 class CategoriaProduto(ModeloBase):
     __tablename__ = "categorias_produto"
@@ -169,13 +196,10 @@ class Produto(ModeloBase):
 
     categoria_id = db.Column(db.Integer, db.ForeignKey("categorias_produto.id"), nullable=True)
     criado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
-
     nome = db.Column(db.String(150), nullable=False)
     descricao = db.Column(db.Text, nullable=True)
-
     possui_ncm = db.Column(db.Boolean, nullable=False, default=False)
     ncm = db.Column(db.String(20), nullable=True)
-
     codigo_barras = db.Column(db.String(60), nullable=True)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
@@ -185,10 +209,7 @@ class Produto(ModeloBase):
     __table_args__ = (
         UniqueConstraint("tenant_id", "nome", name="uq_produto_tenant_nome"),
         UniqueConstraint("tenant_id", "codigo_barras", name="uq_produto_tenant_codigo_barras"),
-        CheckConstraint(
-            "possui_ncm = FALSE OR ncm IS NOT NULL",
-            name="ck_produto_ncm_flag"
-        ),
+        CheckConstraint("possui_ncm = FALSE OR ncm IS NOT NULL", name="ck_produto_ncm_flag"),
     )
 
     @validates("ncm")
@@ -203,13 +224,10 @@ class ProdutoEmpresa(ModeloBase):
 
     produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False)
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
-
-    estoque_atual = db.Column(db.Numeric(14, 3), nullable=False, default=0)
-    estoque_minimo = db.Column(db.Numeric(14, 3), nullable=False, default=0)
-
+    estoque_atual = db.Column(db.Integer, nullable=False, default=0)
+    estoque_minimo = db.Column(db.Integer, nullable=False, default=0)
     valor_compra = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     valor_venda = db.Column(db.Numeric(12, 2), nullable=False, default=0)
-
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
     produto = db.relationship("Produto", backref=db.backref("dados_por_empresa", lazy=True, cascade="all, delete-orphan"))
@@ -267,20 +285,14 @@ class Cupom(ModeloBase):
     nome = db.Column(db.String(100), nullable=False)
     codigo = db.Column(db.String(60), nullable=False)
     data_validade = db.Column(db.Date, nullable=False)
-
     tipo_desconto = db.Column(db.Enum(TipoDesconto), nullable=False)
     valor_desconto = db.Column(db.Numeric(12, 2), nullable=False)
-
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "codigo", name="uq_cupom_tenant_codigo"),
     )
 
-
-# =========================================================
-# ESTOQUE
-# =========================================================
 
 class MovimentoEstoque(ModeloBase):
     __tablename__ = "movimentos_estoque"
@@ -289,14 +301,11 @@ class MovimentoEstoque(ModeloBase):
     produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False)
     funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=True)
-
     tipo_movimento = db.Column(db.Enum(TipoMovimentoEstoque), nullable=False)
     motivo = db.Column(db.Enum(MotivoMovimentoEstoque), nullable=False)
-
-    quantidade = db.Column(db.Numeric(14, 3), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
     valor_unitario = db.Column(db.Numeric(12, 2), nullable=True)
     valor_total = db.Column(db.Numeric(12, 2), nullable=True)
-
     observacao = db.Column(db.Text, nullable=True)
     data_movimento = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -313,10 +322,6 @@ class MovimentoEstoque(ModeloBase):
     )
 
 
-# =========================================================
-# VENDAS
-# =========================================================
-
 class Venda(ModeloBase):
     __tablename__ = "vendas"
 
@@ -324,14 +329,11 @@ class Venda(ModeloBase):
     funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
     tipo_operacao_id = db.Column(db.Integer, db.ForeignKey("tipos_operacao.id"), nullable=False)
     cupom_id = db.Column(db.Integer, db.ForeignKey("cupons.id"), nullable=True)
-
     numero_unico = db.Column(db.String(50), nullable=False)
     status = db.Column(db.Enum(StatusVenda), nullable=False, default=StatusVenda.ABERTA)
-
     subtotal = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
-
     data_venda = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     observacao = db.Column(db.Text, nullable=True)
 
@@ -354,8 +356,7 @@ class ItemVenda(ModeloBase):
 
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=False)
     produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False)
-
-    quantidade = db.Column(db.Numeric(14, 3), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=False)
     valor_unitario = db.Column(db.Numeric(12, 2), nullable=False)
     valor_total = db.Column(db.Numeric(12, 2), nullable=False)
 
@@ -374,7 +375,6 @@ class PagamentoVenda(ModeloBase):
 
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=False)
     forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("formas_pagamento.id"), nullable=False)
-
     valor = db.Column(db.Numeric(12, 2), nullable=False)
     comprovante = db.Column(db.String(120), nullable=True)
 
@@ -386,10 +386,6 @@ class PagamentoVenda(ModeloBase):
     )
 
 
-# =========================================================
-# FINANCEIRO
-# =========================================================
-
 class LancamentoFinanceiro(ModeloBase):
     __tablename__ = "lancamentos_financeiros"
 
@@ -398,11 +394,9 @@ class LancamentoFinanceiro(ModeloBase):
     categoria_id = db.Column(db.Integer, db.ForeignKey("categorias_financeiras.id"), nullable=False)
     forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("formas_pagamento.id"), nullable=False)
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=True)
-
     tipo = db.Column(db.Enum(TipoFinanceiro), nullable=False)
     descricao = db.Column(db.String(255), nullable=False)
     valor = db.Column(db.Numeric(12, 2), nullable=False)
-
     data_lancamento = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     data_competencia = db.Column(db.Date, nullable=True)
     observacao = db.Column(db.Text, nullable=True)
@@ -419,16 +413,11 @@ class LancamentoFinanceiro(ModeloBase):
     )
 
 
-# =========================================================
-# FECHAMENTO DE CAIXA
-# =========================================================
-
 class FechamentoCaixa(ModeloBase):
     __tablename__ = "fechamentos_caixa"
 
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
     funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=False)
-
     data_fechamento = db.Column(db.Date, nullable=False)
     valor_inicial = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     valor_final = db.Column(db.Numeric(12, 2), nullable=False, default=0)

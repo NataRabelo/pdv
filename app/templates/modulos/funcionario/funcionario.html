@@ -1,0 +1,288 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue • Funcionarios{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/funcionario.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Funcionarios" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
+    <section class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Funcionarios</h1>
+                <p class="text-slate-400 mt-2">Gerencie os funcionarios, roles e vinculos com empresa.</p>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <a href="/api/roles/view"
+                    class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium px-4 py-3 transition-all duration-200 border border-slate-700">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    Roles
+                </a>
+
+                <a href="/api/permissions/view"
+                    class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium px-4 py-3 transition-all duration-200 border border-slate-700">
+                    <i data-lucide="key-round" class="w-4 h-4"></i>
+                    Permissions
+                </a>
+
+                <button type="button" onclick="funcionarioPage.openCreateModal()"
+                    class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Novo Funcionario
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Listagem</h2>
+                    <p class="text-sm text-slate-400">Consulte e pesquise os funcionarios cadastrados.</p>
+                </div>
+
+                <div class="w-full md:w-80 relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </span>
+                    <input id="input-busca" type="text" placeholder="Buscar por nome, usuario, CPF, empresa ou role..."
+                        class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[900px]">
+                <thead class="bg-slate-950/70">
+                    <tr class="border-b border-slate-800">
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Nome</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Usuario</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">CPF</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Empresas</th>
+                        <th class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[140px]">Acoes</th>
+                    </tr>
+                </thead>
+
+                <tbody id="funcionario-table-body" class="divide-y divide-slate-800">
+                    <tr>
+                        <td colspan="5" class="px-5 py-8 text-center text-slate-400">Carregando funcionarios...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="funcionario-pagination"></div>
+    </section>
+</main>
+
+<div id="modal-cadastro"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Novo Funcionario</h3>
+                <p class="text-sm text-slate-400 mt-1">Preencha os dados para cadastrar um novo funcionario.</p>
+            </div>
+            <button type="button" data-close-modal="modal-cadastro"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-cadastro" class="px-6 py-6 space-y-5">
+            <div>
+                <label for="cadastro-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
+                <input id="cadastro-nome" name="nome" type="text" required maxlength="150"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                    placeholder="Ex.: Joao da Silva">
+            </div>
+
+            <div>
+                <label for="cadastro-cpf" class="block text-sm font-medium text-slate-300 mb-2">CPF</label>
+                <input id="cadastro-cpf" name="cpf" type="text" required maxlength="14"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                    placeholder="Ex.: 000.000.000-00">
+            </div>
+
+            <div>
+                <label for="cadastro-usuario" class="block text-sm font-medium text-slate-300 mb-2">Usuario do sistema</label>
+                <input id="cadastro-usuario" name="usuario" type="text" required maxlength="80"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                    placeholder="Ex.: joao.silva">
+            </div>
+
+            <div>
+                <label for="cadastro-senha" class="block text-sm font-medium text-slate-300 mb-2">Senha</label>
+                <input id="cadastro-senha" name="senha" type="password" required maxlength="120"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+            </div>
+
+            <div>
+                <label for="cadastro-role_id" class="block text-sm font-medium text-slate-300 mb-2">Role</label>
+                <select id="cadastro-role_id" name="role_id" required
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                    <option value="">Selecione uma role</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="cadastro-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                <select id="cadastro-empresa_id" name="empresa_id" required
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                    <option value="">Selecione uma empresa</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input id="cadastro-ativo" name="ativo" type="checkbox" checked
+                    class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                <label for="cadastro-ativo" class="text-sm text-slate-300">Funcionario ativo</label>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-cadastro"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Salvar Funcionario
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-edicao"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Editar Funcionario</h3>
+                <p class="text-sm text-slate-400 mt-1">Atualize os dados do funcionario selecionado.</p>
+            </div>
+            <button type="button" data-close-modal="modal-edicao"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-edicao" class="px-6 py-6 space-y-5">
+            <input type="hidden" id="edicao-id" name="id">
+
+            <div>
+                <label for="edicao-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
+                <input id="edicao-nome" name="nome" type="text" required maxlength="150"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+            </div>
+
+            <div>
+                <label for="edicao-cpf" class="block text-sm font-medium text-slate-300 mb-2">CPF</label>
+                <input id="edicao-cpf" name="cpf" type="text" required maxlength="14"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+            </div>
+
+            <div>
+                <label for="edicao-usuario" class="block text-sm font-medium text-slate-300 mb-2">Usuario do sistema</label>
+                <input id="edicao-usuario" name="usuario" type="text" required maxlength="80"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+            </div>
+
+            <div>
+                <label for="edicao-senha" class="block text-sm font-medium text-slate-300 mb-2">Nova senha</label>
+                <input id="edicao-senha" name="senha" type="password" maxlength="120"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                    placeholder="Deixe em branco para manter a senha atual">
+            </div>
+
+            <div>
+                <label for="edicao-role_id" class="block text-sm font-medium text-slate-300 mb-2">Role</label>
+                <select id="edicao-role_id" name="role_id" required
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                    <option value="">Selecione uma role</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="edicao-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                <select id="edicao-empresa_id" name="empresa_id" required
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                    <option value="">Selecione uma empresa</option>
+                </select>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input id="edicao-ativo" name="ativo" type="checkbox"
+                    class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                <label for="edicao-ativo" class="text-sm text-slate-300">Funcionario ativo</label>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-edicao"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="square-pen" class="w-4 h-4"></i>
+                    Atualizar Funcionario
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="modal-delete"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-800">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400">
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <h3 class="text-lg font-bold text-white">Confirmar exclusao</h3>
+                    <p class="text-sm text-slate-400">Esta acao nao podera ser desfeita.</p>
+                </div>
+            </div>
+        </div>
+
+        <form id="form-delete" class="px-6 py-6">
+            <p class="text-slate-300 leading-relaxed">Tem certeza que deseja excluir este funcionario?</p>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6">
+                <button type="button" data-close-modal="modal-delete"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold px-5 py-3 transition">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    Excluir Funcionario
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/core/crud.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modulos/funcionario.js') }}"></script>
+{% endblock %}

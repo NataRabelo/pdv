@@ -1,22 +1,76 @@
 from app.extensions import db
 from app.models.db import (
-    Tenant,
     Empresa,
     Funcionario,
     FuncionarioEmpresa,
-    TipoEmpresa
+    Permission,
+    Role,
+    RolePermission,
+    Tenant,
+    TipoEmpresa,
 )
 from app.security.password import hash_password
+from app.security.permissions import DEFAULT_PERMISSION_DEFINITIONS, DEFAULT_ROLE_DEFINITIONS
+
+
+def _garantir_permissoes_e_roles(tenant_id):
+    permissions_by_code = {}
+
+    for definicao in DEFAULT_PERMISSION_DEFINITIONS:
+        permission = Permission.query.filter_by(tenant_id=tenant_id, codigo=definicao["codigo"]).first()
+        if not permission:
+            permission = Permission(
+                tenant_id=tenant_id,
+                nome=definicao["nome"],
+                codigo=definicao["codigo"],
+                descricao=definicao.get("descricao"),
+                ativo=True
+            )
+            db.session.add(permission)
+            db.session.commit()
+
+        permissions_by_code[permission.codigo] = permission
+
+    roles_por_codigo = {}
+
+    for definicao in DEFAULT_ROLE_DEFINITIONS:
+        role = Role.query.filter_by(tenant_id=tenant_id, codigo=definicao["codigo"]).first()
+        if not role:
+            role = Role(
+                tenant_id=tenant_id,
+                nome=definicao["nome"],
+                codigo=definicao["codigo"],
+                descricao=definicao.get("descricao"),
+                ativo=True
+            )
+            db.session.add(role)
+            db.session.commit()
+
+        roles_por_codigo[role.codigo] = role
+
+        for permission_code in definicao["permissoes"]:
+            permission = permissions_by_code[permission_code]
+            vinculo = RolePermission.query.filter_by(
+                tenant_id=tenant_id,
+                role_id=role.id,
+                permission_id=permission.id
+            ).first()
+
+            if not vinculo:
+                db.session.add(RolePermission(
+                    tenant_id=tenant_id,
+                    role_id=role.id,
+                    permission_id=permission.id
+                ))
+                db.session.commit()
+
+    return roles_por_codigo
 
 
 def run_seed():
     print("Iniciando seed...")
 
-    # =========================
-    # TENANT / MARCA
-    # =========================
     tenant_nome = "BlueOcean"
-
     tenant = Tenant.query.filter_by(nome=tenant_nome).first()
 
     if not tenant:
@@ -25,11 +79,10 @@ def run_seed():
         db.session.commit()
         print("Tenant criado")
     else:
-        print("Tenant já existe")
+        print("Tenant ja existe")
 
-    # =========================
-    # EMPRESAS / LOJAS
-    # =========================
+    roles_por_codigo = _garantir_permissoes_e_roles(tenant.id)
+
     empresas_seed = [
         {
             "cnpj": "12.345.678/0001-99",
@@ -72,14 +125,12 @@ def run_seed():
             db.session.commit()
             print(f"Empresa criada: {empresa.nome_fantasia}")
         else:
-            print(f"Empresa já existe: {empresa.nome_fantasia}")
+            print(f"Empresa ja existe: {empresa.nome_fantasia}")
 
         empresas_criadas.append(empresa)
 
-    # =========================
-    # FUNCIONÁRIO ADMIN
-    # =========================
     usuario_admin = "admin"
+    role_admin = roles_por_codigo["administrador"]
 
     funcionario = Funcionario.query.filter_by(
         tenant_id=tenant.id,
@@ -89,6 +140,7 @@ def run_seed():
     if not funcionario:
         funcionario = Funcionario(
             tenant_id=tenant.id,
+            role_id=role_admin.id,
             nome="Administrador",
             cpf="123.456.789-00",
             usuario=usuario_admin,
@@ -98,15 +150,15 @@ def run_seed():
         db.session.add(funcionario)
         db.session.commit()
 
-        print("Funcionário admin criado")
-        print("Usuário: admin")
+        print("Funcionario admin criado")
+        print("Usuario: admin")
         print("Senha: 123456")
     else:
-        print("Funcionário admin já existe")
+        if funcionario.role_id != role_admin.id:
+            funcionario.role_id = role_admin.id
+            db.session.commit()
+        print("Funcionario admin ja existe")
 
-    # =========================
-    # VÍNCULO FUNCIONÁRIO x EMPRESAS
-    # =========================
     for empresa in empresas_criadas:
         vinculo = FuncionarioEmpresa.query.filter_by(
             tenant_id=tenant.id,
@@ -123,8 +175,8 @@ def run_seed():
             )
             db.session.add(vinculo)
             db.session.commit()
-            print(f"Vínculo criado: admin -> {empresa.nome_fantasia}")
+            print(f"Vinculo criado: admin -> {empresa.nome_fantasia}")
         else:
-            print(f"Vínculo já existe: admin -> {empresa.nome_fantasia}")
+            print(f"Vinculo ja existe: admin -> {empresa.nome_fantasia}")
 
     print("Seed finalizada com sucesso")
