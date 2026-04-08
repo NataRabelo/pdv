@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from app.models.db import CategoriaProduto
 from app.repositorys.categoria_repository import CategoriaRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.time_service import TimeService
 
 
 class CategoriaService:
@@ -18,8 +17,8 @@ class CategoriaService:
             nome=(data.get("nome") or "").strip(),
             descricao=(data.get("descricao") or "").strip() or None,
             ativo=True,
-            criado_em=datetime.utcnow(),
-            atualizado_em=datetime.utcnow(),
+            criado_em=TimeService.now_utc_naive(),
+            atualizado_em=TimeService.now_utc_naive(),
             tenant_id=tenant_id
         )
         return CategoriaRepository.criar(categoria)
@@ -32,7 +31,7 @@ class CategoriaService:
 
         categoria.nome = (data.get("nome") or "").strip()
         categoria.descricao = (data.get("descricao") or "").strip() or None
-        categoria.atualizado_em = datetime.utcnow()
+        categoria.atualizado_em = TimeService.now_utc_naive()
 
         CategoriaRepository.atualizar()
         return categoria

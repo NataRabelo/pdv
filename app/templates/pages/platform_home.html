@@ -1,0 +1,242 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue - Plataforma{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/platform.css') }}">
+{% endblock %}
+
+{% block content %}
+
+{% include "componentes/header_home.html" %}
+
+<main class="flex-1 w-full max-w-7xl mx-auto px-6 py-8 md:px-10 md:py-10">
+    <section class="glass platform-hero mb-8">
+        <div>
+            <p class="platform-kicker">Painel global do sistema</p>
+            <h2 class="platform-title">Governanca multi-tenant com provisionamento centralizado</h2>
+            <p class="platform-copy">
+                Crie novos tenants, cadastre empresas e entregue acessos administrativos iniciais sem depender de ajustes manuais no banco.
+            </p>
+        </div>
+
+        <div class="platform-hero-actions">
+            <button id="openTenantModalBtn" type="button" class="platform-primary-btn">
+                <i data-lucide="plus"></i>
+                Novo tenant
+            </button>
+        </div>
+    </section>
+
+    <section class="platform-stats mb-8">
+        <article class="glass platform-stat-card">
+            <span class="platform-stat-label">Tenants ativos</span>
+            <strong id="platformTotalTenants" class="platform-stat-value">0</strong>
+            <span class="platform-stat-helper">Ambientes provisionados</span>
+        </article>
+
+        <article class="glass platform-stat-card">
+            <span class="platform-stat-label">Empresas</span>
+            <strong id="platformTotalEmpresas" class="platform-stat-value">0</strong>
+            <span class="platform-stat-helper">Operacoes cadastradas</span>
+        </article>
+
+        <article class="glass platform-stat-card">
+            <span class="platform-stat-label">Admins iniciais</span>
+            <strong id="platformTotalAdmins" class="platform-stat-value">0</strong>
+            <span class="platform-stat-helper">Responsaveis por tenant</span>
+        </article>
+    </section>
+
+    <section class="glass platform-panel">
+        <div class="platform-panel-header">
+            <div>
+                <p class="platform-panel-kicker">Provisionamento</p>
+                <h3 class="platform-panel-title">Mapa atual da plataforma</h3>
+            </div>
+            <button type="button" class="platform-secondary-btn" id="refreshPlatformBtn">
+                <i data-lucide="refresh-cw"></i>
+                Atualizar
+            </button>
+        </div>
+
+        <div id="platformFeedback" class="platform-feedback hidden"></div>
+        <div id="platformTenantGrid" class="platform-tenant-grid"></div>
+    </section>
+</main>
+
+<div id="platformModalOverlay" class="platform-modal-overlay hidden"></div>
+
+<section id="tenantModal" class="platform-modal hidden" aria-hidden="true">
+    <div class="platform-modal-card glass">
+        <div class="platform-modal-header">
+            <div>
+                <p class="platform-panel-kicker">Novo tenant</p>
+                <h3 class="platform-panel-title">Criar tenant, primeira empresa e admin inicial</h3>
+            </div>
+            <button type="button" class="platform-close-btn" data-close-modal>
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <form id="tenantForm" class="platform-form-grid">
+            <label class="platform-field span-2">
+                <span>Nome do tenant</span>
+                <input id="tenantNome" type="text" class="input-field" required placeholder="Ex.: Rede Sul">
+            </label>
+
+            <label class="platform-field">
+                <span>Razao social</span>
+                <input id="tenantEmpresaRazaoSocial" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Nome fantasia</span>
+                <input id="tenantEmpresaNomeFantasia" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>CNPJ</span>
+                <input id="tenantEmpresaCnpj" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Tipo da empresa</span>
+                <select id="tenantEmpresaTipo" class="input-field" required>
+                    <option value="MATRIZ">Matriz</option>
+                    <option value="FILIAL">Filial</option>
+                </select>
+            </label>
+
+            <label class="platform-field">
+                <span>Nome do admin</span>
+                <input id="tenantAdminNome" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Usuario do admin</span>
+                <input id="tenantAdminUsuario" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>CPF do admin</span>
+                <input id="tenantAdminCpf" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Senha inicial</span>
+                <input id="tenantAdminSenha" type="password" class="input-field" required>
+            </label>
+
+            <div class="platform-form-actions span-2">
+                <button type="button" class="platform-ghost-btn" data-close-modal>Cancelar</button>
+                <button type="submit" class="platform-primary-btn">Provisionar tenant</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section id="companyModal" class="platform-modal hidden" aria-hidden="true">
+    <div class="platform-modal-card glass">
+        <div class="platform-modal-header">
+            <div>
+                <p class="platform-panel-kicker">Nova empresa</p>
+                <h3 class="platform-panel-title">Adicionar empresa ao tenant <span id="companyTenantName"></span></h3>
+            </div>
+            <button type="button" class="platform-close-btn" data-close-modal>
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <form id="companyForm" class="platform-form-grid">
+            <input id="companyTenantId" type="hidden">
+
+            <label class="platform-field">
+                <span>Razao social</span>
+                <input id="companyRazaoSocial" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Nome fantasia</span>
+                <input id="companyNomeFantasia" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>CNPJ</span>
+                <input id="companyCnpj" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Tipo da empresa</span>
+                <select id="companyTipoEmpresa" class="input-field" required>
+                    <option value="MATRIZ">Matriz</option>
+                    <option value="FILIAL">Filial</option>
+                </select>
+            </label>
+
+            <div class="platform-form-actions span-2">
+                <button type="button" class="platform-ghost-btn" data-close-modal>Cancelar</button>
+                <button type="submit" class="platform-primary-btn">Cadastrar empresa</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+<section id="adminModal" class="platform-modal hidden" aria-hidden="true">
+    <div class="platform-modal-card glass">
+        <div class="platform-modal-header">
+            <div>
+                <p class="platform-panel-kicker">Novo admin</p>
+                <h3 class="platform-panel-title">Adicionar admin ao tenant <span id="adminTenantName"></span></h3>
+            </div>
+            <button type="button" class="platform-close-btn" data-close-modal>
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+
+        <form id="adminForm" class="platform-form-grid">
+            <input id="adminTenantId" type="hidden">
+
+            <label class="platform-field span-2">
+                <span>Empresa vinculada</span>
+                <select id="adminEmpresaId" class="input-field" required></select>
+            </label>
+
+            <label class="platform-field">
+                <span>Nome</span>
+                <input id="adminNome" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Usuario</span>
+                <input id="adminUsuario" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>CPF</span>
+                <input id="adminCpf" type="text" class="input-field" required>
+            </label>
+
+            <label class="platform-field">
+                <span>Senha inicial</span>
+                <input id="adminSenha" type="password" class="input-field" required>
+            </label>
+
+            <div class="platform-form-actions span-2">
+                <button type="button" class="platform-ghost-btn" data-close-modal>Cancelar</button>
+                <button type="submit" class="platform-primary-btn">Cadastrar admin</button>
+            </div>
+        </form>
+    </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modulos/platform.js') }}"></script>
+{% endblock %}

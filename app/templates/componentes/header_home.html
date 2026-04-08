@@ -1,3 +1,8 @@
+{% set perfil = current_platform_owner or current_user %}
+{% set display_name = perfil.nome if perfil else "Usuario Administrativo" %}
+{% set display_scope = "Dono da Plataforma" if current_auth_scope == "platform" else ((current_user.role.nome) if current_user and current_user.role else "Usuario do Tenant") %}
+{% set display_initials = (display_name[:2]).upper() %}
+
 <header class="p-6 flex justify-between items-center border-b border-white/5 bg-black/10 backdrop-blur-md sticky top-0 z-50">
     <div class="flex items-center gap-2">
         <div class="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center">
@@ -11,13 +16,13 @@
     <div class="relative inline-block text-left">
         <button id="userMenuBtn" class="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-all group">
             <div class="text-right hidden md:block">
-                <p class="text-sm font-medium text-slate-200">Usuário Administrativo</p>
-                <p class="text-[10px] uppercase tracking-widest text-slate-500 group-hover:text-sky-400 transition-colors">Online</p>
+                <p class="text-sm font-medium text-slate-200">{{ display_name }}</p>
+                <p class="text-[10px] uppercase tracking-widest text-slate-500 group-hover:text-sky-400 transition-colors">{{ display_scope }}</p>
             </div>
-            
+
             <div class="relative">
                 <div class="w-10 h-10 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center text-xs font-bold text-sky-400 group-hover:border-sky-500/50 transition-all">
-                    UA
+                    {{ display_initials }}
                 </div>
                 <div class="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-500 border-2 border-[#0f172a] rounded-full"></div>
             </div>
@@ -27,19 +32,25 @@
 
         <div id="userDropdown" class="hidden absolute right-0 mt-3 w-56 glass rounded-2xl py-2 shadow-2xl animate-slide-in-top border border-white/10 z-[100]">
             <div class="px-4 py-3 border-b border-white/5 mb-2">
-                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Acesso Rápido</p>
+                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Acesso Rapido</p>
             </div>
 
+            {% if current_auth_scope == "platform" %}
+            <a href="{{ url_for('platform.home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="building-2" class="w-4 h-4"></i> Painel da Plataforma
+            </a>
+            {% else %}
             <a href="/api/funcionarios/view" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
                 <i data-lucide="user" class="w-4 h-4"></i> Funcionarios
             </a>
-            
+            {% endif %}
+
             <a href="/configuracoes" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="settings" class="w-4 h-4"></i> Configurações
+                <i data-lucide="settings" class="w-4 h-4"></i> Configuracoes
             </a>
 
             <a href="/notificacoes" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors border-b border-white/5">
-                <i data-lucide="bell" class="w-4 h-4"></i> Notificações
+                <i data-lucide="bell" class="w-4 h-4"></i> Notificacoes
             </a>
 
             <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors mt-1">

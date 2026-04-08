@@ -4,6 +4,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 from app.security.decorators import permission_required
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.estoque_service import EstoqueService
+from app.services.time_service import TimeService
 
 estoque_bp = Blueprint("estoque", __name__)
 
@@ -80,7 +81,7 @@ def listar_movimentos():
                     "observacao": item.observacao,
                     "venda_id": item.venda_id,
                     "origem": "PDV" if item.venda_id else "MANUAL",
-                    "data_movimento": item.data_movimento.isoformat(),
+                    "data_movimento": TimeService.serialize_utc_iso(item.data_movimento),
                 }
                 for item in movimentos
             ]
@@ -133,7 +134,7 @@ def criar_movimento_manual():
                 "valor_total": str(movimento.valor_total) if movimento.valor_total is not None else None,
                 "observacao": movimento.observacao,
                 "venda_id": movimento.venda_id,
-                "data_movimento": movimento.data_movimento.isoformat(),
+                "data_movimento": TimeService.serialize_utc_iso(movimento.data_movimento),
             }
         }), 201
     except Exception as e:

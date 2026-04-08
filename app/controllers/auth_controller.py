@@ -1,8 +1,8 @@
-from flask_jwt_extended import jwt_required, unset_jwt_cookies, set_access_cookies
-from flask import Blueprint, render_template, redirect, request, url_for, flash
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask_jwt_extended import set_access_cookies, unset_jwt_cookies
 
-from app.services.auth_service import AuthService
 from app.security.jwt import gerar_token
+from app.services.auth_service import AuthService
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -13,10 +13,11 @@ def login():
         return render_template("pages/login.html")
 
     try:
-        funcionario = AuthService.logar(request.form)
-        token = gerar_token(funcionario)
+        auth_data = AuthService.logar(request.form)
+        token = gerar_token(auth_data["user"], auth_data["scope"])
+        destino = "platform.home" if auth_data["scope"] == "platform" else "main.home"
 
-        response = redirect(url_for("main.home"))
+        response = redirect(url_for(destino))
         set_access_cookies(response, token)
         return response
 
@@ -30,7 +31,6 @@ def login():
 
 
 @auth_bp.route("/logout", methods=["GET"])
-@jwt_required()
 def logout():
     try:
         response = redirect(url_for("auth.login"))

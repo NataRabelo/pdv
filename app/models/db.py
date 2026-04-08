@@ -1,10 +1,11 @@
-from datetime import date, datetime
+from datetime import date
 import enum
 
 from sqlalchemy import CheckConstraint, Index, UniqueConstraint
 from sqlalchemy.orm import validates
 
 from app.extensions import db
+from app.services.time_service import TimeService
 
 
 class TipoEmpresa(enum.Enum):
@@ -58,8 +59,8 @@ class ModeloBase(db.Model):
     __abstract__ = True
 
     id = db.Column(db.Integer, primary_key=True)
-    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    atualizado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    criado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+    atualizado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive, onupdate=TimeService.now_utc_naive)
     tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=False, index=True)
 
 
@@ -68,14 +69,26 @@ class Tenant(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(120), nullable=False, unique=True)
-    criado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    atualizado_em = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+    criado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+    atualizado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive, onupdate=TimeService.now_utc_naive)
 
     empresas = db.relationship("Empresa", backref="tenant", lazy=True, cascade="all, delete-orphan")
     funcionarios = db.relationship("Funcionario", backref="tenant", lazy=True, cascade="all, delete-orphan")
     produtos = db.relationship("Produto", backref="tenant", lazy=True, cascade="all, delete-orphan")
     roles = db.relationship("Role", backref="tenant", lazy=True, cascade="all, delete-orphan")
     permissions = db.relationship("Permission", backref="tenant", lazy=True, cascade="all, delete-orphan")
+
+
+class PlatformOwner(db.Model):
+    __tablename__ = "platform_owners"
+
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(150), nullable=False)
+    usuario = db.Column(db.String(80), nullable=False, unique=True)
+    senha_hash = db.Column(db.String(255), nullable=False)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+    criado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+    atualizado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive, onupdate=TimeService.now_utc_naive)
 
 
 class Empresa(ModeloBase):
@@ -307,7 +320,7 @@ class MovimentoEstoque(ModeloBase):
     valor_unitario = db.Column(db.Numeric(12, 2), nullable=True)
     valor_total = db.Column(db.Numeric(12, 2), nullable=True)
     observacao = db.Column(db.Text, nullable=True)
-    data_movimento = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    data_movimento = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
 
     empresa = db.relationship("Empresa", backref=db.backref("movimentos_estoque", lazy=True))
     produto = db.relationship("Produto", backref=db.backref("movimentos_estoque", lazy=True))
@@ -334,7 +347,7 @@ class Venda(ModeloBase):
     subtotal = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
-    data_venda = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    data_venda = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
     observacao = db.Column(db.Text, nullable=True)
 
     empresa = db.relationship("Empresa", backref=db.backref("vendas", lazy=True))
@@ -397,7 +410,7 @@ class LancamentoFinanceiro(ModeloBase):
     tipo = db.Column(db.Enum(TipoFinanceiro), nullable=False)
     descricao = db.Column(db.String(255), nullable=False)
     valor = db.Column(db.Numeric(12, 2), nullable=False)
-    data_lancamento = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    data_lancamento = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
     data_competencia = db.Column(db.Date, nullable=True)
     observacao = db.Column(db.Text, nullable=True)
 

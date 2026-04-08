@@ -1,9 +1,9 @@
-from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from app.models.db import MotivoMovimentoEstoque, MovimentoEstoque, TipoMovimentoEstoque
 from app.repositorys.estoque_repository import EstoqueRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.time_service import TimeService
 
 
 class EstoqueService:
@@ -204,7 +204,7 @@ class EstoqueService:
             valor_unitario=valor_unitario,
             valor_total=valor_total,
             observacao=observacao,
-            data_movimento=data_movimento or datetime.utcnow(),
+            data_movimento=data_movimento or TimeService.now_utc_naive(),
         )
         EstoqueRepository.adicionar(movimento)
         EstoqueRepository.adicionar(produto_empresa)

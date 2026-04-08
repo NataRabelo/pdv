@@ -4,9 +4,10 @@ from zoneinfo import ZoneInfo
 
 class TimeService:
     """
-    Serviço centralizado para manipulação de datas e horários.
-    Regra: tudo entra e sai em UTC.
-    Conversão para fuso local apenas na exibição.
+    Regras do sistema:
+    - Persistencia em UTC
+    - Serializacao para API com offset explicito
+    - Conversao para horario local apenas na exibicao
     """
 
     TZ_UTC = timezone.utc
@@ -14,33 +15,40 @@ class TimeService:
 
     @staticmethod
     def now_utc() -> datetime:
-        """Retorna datetime atual em UTC (aware)."""
         return datetime.now(TimeService.TZ_UTC)
 
     @staticmethod
-    def to_utc(dt: datetime) -> datetime:
-        """
-        Garante que um datetime esteja em UTC.
-        - Se naive, assume que já está em UTC
-        - Se aware, converte para UTC
-        """
+    def now_utc_naive() -> datetime:
+        return TimeService.now_utc().replace(tzinfo=None)
+
+    @staticmethod
+    def to_utc(dt: datetime | None) -> datetime | None:
+        if dt is None:
+            return None
+
         if dt.tzinfo is None:
             return dt.replace(tzinfo=TimeService.TZ_UTC)
+
         return dt.astimezone(TimeService.TZ_UTC)
 
     @staticmethod
-    def to_brasilia(dt: datetime) -> datetime:
-        """
-        Converte datetime (UTC ou naive) para horário de Brasília.
-        """
+    def to_brasilia(dt: datetime | None) -> datetime | None:
         dt_utc = TimeService.to_utc(dt)
+        if dt_utc is None:
+            return None
         return dt_utc.astimezone(TimeService.TZ_BR)
 
     @staticmethod
-    def format_br(dt: datetime, fmt: str = "%d/%m/%Y %H:%M") -> str:
-        """
-        Formata datetime no padrão brasileiro.
-        """
+    def serialize_utc_iso(dt: datetime | None) -> str | None:
+        dt_utc = TimeService.to_utc(dt)
+        if dt_utc is None:
+            return None
+        return dt_utc.isoformat()
+
+    @staticmethod
+    def format_br(dt: datetime | None, fmt: str = "%d/%m/%Y %H:%M") -> str:
         if dt is None:
             return ""
-        return TimeService.to_brasilia(dt).strftime(fmt)
+
+        dt_br = TimeService.to_brasilia(dt)
+        return dt_br.strftime(fmt) if dt_br else ""

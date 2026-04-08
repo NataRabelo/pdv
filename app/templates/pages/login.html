@@ -1,6 +1,6 @@
 {% extends "bases/base_public.html" %}
 
-{% block title %}OceanBlue • Acesso Restrito{% endblock %}
+{% block title %}OceanBlue - Acesso Restrito{% endblock %}
 
 {% block body_class %}
 min-h-screen flex items-center justify-center p-6
@@ -13,7 +13,7 @@ min-h-screen flex items-center justify-center p-6
 {% block content %}
 
 <div class="w-full max-w-[400px]">
-  
+
   <div class="text-center mb-8">
     <div class="inline-flex items-center justify-center w-14 h-14 bg-sky-500/10 border border-sky-500/20 rounded-2xl mb-4">
       <i data-lucide="shield-check" class="text-sky-400 w-8 h-8"></i>
@@ -21,18 +21,18 @@ min-h-screen flex items-center justify-center p-6
     <h1 class="text-2xl font-bold text-white tracking-tight">
       Ocean<span class="text-sky-400">Blue</span>
     </h1>
-    <p class="text-slate-400 text-sm mt-1">Sistemas de Gestão Enterprise</p>
+    <p class="text-slate-400 text-sm mt-1">Acesso da plataforma e dos tenants em um unico login</p>
   </div>
 
   <div class="login-card p-8">
     <form action="/login" method="POST" class="space-y-6">
-      
+
       <div class="space-y-4">
         <div>
-          <label class="input-label">Identificação</label>
+          <label class="input-label">Identificacao</label>
           <div class="relative">
             <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
-            <input name="usuario" type="text" placeholder="Digite seu usuário" required
+            <input name="usuario" type="text" placeholder="Digite seu usuario" required
                    class="input-field pl-10" />
           </div>
         </div>
@@ -43,7 +43,7 @@ min-h-screen flex items-center justify-center p-6
           </div>
           <div class="relative">
             <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
-            <input name="senha" type="password" placeholder="••••••••" required
+            <input name="senha" type="password" placeholder="********" required
                    class="input-field pl-10" />
           </div>
         </div>
@@ -54,15 +54,16 @@ min-h-screen flex items-center justify-center p-6
       </button>
 
       <div class="text-center">
-        <a href="#" class="text-xs text-slate-400 hover:text-sky-400 transition-colors">
-          Problemas com o acesso? <span class="underline">Contate o suporte</span>
-        </a>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Dono da plataforma acessa o painel global.
+          Usuarios de tenant acessam os modulos operacionais.
+        </p>
       </div>
     </form>
   </div>
 
   <p class="mt-8 text-center text-slate-600 text-[10px] uppercase tracking-[0.2em]">
-    Ambiente Criptografado • ID: 029-XB
+    Ambiente Criptografado - ID: 029-XB
   </p>
 </div>
 

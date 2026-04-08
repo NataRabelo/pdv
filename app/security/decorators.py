@@ -1,8 +1,10 @@
 from functools import wraps
 
-from flask import jsonify
+from flask import flash, jsonify, redirect, url_for
 from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
+from flask_jwt_extended.exceptions import JWTExtendedException
 
+from app.security.jwt import get_auth_scope
 from app.services.acesso_empresa_service import AcessoEmpresaService
 
 
@@ -12,6 +14,12 @@ def permission_required(permissao_codigo):
         def wrapper(*args, **kwargs):
             try:
                 verify_jwt_in_request()
+                if get_auth_scope() != "tenant":
+                    return jsonify({
+                        "success": False,
+                        "message": "Esse recurso pertence ao painel operacional do tenant."
+                    }), 403
+
                 tenant_id = get_jwt().get("tenant_id")
                 funcionario_id = int(get_jwt_identity())
                 escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
@@ -28,6 +36,42 @@ def permission_required(permissao_codigo):
                     "success": False,
                     "message": str(e)
                 }), 403
+            except JWTExtendedException:
+                return jsonify({
+                    "success": False,
+                    "message": "Sessao invalida ou expirada."
+                }), 401
+
+        return wrapper
+
+    return decorator
+
+
+def platform_owner_required(api=False):
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            try:
+                verify_jwt_in_request()
+                if get_auth_scope() != "platform":
+                    raise PermissionError("Acesso restrito ao dono da plataforma.")
+
+                return fn(*args, **kwargs)
+            except PermissionError as e:
+                if api:
+                    return jsonify({"success": False, "message": str(e)}), 403
+
+                flash(str(e), "warning")
+                return redirect(url_for("auth.login"))
+            except JWTExtendedException:
+                if api:
+                    return jsonify({
+                        "success": False,
+                        "message": "Sessao invalida ou expirada."
+                    }), 401
+
+                flash("Sua sessao expirou. Faca login novamente.", "warning")
+                return redirect(url_for("auth.login"))
 
         return wrapper
 

@@ -3,8 +3,9 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from app.config import get_config
 from app.extensions import db, jwt, migrate
-from app.models.db import Funcionario
+from app.models.db import Funcionario, PlatformOwner
 from app.routes import register_blueprints
+from app.security.jwt import get_auth_scope
 from app.seeds.seed import run_seed
 
 
@@ -22,13 +23,31 @@ def register_context_processors(app: Flask) -> None:
             user_id = get_jwt_identity()
 
             if user_id:
+                auth_scope = get_auth_scope()
+
+                if auth_scope == "platform":
+                    owner = db.session.get(PlatformOwner, int(user_id))
+                    return {
+                        "current_user": None,
+                        "current_platform_owner": owner,
+                        "current_auth_scope": auth_scope,
+                    }
+
                 funcionario = db.session.get(Funcionario, int(user_id))
-                return {"current_user": funcionario}
+                return {
+                    "current_user": funcionario,
+                    "current_platform_owner": None,
+                    "current_auth_scope": auth_scope,
+                }
 
         except Exception:
             pass
 
-        return {"current_user": None}
+        return {
+            "current_user": None,
+            "current_platform_owner": None,
+            "current_auth_scope": None,
+        }
 
 
 def register_commands(app: Flask) -> None:
@@ -48,4 +67,3 @@ def create_app() -> Flask:
     register_commands(app)
 
     return app
-

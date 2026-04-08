@@ -1,3 +1,8 @@
+{% set perfil = current_platform_owner or current_user %}
+{% set display_name = perfil.nome if perfil else "Usuario Administrativo" %}
+{% set display_scope = "Dono da Plataforma" if current_auth_scope == "platform" else ((current_user.role.nome) if current_user and current_user.role else "Usuario do Tenant") %}
+{% set display_initials = (display_name[:2]).upper() %}
+
 <header class="p-4 flex justify-between items-center border-b border-white/5 bg-black/10 backdrop-blur-md sticky top-0 z-50">
     <div class="flex items-center gap-4">
         <button type="button" data-back-button class="p-2 hover:bg-white/10 rounded-lg transition-all text-slate-400 hover:text-white group" title="Voltar">
@@ -15,13 +20,13 @@
     <div class="relative inline-block text-left">
         <button id="userMenuBtn" class="flex items-center gap-3 p-1.5 rounded-xl hover:bg-white/5 transition-all group">
             <div class="text-right hidden sm:block">
-                <p class="text-xs font-medium text-slate-200">Usuario Administrativo</p>
-                <p class="text-[9px] uppercase tracking-[0.15em] text-emerald-500 font-bold">Unidade Matriz</p>
+                <p class="text-xs font-medium text-slate-200">{{ display_name }}</p>
+                <p class="text-[9px] uppercase tracking-[0.15em] text-emerald-500 font-bold">{{ display_scope }}</p>
             </div>
 
             <div class="relative">
                 <div class="w-9 h-9 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center text-xs font-bold text-sky-400 group-hover:border-sky-500/50 transition-all">
-                    UA
+                    {{ display_initials }}
                 </div>
                 <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-[#0f172a] rounded-full animate-pulse"></div>
             </div>
@@ -34,9 +39,15 @@
                 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Painel de Acesso</p>
             </div>
 
+            {% if current_auth_scope == "platform" %}
+            <a href="{{ url_for('platform.home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="building-2" class="w-4 h-4"></i> Painel da Plataforma
+            </a>
+            {% else %}
             <a href="/perfil" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
                 <i data-lucide="user" class="w-4 h-4"></i> Meu Perfil
             </a>
+            {% endif %}
 
             <a href="/configuracoes" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
                 <i data-lucide="settings" class="w-4 h-4"></i> Configuracoes
@@ -44,7 +55,7 @@
 
             <div class="h-[1px] bg-white/5 my-2"></div>
 
-            <a href="/home" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 transition-colors">
+            <a href="{{ url_for('platform.home') if current_auth_scope == 'platform' else url_for('main.home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 transition-colors">
                 <i data-lucide="layout-grid" class="w-4 h-4"></i> Mudar de Modulo
             </a>
 

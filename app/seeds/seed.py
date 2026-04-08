@@ -1,74 +1,36 @@
 from app.extensions import db
-from app.models.db import (
-    Empresa,
-    Funcionario,
-    FuncionarioEmpresa,
-    Permission,
-    Role,
-    RolePermission,
-    Tenant,
-    TipoEmpresa,
-)
+import os
+
+from app.models.db import Empresa, Funcionario, FuncionarioEmpresa, PlatformOwner, Tenant, TipoEmpresa
 from app.security.password import hash_password
-from app.security.permissions import DEFAULT_PERMISSION_DEFINITIONS, DEFAULT_ROLE_DEFINITIONS
+from app.services.tenant_bootstrap_service import TenantBootstrapService
 
 
-def _garantir_permissoes_e_roles(tenant_id):
-    permissions_by_code = {}
+def _garantir_platform_owner():
+    owner_name = os.getenv("PLATFORM_OWNER_NAME", "Owner Plataforma")
+    owner_user = os.getenv("PLATFORM_OWNER_USER", "platform")
+    owner_password = os.getenv("PLATFORM_OWNER_PASSWORD", "123456")
 
-    for definicao in DEFAULT_PERMISSION_DEFINITIONS:
-        permission = Permission.query.filter_by(tenant_id=tenant_id, codigo=definicao["codigo"]).first()
-        if not permission:
-            permission = Permission(
-                tenant_id=tenant_id,
-                nome=definicao["nome"],
-                codigo=definicao["codigo"],
-                descricao=definicao.get("descricao"),
-                ativo=True
-            )
-            db.session.add(permission)
-            db.session.commit()
-
-        permissions_by_code[permission.codigo] = permission
-
-    roles_por_codigo = {}
-
-    for definicao in DEFAULT_ROLE_DEFINITIONS:
-        role = Role.query.filter_by(tenant_id=tenant_id, codigo=definicao["codigo"]).first()
-        if not role:
-            role = Role(
-                tenant_id=tenant_id,
-                nome=definicao["nome"],
-                codigo=definicao["codigo"],
-                descricao=definicao.get("descricao"),
-                ativo=True
-            )
-            db.session.add(role)
-            db.session.commit()
-
-        roles_por_codigo[role.codigo] = role
-
-        for permission_code in definicao["permissoes"]:
-            permission = permissions_by_code[permission_code]
-            vinculo = RolePermission.query.filter_by(
-                tenant_id=tenant_id,
-                role_id=role.id,
-                permission_id=permission.id
-            ).first()
-
-            if not vinculo:
-                db.session.add(RolePermission(
-                    tenant_id=tenant_id,
-                    role_id=role.id,
-                    permission_id=permission.id
-                ))
-                db.session.commit()
-
-    return roles_por_codigo
+    owner = PlatformOwner.query.filter_by(usuario=owner_user).first()
+    if not owner:
+        owner = PlatformOwner(
+            nome=owner_name,
+            usuario=owner_user,
+            senha_hash=hash_password(owner_password),
+            ativo=True,
+        )
+        db.session.add(owner)
+        db.session.commit()
+        print("Platform owner criado")
+        print(f"Usuario plataforma: {owner_user}")
+        print(f"Senha plataforma: {owner_password}")
+    else:
+        print("Platform owner ja existe")
 
 
 def run_seed():
     print("Iniciando seed...")
+    _garantir_platform_owner()
 
     tenant_nome = "BlueOcean"
     tenant = Tenant.query.filter_by(nome=tenant_nome).first()
@@ -81,7 +43,7 @@ def run_seed():
     else:
         print("Tenant ja existe")
 
-    roles_por_codigo = _garantir_permissoes_e_roles(tenant.id)
+    roles_por_codigo = TenantBootstrapService.garantir_permissoes_e_roles(tenant.id)
 
     empresas_seed = [
         {
