@@ -40,18 +40,26 @@
                 <i data-lucide="building-2" class="w-4 h-4"></i> Painel da Plataforma
             </a>
             {% else %}
-            <a href="/api/funcionarios/view" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="user" class="w-4 h-4"></i> Funcionarios
+            <a href="{{ url_for('main.home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i> Home Operacional
+            </a>
+
+            <a href="{{ url_for('main.pdv_home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="shopping-cart" class="w-4 h-4"></i> PDV
+            </a>
+
+            <a href="{{ url_for('main.estoque_home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="boxes" class="w-4 h-4"></i> Estoque
+            </a>
+
+            <a href="{{ url_for('main.financeiro_home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="landmark" class="w-4 h-4"></i> Financeiro
+            </a>
+
+            <a href="/api/funcionarios/view" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors border-b border-white/5">
+                <i data-lucide="users" class="w-4 h-4"></i> Funcionarios
             </a>
             {% endif %}
-
-            <a href="/configuracoes" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="settings" class="w-4 h-4"></i> Configuracoes
-            </a>
-
-            <a href="/notificacoes" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors border-b border-white/5">
-                <i data-lucide="bell" class="w-4 h-4"></i> Notificacoes
-            </a>
 
             <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors mt-1">
                 <i data-lucide="log-out" class="w-4 h-4"></i> Sair do Sistema

@@ -31,6 +31,28 @@ body {
   overflow-x: hidden;
 }
 
+.page-shell {
+  width: min(100%, 1700px);
+  margin-inline: auto;
+  padding: 2rem clamp(1rem, 1.8vw, 2.25rem) 2.5rem;
+}
+
+.page-shell-home {
+  width: min(100%, 1620px);
+  margin-inline: auto;
+  padding: 2rem clamp(1rem, 1.8vw, 2.5rem) 2.75rem;
+}
+
+@media (min-width: 1536px) {
+  .page-shell {
+    width: min(100%, 1780px);
+  }
+
+  .page-shell-home {
+    width: min(100%, 1700px);
+  }
+}
+
 /* Glass Card */
 .glass {
   background: var(--glass-bg);
@@ -231,8 +253,11 @@ textarea.input-field {
   align-items: flex-start;
   justify-content: space-between;
   padding: 1rem 1.25rem;
-  border-top: 1px solid rgba(30, 41, 59, 0.9);
-  background: rgba(2, 6, 23, 0.42);
+  border: 1px solid rgba(30, 41, 59, 0.9);
+  border-radius: 1rem;
+  background: rgba(2, 6, 23, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  overflow: visible;
 }
 
 .pagination-summary {
@@ -243,7 +268,7 @@ textarea.input-field {
 .pagination-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.65rem;
 }
 
 .pagination-btn {
@@ -283,6 +308,19 @@ textarea.input-field {
   min-width: 2rem;
   color: #64748b;
   font-weight: 700;
+}
+
+.pagination-shell-single {
+  justify-content: flex-start;
+}
+
+[id$="-pagination"] {
+  padding: 0 1rem 1rem;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, rgba(2, 6, 23, 0.12) 100%);
+}
+
+[id$="-pagination"]:empty {
+  display: none;
 }
 
 @media (min-width: 768px) {

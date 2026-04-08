@@ -178,10 +178,17 @@ window.CrudPage = class CrudPage {
         const totalPages = this.getTotalPages();
         const pageSize = Math.max(Number(this.config.pageSize) || 10, 1);
 
-        if (!totalItems || totalPages <= 1) {
-            container.innerHTML = totalItems
-                ? `<div class="pagination-summary">Exibindo ${totalItems} registro(s).</div>`
-                : "";
+        if (!totalItems) {
+            container.innerHTML = "";
+            return;
+        }
+
+        if (totalPages <= 1) {
+            container.innerHTML = `
+                <div class="pagination-shell pagination-shell-single">
+                    <div class="pagination-summary">Exibindo ${totalItems} registro(s).</div>
+                </div>
+            `;
             return;
         }
 

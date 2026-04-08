@@ -1,0 +1,67 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue - Home PDV{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "PDV" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 page-shell-home">
+    <div class="mb-8">
+        <h2 class="text-4xl font-light text-white mb-2">
+            Operacao de <span class="font-bold">Caixa</span>
+        </h2>
+        <p class="text-slate-400">Venda rapida para pequenas lojas, com estoque e financeiro integrados.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <a href="/api/pdv/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="shopping-cart"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Abrir PDV</h4>
+                <p class="text-slate-400 text-sm">Atender clientes, fechar vendas e receber pagamentos</p>
+            </div>
+        </a>
+
+        <a href="/api/estoque/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="boxes"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Conferir estoque</h4>
+                <p class="text-slate-400 text-sm">Acompanhar saldo e evitar ruptura no caixa</p>
+            </div>
+        </a>
+
+        <a href="/api/financeiro/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="landmark"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Financeiro</h4>
+                <p class="text-slate-400 text-sm">Fluxo de caixa e conferencias das vendas</p>
+            </div>
+        </a>
+
+        <a href="/api/produtos/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="package-plus"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Produtos</h4>
+                <p class="text-slate-400 text-sm">Cadastrar e atualizar os itens disponiveis no caixa</p>
+            </div>
+        </a>
+    </div>
+</main>
+{% endblock %}

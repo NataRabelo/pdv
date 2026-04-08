@@ -44,6 +44,8 @@ def run_seed():
         print("Tenant ja existe")
 
     roles_por_codigo = TenantBootstrapService.garantir_permissoes_e_roles(tenant.id)
+    TenantBootstrapService.garantir_cadastros_operacionais(tenant.id)
+    db.session.commit()
 
     empresas_seed = [
         {

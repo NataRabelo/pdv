@@ -19,6 +19,12 @@ DEFAULT_PERMISSION_DEFINITIONS = [
     {"codigo": "criar_permission", "nome": "Criar permissions"},
     {"codigo": "editar_permission", "nome": "Editar permissions"},
     {"codigo": "excluir_permission", "nome": "Excluir permissions"},
+    {"codigo": "visualizar_pdv", "nome": "Visualizar PDV"},
+    {"codigo": "registrar_venda", "nome": "Registrar vendas"},
+    {"codigo": "cancelar_venda", "nome": "Cancelar vendas"},
+    {"codigo": "visualizar_financeiro", "nome": "Visualizar financeiro"},
+    {"codigo": "criar_lancamento_financeiro", "nome": "Criar lancamentos financeiros"},
+    {"codigo": "fechar_caixa", "nome": "Fechar caixa"},
     {"codigo": "visualizar_todas_empresas", "nome": "Visualizar dados de todas as empresas"},
 ]
 
@@ -43,6 +49,11 @@ DEFAULT_ROLE_DEFINITIONS = [
             "criar_produto",
             "editar_produto",
             "excluir_produto",
+            "visualizar_pdv",
+            "registrar_venda",
+            "visualizar_financeiro",
+            "criar_lancamento_financeiro",
+            "fechar_caixa",
         ],
     },
 ]

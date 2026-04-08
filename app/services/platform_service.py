@@ -44,6 +44,7 @@ class PlatformService:
             PlatformRepository.flush()
 
             roles_por_codigo = TenantBootstrapService.garantir_permissoes_e_roles(tenant.id)
+            TenantBootstrapService.garantir_cadastros_operacionais(tenant.id)
             empresa_obj = PlatformService._criar_empresa_obj(tenant.id, empresa)
             PlatformRepository.adicionar(empresa_obj)
             PlatformRepository.flush()

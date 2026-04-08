@@ -120,7 +120,15 @@ class EstoqueService:
             raise
 
     @staticmethod
-    def registrar_saida_por_venda(venda_id, empresa_id, itens, tenant_id, funcionario_id=None, escopo=None):
+    def registrar_saida_por_venda(
+        venda_id,
+        empresa_id,
+        itens,
+        tenant_id,
+        funcionario_id=None,
+        escopo=None,
+        persistir=True,
+    ):
         if escopo is not None:
             AcessoEmpresaService.validar_empresa(empresa_id, escopo)
 
@@ -153,10 +161,62 @@ class EstoqueService:
                 )
                 movimentos.append(movimento)
 
-            EstoqueRepository.salvar()
+            if persistir:
+                EstoqueRepository.salvar()
             return movimentos
         except Exception:
-            EstoqueRepository.rollback()
+            if persistir:
+                EstoqueRepository.rollback()
+            raise
+
+    @staticmethod
+    def registrar_entrada_por_cancelamento_venda(
+        venda_id,
+        empresa_id,
+        itens,
+        tenant_id,
+        funcionario_id=None,
+        escopo=None,
+        persistir=True,
+    ):
+        if escopo is not None:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        movimentos = []
+
+        try:
+            for item in itens:
+                produto_id = EstoqueService._to_int(item.get("produto_id"), "Produto")
+                quantidade = EstoqueService._to_positive_int(item.get("quantidade"), "quantidade")
+                valor_unitario = EstoqueService._to_optional_decimal(
+                    item.get("valor_unitario"),
+                    "valor unitario",
+                    casas=2,
+                )
+
+                produto_empresa = EstoqueRepository.buscar_produto_empresa(produto_id, empresa_id, tenant_id)
+                if not produto_empresa:
+                    raise ValueError("Produto da venda nao encontrado no estoque da empresa.")
+
+                movimento = EstoqueService._registrar_movimento(
+                    tenant_id=tenant_id,
+                    produto_empresa=produto_empresa,
+                    tipo_movimento=TipoMovimentoEstoque.ENTRADA,
+                    motivo=MotivoMovimentoEstoque.DEVOLUCAO,
+                    quantidade=quantidade,
+                    funcionario_id=funcionario_id,
+                    venda_id=venda_id,
+                    valor_unitario=valor_unitario,
+                    observacao="Estorno automatico por cancelamento de venda do PDV.",
+                )
+                movimentos.append(movimento)
+
+            if persistir:
+                EstoqueRepository.salvar()
+            return movimentos
+        except Exception:
+            if persistir:
+                EstoqueRepository.rollback()
             raise
 
     @staticmethod

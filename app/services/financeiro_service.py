@@ -1,0 +1,611 @@
+from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
+
+from app.extensions import db
+from app.models.db import (
+    CategoriaFinanceira,
+    FechamentoCaixa,
+    FormaPagamento,
+    LancamentoFinanceiro,
+    StatusVenda,
+    TipoCategoriaFinanceira,
+    TipoFinanceiro,
+    Venda,
+)
+from app.repositorys.financeiro_repository import FinanceiroRepository
+from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.tenant_bootstrap_service import TenantBootstrapService
+from app.services.time_service import TimeService
+
+
+class FinanceiroService:
+    CATEGORIA_VENDA = "Vendas PDV"
+    CATEGORIA_ESTORNO = "Estorno de vendas"
+    FORMA_DINHEIRO = "Dinheiro"
+
+    @staticmethod
+    def listar_auxiliares(tenant_id, escopo):
+        FinanceiroService._garantir_base_operacional(tenant_id)
+
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        empresas = FinanceiroRepository.listar_empresas(tenant_id, empresa_ids=empresa_ids)
+        formas = FinanceiroRepository.listar_formas_pagamento(tenant_id)
+        categorias = FinanceiroRepository.listar_categorias(tenant_id)
+
+        return {
+            "empresas": [
+                {"id": empresa.id, "nome": empresa.nome_fantasia}
+                for empresa in empresas
+            ],
+            "formas_pagamento": [
+                {"id": forma.id, "nome": forma.nome}
+                for forma in formas
+            ],
+            "categorias": {
+                "ENTRADA": [
+                    {"id": categoria.id, "nome": categoria.nome}
+                    for categoria in categorias
+                    if categoria.tipo_categoria == TipoCategoriaFinanceira.ENTRADA
+                ],
+                "SAIDA": [
+                    {"id": categoria.id, "nome": categoria.nome}
+                    for categoria in categorias
+                    if categoria.tipo_categoria == TipoCategoriaFinanceira.SAIDA
+                ],
+            },
+        }
+
+    @staticmethod
+    def listar_lancamentos(tenant_id, escopo, empresa_id=None, tipo=None, data_inicio=None, data_fim=None, limite=100):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+
+        if empresa_id:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        tipo_enum = FinanceiroService._to_optional_tipo_financeiro(tipo)
+        data_inicio_obj = FinanceiroService._to_optional_date(data_inicio)
+        data_fim_obj = FinanceiroService._to_optional_date(data_fim)
+
+        lancamentos = FinanceiroRepository.listar_lancamentos(
+            tenant_id=tenant_id,
+            empresa_ids=empresa_ids,
+            empresa_id=empresa_id,
+            tipo=tipo_enum,
+            data_inicio=data_inicio_obj,
+            data_fim=data_fim_obj,
+            limite=limite,
+        )
+
+        return [FinanceiroService.serializar_lancamento(item) for item in lancamentos]
+
+    @staticmethod
+    def listar_fechamentos(tenant_id, escopo, empresa_id=None, limite=30):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+
+        if empresa_id:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        fechamentos = FinanceiroRepository.listar_fechamentos(
+            tenant_id=tenant_id,
+            empresa_ids=empresa_ids,
+            empresa_id=empresa_id,
+            limite=limite,
+        )
+
+        dados = []
+        for fechamento in fechamentos:
+            resumo = FinanceiroService.calcular_resumo_caixa(
+                tenant_id=tenant_id,
+                escopo=escopo,
+                empresa_id=fechamento.empresa_id,
+                data_referencia=fechamento.data_fechamento,
+                valor_inicial=fechamento.valor_inicial,
+            )
+            dados.append(FinanceiroService.serializar_fechamento(fechamento, resumo))
+
+        return dados
+
+    @staticmethod
+    def obter_dashboard(tenant_id, escopo, empresa_id=None, periodo_dias=30):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+
+        if empresa_id:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        periodo = max(int(periodo_dias or 30), 1)
+        data_fim = date.today()
+        data_inicio = data_fim - timedelta(days=periodo - 1)
+
+        base_lancamentos = FinanceiroRepository.query_lancamentos(
+            tenant_id=tenant_id,
+            empresa_ids=empresa_ids,
+            empresa_id=empresa_id,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+        )
+
+        total_entradas = FinanceiroService._to_decimal_value(
+            base_lancamentos
+            .filter(LancamentoFinanceiro.tipo == TipoFinanceiro.ENTRADA)
+            .with_entities(db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0))
+            .scalar()
+        )
+        total_saidas = FinanceiroService._to_decimal_value(
+            base_lancamentos
+            .filter(LancamentoFinanceiro.tipo == TipoFinanceiro.SAIDA)
+            .with_entities(db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0))
+            .scalar()
+        )
+
+        base_vendas = (
+            FinanceiroRepository.query_vendas(
+                tenant_id=tenant_id,
+                empresa_ids=empresa_ids,
+                empresa_id=empresa_id,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+            )
+            .filter(Venda.status == StatusVenda.FINALIZADA)
+        )
+
+        quantidade_vendas = base_vendas.count()
+        total_vendas = FinanceiroService._to_decimal_value(
+            base_vendas.with_entities(db.func.coalesce(db.func.sum(Venda.total), 0)).scalar()
+        )
+        ticket_medio = (
+            (total_vendas / Decimal(quantidade_vendas)).quantize(Decimal("0.01"))
+            if quantidade_vendas
+            else Decimal("0.00")
+        )
+        saldo = (total_entradas - total_saidas).quantize(Decimal("0.01"))
+
+        serie_query = (
+            base_lancamentos
+            .with_entities(
+                db.func.date(LancamentoFinanceiro.data_lancamento).label("dia"),
+                LancamentoFinanceiro.tipo.label("tipo"),
+                db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0).label("valor"),
+            )
+            .group_by(
+                db.func.date(LancamentoFinanceiro.data_lancamento),
+                LancamentoFinanceiro.tipo,
+            )
+            .all()
+        )
+
+        serie_por_dia = {
+            dia: {"data": dia.isoformat(), "entradas": Decimal("0.00"), "saidas": Decimal("0.00")}
+            for dia in (data_inicio + timedelta(days=offset) for offset in range(periodo))
+        }
+        for item in serie_query:
+            valor = FinanceiroService._to_decimal_value(item.valor)
+            if item.tipo == TipoFinanceiro.ENTRADA:
+                serie_por_dia[item.dia]["entradas"] = valor
+            else:
+                serie_por_dia[item.dia]["saidas"] = valor
+
+        categorias_top = (
+            base_lancamentos
+            .join(LancamentoFinanceiro.categoria)
+            .with_entities(
+                db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0).label("valor"),
+                LancamentoFinanceiro.tipo.label("tipo"),
+                CategoriaFinanceira.nome.label("categoria_nome"),
+            )
+            .group_by(CategoriaFinanceira.nome, LancamentoFinanceiro.tipo)
+            .order_by(db.desc("valor"))
+            .limit(6)
+            .all()
+        )
+
+        formas_pagamento = (
+            base_lancamentos
+            .join(LancamentoFinanceiro.forma_pagamento)
+            .filter(LancamentoFinanceiro.tipo == TipoFinanceiro.ENTRADA)
+            .with_entities(
+                db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0).label("valor"),
+                FormaPagamento.nome.label("forma_nome"),
+            )
+            .group_by(FormaPagamento.nome)
+            .order_by(db.desc("valor"))
+            .all()
+        )
+
+        caixa_hoje = FinanceiroService.calcular_resumo_caixa(
+            tenant_id=tenant_id,
+            escopo=escopo,
+            empresa_id=empresa_id,
+            data_referencia=data_fim,
+            valor_inicial=Decimal("0.00"),
+        )
+
+        return {
+            "periodo": {
+                "dias": periodo,
+                "data_inicio": data_inicio.isoformat(),
+                "data_fim": data_fim.isoformat(),
+            },
+            "kpis": {
+                "entradas": str(total_entradas),
+                "saidas": str(total_saidas),
+                "saldo": str(saldo),
+                "vendas": quantidade_vendas,
+                "faturamento": str(total_vendas),
+                "ticket_medio": str(ticket_medio),
+            },
+            "serie_diaria": [
+                {
+                    "data": item["data"],
+                    "entradas": str(item["entradas"]),
+                    "saidas": str(item["saidas"]),
+                }
+                for item in serie_por_dia.values()
+            ],
+            "categorias_top": [
+                {
+                    "categoria_nome": item.categoria_nome,
+                    "tipo": item.tipo.value,
+                    "valor": str(FinanceiroService._to_decimal_value(item.valor)),
+                }
+                for item in categorias_top
+            ],
+            "formas_pagamento": [
+                {
+                    "forma_nome": item.forma_nome,
+                    "valor": str(FinanceiroService._to_decimal_value(item.valor)),
+                }
+                for item in formas_pagamento
+            ],
+            "caixa_hoje": {
+                "data": data_fim.isoformat(),
+                "entradas_dinheiro": str(caixa_hoje["entradas_dinheiro"]),
+                "saidas_dinheiro": str(caixa_hoje["saidas_dinheiro"]),
+                "saldo_dinheiro": str(caixa_hoje["saldo_dinheiro"]),
+                "saldo_esperado": str(caixa_hoje["saldo_esperado"]),
+            },
+        }
+
+    @staticmethod
+    def criar_lancamento_manual(data, tenant_id, escopo, funcionario_id):
+        try:
+            FinanceiroService._garantir_base_operacional(tenant_id)
+
+            empresa_id = FinanceiroService._to_int(data.get("empresa_id"), "Empresa")
+            tipo = FinanceiroService._to_tipo_financeiro(data.get("tipo"))
+            categoria_id = FinanceiroService._to_int(data.get("categoria_id"), "Categoria")
+            forma_pagamento_id = FinanceiroService._to_int(data.get("forma_pagamento_id"), "Forma de pagamento")
+            descricao = (data.get("descricao") or "").strip()
+            valor = FinanceiroService._to_decimal(data.get("valor"), "valor")
+            observacao = (data.get("observacao") or "").strip() or None
+            data_competencia = FinanceiroService._to_optional_date(data.get("data_competencia"))
+
+            if not descricao:
+                raise ValueError("Descricao e obrigatoria.")
+
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+            categoria = FinanceiroRepository.buscar_categoria_por_id(categoria_id, tenant_id)
+            if not categoria or not categoria.ativo:
+                raise ValueError("Categoria financeira nao encontrada.")
+
+            if categoria.tipo_categoria.value != tipo.value:
+                raise ValueError("A categoria informada nao corresponde ao tipo do lancamento.")
+
+            forma_pagamento = FinanceiroRepository.buscar_forma_pagamento_por_id(forma_pagamento_id, tenant_id)
+            if not forma_pagamento or not forma_pagamento.ativo:
+                raise ValueError("Forma de pagamento nao encontrada.")
+
+            lancamento = LancamentoFinanceiro(
+                tenant_id=tenant_id,
+                empresa_id=empresa_id,
+                funcionario_id=funcionario_id,
+                categoria_id=categoria.id,
+                forma_pagamento_id=forma_pagamento.id,
+                tipo=tipo,
+                descricao=descricao,
+                valor=valor,
+                data_lancamento=TimeService.now_utc_naive(),
+                data_competencia=data_competencia,
+                observacao=observacao,
+            )
+            FinanceiroRepository.adicionar(lancamento)
+            FinanceiroRepository.salvar()
+            return FinanceiroService.serializar_lancamento(lancamento)
+        except Exception:
+            FinanceiroRepository.rollback()
+            raise
+
+    @staticmethod
+    def registrar_entradas_da_venda(venda, pagamentos, tenant_id, funcionario_id=None, persistir=True):
+        try:
+            categoria = FinanceiroRepository.buscar_categoria_por_nome(
+                FinanceiroService.CATEGORIA_VENDA,
+                TipoCategoriaFinanceira.ENTRADA,
+                tenant_id,
+            )
+            if not categoria:
+                raise ValueError("Categoria padrao de vendas nao encontrada.")
+
+            for pagamento in pagamentos:
+                descricao = f"Venda {venda.numero_unico}"
+                if getattr(pagamento, "forma_pagamento", None):
+                    descricao = f"{descricao} - {pagamento.forma_pagamento.nome}"
+
+                FinanceiroRepository.adicionar(
+                    LancamentoFinanceiro(
+                        tenant_id=tenant_id,
+                        empresa_id=venda.empresa_id,
+                        funcionario_id=funcionario_id,
+                        categoria_id=categoria.id,
+                        forma_pagamento_id=pagamento.forma_pagamento_id,
+                        venda_id=venda.id,
+                        tipo=TipoFinanceiro.ENTRADA,
+                        descricao=descricao,
+                        valor=FinanceiroService._to_decimal_value(pagamento.valor),
+                        data_lancamento=TimeService.now_utc_naive(),
+                        data_competencia=date.today(),
+                        observacao="Entrada automatica gerada pelo fechamento da venda no PDV.",
+                    )
+                )
+
+            if persistir:
+                FinanceiroRepository.salvar()
+        except Exception:
+            if persistir:
+                FinanceiroRepository.rollback()
+            raise
+
+    @staticmethod
+    def registrar_estorno_da_venda(venda, tenant_id, funcionario_id=None, persistir=True):
+        try:
+            categoria = FinanceiroRepository.buscar_categoria_por_nome(
+                FinanceiroService.CATEGORIA_ESTORNO,
+                TipoCategoriaFinanceira.SAIDA,
+                tenant_id,
+            )
+            if not categoria:
+                raise ValueError("Categoria padrao de estorno nao encontrada.")
+
+            for pagamento in venda.pagamentos:
+                descricao = f"Estorno da venda {venda.numero_unico}"
+                if pagamento.forma_pagamento:
+                    descricao = f"{descricao} - {pagamento.forma_pagamento.nome}"
+
+                FinanceiroRepository.adicionar(
+                    LancamentoFinanceiro(
+                        tenant_id=tenant_id,
+                        empresa_id=venda.empresa_id,
+                        funcionario_id=funcionario_id,
+                        categoria_id=categoria.id,
+                        forma_pagamento_id=pagamento.forma_pagamento_id,
+                        venda_id=venda.id,
+                        tipo=TipoFinanceiro.SAIDA,
+                        descricao=descricao,
+                        valor=FinanceiroService._to_decimal_value(pagamento.valor),
+                        data_lancamento=TimeService.now_utc_naive(),
+                        data_competencia=date.today(),
+                        observacao="Saida automatica gerada pelo cancelamento da venda no PDV.",
+                    )
+                )
+
+            if persistir:
+                FinanceiroRepository.salvar()
+        except Exception:
+            if persistir:
+                FinanceiroRepository.rollback()
+            raise
+
+    @staticmethod
+    def criar_fechamento(data, tenant_id, escopo, funcionario_id):
+        try:
+            FinanceiroService._garantir_base_operacional(tenant_id)
+
+            empresa_id = FinanceiroService._to_int(data.get("empresa_id"), "Empresa")
+            data_fechamento = FinanceiroService._to_optional_date(data.get("data_fechamento")) or date.today()
+            valor_inicial = FinanceiroService._to_non_negative_decimal(data.get("valor_inicial"), "valor inicial")
+            valor_final = FinanceiroService._to_non_negative_decimal(data.get("valor_final"), "valor final")
+            observacao = (data.get("observacao") or "").strip() or None
+
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+            if FinanceiroRepository.buscar_fechamento_existente(
+                tenant_id=tenant_id,
+                empresa_id=empresa_id,
+                funcionario_id=funcionario_id,
+                data_fechamento=data_fechamento,
+            ):
+                raise ValueError("Ja existe um fechamento de caixa para esse operador nesta data.")
+
+            fechamento = FechamentoCaixa(
+                tenant_id=tenant_id,
+                empresa_id=empresa_id,
+                funcionario_id=funcionario_id,
+                data_fechamento=data_fechamento,
+                valor_inicial=valor_inicial,
+                valor_final=valor_final,
+                observacao=observacao,
+            )
+            FinanceiroRepository.adicionar(fechamento)
+            FinanceiroRepository.salvar()
+
+            resumo = FinanceiroService.calcular_resumo_caixa(
+                tenant_id=tenant_id,
+                escopo=escopo,
+                empresa_id=empresa_id,
+                data_referencia=data_fechamento,
+                valor_inicial=valor_inicial,
+            )
+            return FinanceiroService.serializar_fechamento(fechamento, resumo)
+        except Exception:
+            FinanceiroRepository.rollback()
+            raise
+
+    @staticmethod
+    def calcular_resumo_caixa(tenant_id, escopo, empresa_id=None, data_referencia=None, valor_inicial=None):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        data_ref = data_referencia or date.today()
+        valor_inicial_decimal = FinanceiroService._to_decimal_value(valor_inicial or 0)
+
+        if empresa_id:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        forma_dinheiro = FinanceiroRepository.buscar_forma_pagamento_por_nome(
+            FinanceiroService.FORMA_DINHEIRO,
+            tenant_id,
+        )
+        if not forma_dinheiro:
+            return {
+                "entradas_dinheiro": Decimal("0.00"),
+                "saidas_dinheiro": Decimal("0.00"),
+                "saldo_dinheiro": Decimal("0.00"),
+                "saldo_esperado": valor_inicial_decimal,
+            }
+
+        base = FinanceiroRepository.query_lancamentos(
+            tenant_id=tenant_id,
+            empresa_ids=empresa_ids,
+            empresa_id=empresa_id,
+            data_inicio=data_ref,
+            data_fim=data_ref,
+        ).filter(LancamentoFinanceiro.forma_pagamento_id == forma_dinheiro.id)
+
+        entradas = FinanceiroService._to_decimal_value(
+            base.filter(LancamentoFinanceiro.tipo == TipoFinanceiro.ENTRADA)
+            .with_entities(db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0))
+            .scalar()
+        )
+        saidas = FinanceiroService._to_decimal_value(
+            base.filter(LancamentoFinanceiro.tipo == TipoFinanceiro.SAIDA)
+            .with_entities(db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0))
+            .scalar()
+        )
+        saldo_dinheiro = (entradas - saidas).quantize(Decimal("0.01"))
+
+        return {
+            "entradas_dinheiro": entradas,
+            "saidas_dinheiro": saidas,
+            "saldo_dinheiro": saldo_dinheiro,
+            "saldo_esperado": (valor_inicial_decimal + saldo_dinheiro).quantize(Decimal("0.01")),
+        }
+
+    @staticmethod
+    def serializar_lancamento(lancamento):
+        return {
+            "id": lancamento.id,
+            "empresa_id": lancamento.empresa_id,
+            "empresa_nome": lancamento.empresa.nome_fantasia if lancamento.empresa else None,
+            "funcionario_nome": lancamento.funcionario.nome if lancamento.funcionario else None,
+            "categoria_id": lancamento.categoria_id,
+            "categoria_nome": lancamento.categoria.nome if lancamento.categoria else None,
+            "forma_pagamento_id": lancamento.forma_pagamento_id,
+            "forma_pagamento_nome": lancamento.forma_pagamento.nome if lancamento.forma_pagamento else None,
+            "venda_id": lancamento.venda_id,
+            "tipo": lancamento.tipo.value,
+            "descricao": lancamento.descricao,
+            "valor": str(FinanceiroService._to_decimal_value(lancamento.valor)),
+            "data_lancamento": TimeService.serialize_utc_iso(lancamento.data_lancamento),
+            "data_competencia": lancamento.data_competencia.isoformat() if lancamento.data_competencia else None,
+            "observacao": lancamento.observacao,
+            "origem": "PDV" if lancamento.venda_id else "MANUAL",
+        }
+
+    @staticmethod
+    def serializar_fechamento(fechamento, resumo):
+        valor_final = FinanceiroService._to_decimal_value(fechamento.valor_final)
+        saldo_esperado = FinanceiroService._to_decimal_value(resumo["saldo_esperado"])
+
+        return {
+            "id": fechamento.id,
+            "empresa_id": fechamento.empresa_id,
+            "empresa_nome": fechamento.empresa.nome_fantasia if fechamento.empresa else None,
+            "funcionario_id": fechamento.funcionario_id,
+            "funcionario_nome": fechamento.funcionario.nome if fechamento.funcionario else None,
+            "data_fechamento": fechamento.data_fechamento.isoformat(),
+            "valor_inicial": str(FinanceiroService._to_decimal_value(fechamento.valor_inicial)),
+            "valor_final": str(valor_final),
+            "valor_sistema": str(saldo_esperado),
+            "diferenca": str((valor_final - saldo_esperado).quantize(Decimal("0.01"))),
+            "observacao": fechamento.observacao,
+        }
+
+    @staticmethod
+    def _garantir_base_operacional(tenant_id):
+        try:
+            TenantBootstrapService.garantir_cadastros_operacionais(tenant_id)
+            FinanceiroRepository.salvar()
+        except Exception:
+            FinanceiroRepository.rollback()
+            raise
+
+    @staticmethod
+    def _to_tipo_financeiro(value):
+        try:
+            return TipoFinanceiro[(value or "").strip().upper()]
+        except KeyError:
+            raise ValueError("Tipo de lancamento invalido.")
+
+    @staticmethod
+    def _to_optional_tipo_financeiro(value):
+        if value in (None, ""):
+            return None
+        return FinanceiroService._to_tipo_financeiro(value)
+
+    @staticmethod
+    def _to_int(value, field_name):
+        if value in (None, ""):
+            raise ValueError(f"{field_name} e obrigatorio.")
+
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field_name} invalido.")
+
+    @staticmethod
+    def _to_decimal(value, field_name):
+        if value in (None, ""):
+            raise ValueError(f"Informe {field_name}.")
+
+        try:
+            valor = Decimal(str(value).replace(",", "."))
+        except (InvalidOperation, ValueError):
+            raise ValueError(f"Valor invalido para {field_name}.")
+
+        if valor <= 0:
+            raise ValueError(f"{field_name.capitalize()} deve ser maior que zero.")
+
+        return valor.quantize(Decimal("0.01"))
+
+    @staticmethod
+    def _to_non_negative_decimal(value, field_name):
+        if value in (None, ""):
+            return Decimal("0.00")
+
+        try:
+            valor = Decimal(str(value).replace(",", "."))
+        except (InvalidOperation, ValueError):
+            raise ValueError(f"Valor invalido para {field_name}.")
+
+        if valor < 0:
+            raise ValueError(f"{field_name.capitalize()} nao pode ser negativo.")
+
+        return valor.quantize(Decimal("0.01"))
+
+    @staticmethod
+    def _to_optional_date(value):
+        if value in (None, ""):
+            return None
+
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Data invalida. Use o formato YYYY-MM-DD.")
+
+    @staticmethod
+    def _to_decimal_value(value):
+        if isinstance(value, Decimal):
+            return value.quantize(Decimal("0.01"))
+
+        try:
+            return Decimal(str(value or 0)).quantize(Decimal("0.01"))
+        except (InvalidOperation, ValueError):
+            return Decimal("0.00")
