@@ -1,3 +1,5 @@
+from decimal import Decimal, InvalidOperation
+
 from app.models.db import Funcionario, FuncionarioEmpresa
 from app.repositorys.funcionario_repository import FuncionarioRepository
 from app.security.password import generate_password_hash
@@ -28,6 +30,8 @@ class FuncionarioService:
                     "nome": funcionario.nome,
                     "cpf": funcionario.cpf,
                     "usuario": funcionario.usuario,
+                    "salario": str(FuncionarioService._to_decimal_value(funcionario.salario)),
+                    "meta": str(FuncionarioService._to_decimal_value(funcionario.meta)),
                     "ativo": funcionario.ativo,
                     "role_id": role.id if role else None,
                     "role_nome": role.nome if role else "",
@@ -67,6 +71,8 @@ class FuncionarioService:
             senha = (data.get("senha") or "").strip()
             empresa_id = FuncionarioService._to_int(data.get("empresa_id"), "Empresa")
             role_id = FuncionarioService._to_int(data.get("role_id"), "Role")
+            salario = FuncionarioService._to_non_negative_decimal(data.get("salario"), "salario")
+            meta = FuncionarioService._to_non_negative_decimal(data.get("meta"), "meta")
             ativo = FuncionarioService._to_bool(data.get("ativo", True))
 
             if not nome:
@@ -103,6 +109,8 @@ class FuncionarioService:
                 cpf=cpf,
                 usuario=usuario,
                 senha_hash=generate_password_hash(senha),
+                salario=salario,
+                meta=meta,
                 ativo=ativo
             )
             FuncionarioRepository.adicionar(funcionario)
@@ -137,6 +145,8 @@ class FuncionarioService:
             senha = (data.get("senha") or "").strip()
             empresa_id = FuncionarioService._to_int(data.get("empresa_id"), "Empresa")
             role_id = FuncionarioService._to_int(data.get("role_id"), "Role")
+            salario = FuncionarioService._to_non_negative_decimal(data.get("salario"), "salario")
+            meta = FuncionarioService._to_non_negative_decimal(data.get("meta"), "meta")
             ativo = FuncionarioService._to_bool(data.get("ativo", True))
 
             if not nome:
@@ -178,6 +188,8 @@ class FuncionarioService:
             funcionario.cpf = cpf
             funcionario.usuario = usuario
             funcionario.role_id = role.id
+            funcionario.salario = salario
+            funcionario.meta = meta
             funcionario.ativo = ativo
 
             if senha:
@@ -236,3 +248,25 @@ class FuncionarioService:
     @staticmethod
     def _normalizar_cpf(value):
         return (value or "").strip()
+
+    @staticmethod
+    def _to_non_negative_decimal(value, field_name):
+        if value in (None, ""):
+            return Decimal("0.00")
+
+        try:
+            valor = Decimal(str(value).replace(",", "."))
+        except (InvalidOperation, ValueError):
+            raise ValueError(f"Valor invalido para {field_name}.")
+
+        if valor < 0:
+            raise ValueError(f"{field_name.capitalize()} nao pode ser negativo.")
+
+        return valor.quantize(Decimal("0.01"))
+
+    @staticmethod
+    def _to_decimal_value(value):
+        try:
+            return Decimal(str(value or 0)).quantize(Decimal("0.01"))
+        except (InvalidOperation, ValueError):
+            return Decimal("0.00")

@@ -1,0 +1,161 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue • Importacao e Exportacao{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/import_export.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Importacao e Exportacao" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 page-shell">
+    <section class="mb-8">
+        <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-5">
+            <div class="max-w-3xl">
+                <h1 class="text-3xl font-bold tracking-tight text-white">Importacao e exportacao em lote</h1>
+                <p class="text-slate-400 mt-3">
+                    Baixe planilhas-modelo, importe cadastros em Excel e exporte o que ja esta no sistema sem perder a logica de tenant e empresas.
+                </p>
+            </div>
+
+            <div class="rounded-2xl border border-sky-500/20 bg-sky-500/10 px-5 py-4 text-sm text-sky-100 max-w-xl">
+                O modulo trabalha com arquivos <strong>XLSX</strong>. A importacao faz cadastro ou atualizacao conforme os dados encontrados na planilha.
+            </div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <article class="import-export-kpi">
+            <span class="import-export-kpi-label">Entidades suportadas</span>
+            <strong id="import-export-kpi-entidades" class="import-export-kpi-value">0</strong>
+            <p class="import-export-kpi-help">Cadastros prontos para importar ou exportar.</p>
+        </article>
+
+        <article class="import-export-kpi">
+            <span class="import-export-kpi-label">Empresas visiveis</span>
+            <strong id="import-export-kpi-empresas" class="import-export-kpi-value">0</strong>
+            <p class="import-export-kpi-help">Escopo atualmente liberado para seu usuario.</p>
+        </article>
+
+        <article class="import-export-kpi">
+            <span class="import-export-kpi-label">Modelos XLSX</span>
+            <strong id="import-export-kpi-modelos" class="import-export-kpi-value">0</strong>
+            <p class="import-export-kpi-help">Planilhas prontas para baixar e preencher.</p>
+        </article>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+        <article class="import-export-panel">
+            <div class="import-export-panel-head">
+                <div>
+                    <h2 class="import-export-panel-title">Importar planilha</h2>
+                    <p class="import-export-panel-subtitle">Escolha a entidade, baixe o modelo e envie o arquivo preenchido.</p>
+                </div>
+                <div class="import-export-icon import-export-icon-sky">
+                    <i data-lucide="file-up" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="space-y-5 mt-6">
+                <div>
+                    <label for="import-entity" class="import-export-label">Entidade</label>
+                    <select id="import-entity" class="import-export-input"></select>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+                    <div>
+                        <label for="import-file" class="import-export-label">Arquivo XLSX</label>
+                        <input id="import-file" type="file" accept=".xlsx,.xlsm" class="import-export-input import-export-file">
+                    </div>
+
+                    <button id="import-download-template" type="button" class="import-export-secondary-btn">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        Baixar modelo
+                    </button>
+                </div>
+
+                <button id="import-submit" type="button" class="import-export-primary-btn w-full">
+                    <i data-lucide="upload" class="w-4 h-4"></i>
+                    Importar arquivo
+                </button>
+
+                <div id="import-entity-help" class="import-export-help">
+                    Selecione uma entidade para visualizar as colunas esperadas.
+                </div>
+            </div>
+        </article>
+
+        <article class="import-export-panel">
+            <div class="import-export-panel-head">
+                <div>
+                    <h2 class="import-export-panel-title">Exportar planilha</h2>
+                    <p class="import-export-panel-subtitle">Gere um Excel com os registros atuais para backup, conferencia ou carga externa.</p>
+                </div>
+                <div class="import-export-icon import-export-icon-emerald">
+                    <i data-lucide="file-down" class="w-5 h-5"></i>
+                </div>
+            </div>
+
+            <div class="space-y-5 mt-6">
+                <div>
+                    <label for="export-entity" class="import-export-label">Entidade</label>
+                    <select id="export-entity" class="import-export-input"></select>
+                </div>
+
+                <div>
+                    <label for="export-company" class="import-export-label">Empresa</label>
+                    <select id="export-company" class="import-export-input">
+                        <option value="">Todas as empresas visiveis</option>
+                    </select>
+                </div>
+
+                <button id="export-submit" type="button" class="import-export-primary-btn w-full">
+                    <i data-lucide="sheet" class="w-4 h-4"></i>
+                    Exportar planilha
+                </button>
+
+                <div id="export-entity-help" class="import-export-help">
+                    Algumas entidades exportam por empresa; outras saem consolidadas no tenant.
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="import-export-panel mb-8">
+        <div class="import-export-panel-head">
+            <div>
+                <h2 class="import-export-panel-title">Entidades disponiveis</h2>
+                <p class="import-export-panel-subtitle">Use este resumo para saber o que cada layout atende.</p>
+            </div>
+        </div>
+
+        <div id="import-export-entities" class="import-export-entities mt-6">
+            <p class="text-slate-400">Carregando entidades...</p>
+        </div>
+    </section>
+
+    <section class="import-export-panel">
+        <div class="import-export-panel-head">
+            <div>
+                <h2 class="import-export-panel-title">Resultado da ultima importacao</h2>
+                <p class="import-export-panel-subtitle">Resumo por lote com linhas processadas, criadas, atualizadas e falhas.</p>
+            </div>
+        </div>
+
+        <div id="import-export-result" class="mt-6 import-export-result-empty">
+            Nenhuma importacao executada nesta sessao.
+        </div>
+    </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modulos/import_export.js') }}"></script>
+{% endblock %}

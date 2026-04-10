@@ -1,6 +1,8 @@
 from app.repositorys.funcionario_repository import FuncionarioRepository
 from app.repositorys.platform_repository import PlatformRepository
 from app.security.password import verify_password
+from app.services.tenant_bootstrap_service import TenantBootstrapService
+from app.extensions import db
 
 
 class AuthService:
@@ -23,6 +25,13 @@ class AuthService:
         if funcionario and verify_password(senha, funcionario.senha_hash):
             if not funcionario.ativo:
                 raise ValueError("Usuario inativo")
+            try:
+                TenantBootstrapService.garantir_permissoes_e_roles(funcionario.tenant_id)
+                TenantBootstrapService.garantir_cadastros_operacionais(funcionario.tenant_id)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+                raise
             return {"scope": "tenant", "user": funcionario}
 
         raise ValueError("Credenciais invalidas")

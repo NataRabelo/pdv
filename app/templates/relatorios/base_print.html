@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Relatorio{% endblock %}</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --ink: #0f172a;
+            --muted: #475569;
+            --line: #cbd5e1;
+            --surface: #f8fafc;
+            --accent: #0ea5e9;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Arial, sans-serif;
+            color: var(--ink);
+            background: #e2e8f0;
+        }
+
+        .print-shell {
+            width: min(100%, 1100px);
+            margin: 0 auto;
+            padding: 2rem 1.5rem 3rem;
+        }
+
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 1rem;
+        }
+
+        .toolbar button {
+            border: none;
+            background: var(--accent);
+            color: white;
+            font-weight: 700;
+            border-radius: 999px;
+            padding: 0.9rem 1.25rem;
+            cursor: pointer;
+        }
+
+        .sheet {
+            background: white;
+            border-radius: 1.25rem;
+            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.12);
+            padding: 2rem;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 2px solid var(--line);
+        }
+
+        .report-title {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+
+        .report-subtitle {
+            margin: 0.4rem 0 0;
+            color: var(--muted);
+        }
+
+        .report-meta {
+            text-align: right;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+
+        .summary-card {
+            border: 1px solid var(--line);
+            border-radius: 1rem;
+            background: var(--surface);
+            padding: 1rem;
+        }
+
+        .summary-label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .summary-value {
+            display: block;
+            margin-top: 0.45rem;
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 0.85rem 0.75rem;
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+            text-align: left;
+        }
+
+        th {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .muted { color: var(--muted); }
+        .small { font-size: 0.88rem; }
+        .section-title { margin: 1.75rem 0 1rem; font-size: 1.1rem; }
+
+        @media (max-width: 900px) {
+            .summary-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .report-header {
+                flex-direction: column;
+            }
+
+            .report-meta {
+                text-align: left;
+            }
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .print-shell {
+                width: 100%;
+                padding: 0;
+            }
+
+            .toolbar {
+                display: none;
+            }
+
+            .sheet {
+                border-radius: 0;
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="print-shell">
+        <div class="toolbar">
+            <button type="button" onclick="window.print()">Imprimir</button>
+        </div>
+        <article class="sheet">
+            {% block content %}{% endblock %}
+        </article>
+    </div>
+</body>
+</html>

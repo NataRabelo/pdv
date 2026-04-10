@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from app.models.db import Produto, ProdutoEmpresa
@@ -34,6 +35,7 @@ class ProdutoService:
         estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
         valor_compra = ProdutoService._to_decimal(data.get("valor_compra", 0), "valor de compra", 2)
         valor_venda = ProdutoService._to_decimal(data.get("valor_venda", 0), "valor de venda", 2)
+        data_validade = ProdutoService._to_optional_date(data.get("data_validade"))
         ativo = ProdutoService._to_bool(data.get("ativo", True))
 
         if not nome:
@@ -85,6 +87,7 @@ class ProdutoService:
             estoque_minimo=estoque_minimo,
             valor_compra=valor_compra,
             valor_venda=valor_venda,
+            data_validade=data_validade,
             ativo=ativo
         )
         ProdutoRepository.adicionar(produto_empresa)
@@ -112,6 +115,7 @@ class ProdutoService:
         estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
         valor_compra = ProdutoService._to_decimal(data.get("valor_compra", 0), "valor de compra", 2)
         valor_venda = ProdutoService._to_decimal(data.get("valor_venda", 0), "valor de venda", 2)
+        data_validade = ProdutoService._to_optional_date(data.get("data_validade"))
         ativo = ProdutoService._to_bool(data.get("ativo", True))
 
         if not nome:
@@ -171,6 +175,7 @@ class ProdutoService:
         produto_empresa.estoque_minimo = estoque_minimo
         produto_empresa.valor_compra = valor_compra
         produto_empresa.valor_venda = valor_venda
+        produto_empresa.data_validade = data_validade
         produto_empresa.ativo = ativo
 
         ProdutoRepository.salvar()
@@ -245,3 +250,13 @@ class ProdutoService:
             return int(value)
         except (TypeError, ValueError):
             raise ValueError(f"{field_name} invalida.")
+
+    @staticmethod
+    def _to_optional_date(value):
+        if value in (None, ""):
+            return None
+
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Data de validade invalida. Use o formato YYYY-MM-DD.")

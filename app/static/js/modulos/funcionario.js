@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         searchInputId: "input-busca",
         paginationContainerId: "funcionario-pagination",
         pageSize: 10,
-        fields: ["nome", "usuario", "cpf", "empresa_nome", "empresa_resumo", "role_nome"],
+        fields: ["nome", "usuario", "cpf", "empresa_nome", "empresa_resumo", "role_nome", "salario", "meta"],
         messages: {
             loadError: "Erro ao carregar funcionarios.",
             createSuccess: "Funcionario cadastrado com sucesso.",
@@ -29,6 +29,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             cpf: item.cpf || "",
             usuario: item.usuario || "",
             senha: "",
+            salario: formatMoneyForDisplay(item.salario),
+            meta: formatMoneyForDisplay(item.meta),
             empresa_id: item.empresa_id || "",
             role_id: item.role_id || "",
             ativo: Boolean(item.ativo)
@@ -63,6 +65,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 <td class="px-5 py-4 align-middle">
                     <p class="text-slate-300 leading-relaxed">${escapeHtml(item.cpf || "-")}</p>
+                </td>
+
+                <td class="px-5 py-4 align-middle text-right text-slate-300 font-medium">
+                    ${formatMoneyForDisplay(item.salario)}
+                </td>
+
+                <td class="px-5 py-4 align-middle text-right text-slate-300 font-medium">
+                    ${formatMoneyForDisplay(item.meta)}
                 </td>
 
                 <td class="px-5 py-4 align-middle">
@@ -106,6 +116,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     aplicarMascaraCpf("cadastro-cpf");
     aplicarMascaraCpf("edicao-cpf");
+    aplicarMascaraMoeda("cadastro-salario");
+    aplicarMascaraMoeda("cadastro-meta");
+    aplicarMascaraMoeda("edicao-salario");
+    aplicarMascaraMoeda("edicao-meta");
 
     if (window.lucide) {
         lucide.createIcons();
@@ -196,6 +210,8 @@ function normalizarPayload(payload, isEdit) {
     data.cpf = (data.cpf || "").trim();
     data.usuario = (data.usuario || "").trim();
     data.senha = (data.senha || "").trim();
+    data.salario = normalizeMoneyForApi(data.salario);
+    data.meta = normalizeMoneyForApi(data.meta);
     data.empresa_id = data.empresa_id || "";
     data.role_id = data.role_id || "";
     data.ativo = obterCheckboxAtivo(isEdit ? "edicao-ativo" : "cadastro-ativo");
@@ -222,6 +238,11 @@ function preencherCheckboxAtivo(id, value) {
 function limparFormularioEdicao() {
     preencherCheckboxAtivo("cadastro-ativo", true);
     preencherCheckboxAtivo("edicao-ativo", true);
+
+    const salario = document.getElementById("cadastro-salario");
+    const meta = document.getElementById("cadastro-meta");
+    if (salario) salario.value = "0,00";
+    if (meta) meta.value = "0,00";
 }
 
 function aplicarMascaraCpf(inputId) {
@@ -241,6 +262,28 @@ function aplicarMascaraCpf(inputId) {
 
         input.value = value;
     });
+}
+
+function aplicarMascaraMoeda(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    window.DecimalInput?.bind(input, {
+        decimals: 2,
+        allowEmpty: false
+    });
+}
+
+function parseMoneyValue(value) {
+    return window.DecimalInput?.parse(value) ?? 0;
+}
+
+function formatMoneyForDisplay(value) {
+    return window.DecimalInput?.format(value, 2, { allowEmpty: false, useGrouping: true }) ?? "0,00";
+}
+
+function normalizeMoneyForApi(value) {
+    return window.DecimalInput?.normalize(value, 2) ?? "0.00";
 }
 
 function escapeHtml(value) {

@@ -102,6 +102,14 @@ class PdvService:
         return [PdvService.serializar_venda(item) for item in vendas]
 
     @staticmethod
+    def obter_venda(venda_id, tenant_id, escopo):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        venda = PdvRepository.buscar_venda_por_id(venda_id, tenant_id, empresa_ids=empresa_ids)
+        if not venda:
+            raise ValueError("Venda nao encontrada.")
+        return PdvService.serializar_venda(venda)
+
+    @staticmethod
     def criar_venda(data, tenant_id, escopo, funcionario_id):
         try:
             PdvService._garantir_base_operacional(tenant_id)

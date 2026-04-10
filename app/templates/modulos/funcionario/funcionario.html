@@ -64,12 +64,14 @@ min-h-screen flex flex-col bg-slate-950 text-white
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[900px]">
+            <table class="w-full min-w-[1180px]">
                 <thead class="bg-slate-950/70">
                     <tr class="border-b border-slate-800">
                         <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Nome</th>
                         <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Usuario</th>
                         <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">CPF</th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Salario</th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Meta</th>
                         <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Empresas</th>
                         <th class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[140px]">Acoes</th>
                     </tr>
@@ -77,7 +79,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
                 <tbody id="funcionario-table-body" class="divide-y divide-slate-800">
                     <tr>
-                        <td colspan="5" class="px-5 py-8 text-center text-slate-400">Carregando funcionarios...</td>
+                        <td colspan="7" class="px-5 py-8 text-center text-slate-400">Carregando funcionarios...</td>
                     </tr>
                 </tbody>
             </table>
@@ -127,6 +129,20 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <label for="cadastro-senha" class="block text-sm font-medium text-slate-300 mb-2">Senha</label>
                 <input id="cadastro-senha" name="senha" type="password" required maxlength="120"
                     class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="cadastro-salario" class="block text-sm font-medium text-slate-300 mb-2">Salario</label>
+                    <input id="cadastro-salario" name="salario" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+
+                <div>
+                    <label for="cadastro-meta" class="block text-sm font-medium text-slate-300 mb-2">Meta</label>
+                    <input id="cadastro-meta" name="meta" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
             </div>
 
             <div>
@@ -207,6 +223,20 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <input id="edicao-senha" name="senha" type="password" maxlength="120"
                     class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
                     placeholder="Deixe em branco para manter a senha atual">
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="edicao-salario" class="block text-sm font-medium text-slate-300 mb-2">Salario</label>
+                    <input id="edicao-salario" name="salario" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+
+                <div>
+                    <label for="edicao-meta" class="block text-sm font-medium text-slate-300 mb-2">Meta</label>
+                    <input id="edicao-meta" name="meta" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                </div>
             </div>
 
             <div>

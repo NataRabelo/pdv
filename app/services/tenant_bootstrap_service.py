@@ -20,6 +20,7 @@ class TenantBootstrapService:
         "Cartao de credito",
         "Boleto",
         "Crediario",
+        "Vale em folha",
     )
 
     DEFAULT_CATEGORIAS_FINANCEIRAS = (
@@ -28,6 +29,12 @@ class TenantBootstrapService:
         {"nome": "Outras entradas", "tipo": TipoCategoriaFinanceira.ENTRADA},
         {"nome": "Compras de mercadorias", "tipo": TipoCategoriaFinanceira.SAIDA},
         {"nome": "Despesas operacionais", "tipo": TipoCategoriaFinanceira.SAIDA},
+        {"nome": "Funcionarios", "tipo": TipoCategoriaFinanceira.SAIDA},
+        {"nome": "Aluguel", "tipo": TipoCategoriaFinanceira.SAIDA},
+        {"nome": "Contas", "tipo": TipoCategoriaFinanceira.SAIDA},
+        {"nome": "Gastos pessoais", "tipo": TipoCategoriaFinanceira.SAIDA},
+        {"nome": "Contador", "tipo": TipoCategoriaFinanceira.SAIDA},
+        {"nome": "Adiantamento (Vale)", "tipo": TipoCategoriaFinanceira.SAIDA},
         {"nome": "Estorno de vendas", "tipo": TipoCategoriaFinanceira.SAIDA},
         {"nome": "Sangria de caixa", "tipo": TipoCategoriaFinanceira.SAIDA},
     )

@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
         searchInputId: "input-busca",
         paginationContainerId: "produto-pagination",
         pageSize: 10,
-        fields: ["nome", "descricao", "categoria_nome", "empresa_nome", "codigo_barras"],
+        fields: ["nome", "descricao", "categoria_nome", "empresa_nome", "codigo_barras", "data_validade"],
 
         messages: {
             loadError: "Erro ao carregar produtos.",
@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
             possui_ncm: !!item.possui_ncm,
             ncm: item.ncm || "",
             estoque_minimo: formatIntegerForDisplay(item.estoque_minimo),
+            data_validade: item.data_validade || "",
             valor_compra: formatDecimalForDisplay(item.valor_compra, 2),
             valor_venda: formatDecimalForDisplay(item.valor_venda, 2),
             ativo: !!item.ativo
@@ -47,6 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const empresa = item.empresa_nome || "-";
             const codigoBarras = item.codigo_barras || "-";
             const estoqueAtual = formatInteger(item.estoque_atual);
+            const validade = formatDateForDisplay(item.data_validade);
             const valorCompra = formatCurrency(item.valor_compra);
             const valorVenda = formatCurrency(item.valor_venda);
             const ativoBadge = item.ativo
@@ -82,6 +84,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     <td class="px-5 py-4 align-middle text-right text-slate-300 font-medium">
                         ${estoqueAtual}
+                    </td>
+
+                    <td class="px-5 py-4 align-middle text-slate-300">
+                        ${escapeHtml(validade)}
                     </td>
 
                     <td class="px-5 py-4 align-middle text-right text-slate-300 font-medium">
@@ -317,6 +323,7 @@ function normalizeProdutoPayload(payload, isEdit) {
     data.possui_ncm = getCheckboxValue(isEdit ? "edicao-possui_ncm" : "cadastro-possui_ncm");
     data.ncm = normalizeNcm(data.ncm);
     data.estoque_minimo = normalizeIntegerForApi(data.estoque_minimo);
+    data.data_validade = data.data_validade || "";
     data.valor_compra = normalizeDecimalForApi(data.valor_compra, 2);
     data.valor_venda = normalizeDecimalForApi(data.valor_venda, 2);
     data.ativo = getCheckboxValue(isEdit ? "edicao-ativo" : "cadastro-ativo");
@@ -335,16 +342,10 @@ function normalizeDecimalForApi(value, decimals = 2) {
 }
 
 function formatDecimalForDisplay(value, decimals = 2) {
-    if (value === null || value === undefined || value === "") {
-        return formatNumber(0, decimals);
-    }
-
-    const parsed = Number(String(value).replace(",", "."));
-    if (Number.isNaN(parsed)) {
-        return formatNumber(0, decimals);
-    }
-
-    return formatNumber(parsed, decimals);
+    return window.DecimalInput?.format(value, decimals, {
+        allowEmpty: false,
+        useGrouping: true
+    }) ?? formatNumber(0, decimals);
 }
 
 function formatIntegerForDisplay(value) {
@@ -353,6 +354,19 @@ function formatIntegerForDisplay(value) {
     }
 
     return formatInteger(value);
+}
+
+function formatDateForDisplay(value) {
+    if (!value) {
+        return "Sem validade";
+    }
+
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) {
+        return "Sem validade";
+    }
+
+    return new Intl.DateTimeFormat("pt-BR").format(date);
 }
 
 function formatCurrency(value) {
@@ -381,18 +395,12 @@ function formatInteger(value) {
 
 function setupDecimalMask(inputId, decimals = 2) {
     const input = document.getElementById(inputId);
-    if (!input || input.dataset.maskBound === "true") return;
+    if (!input) return;
 
-    input.dataset.maskBound = "true";
-    input.setAttribute("inputmode", "decimal");
-
-    const applyMask = () => {
-        input.value = formatDecimalFromDigits(input.value, decimals);
-    };
-
-    input.addEventListener("input", applyMask);
-    input.addEventListener("blur", applyMask);
-    applyMask();
+    window.DecimalInput?.bind(input, {
+        decimals,
+        allowEmpty: false
+    });
 }
 
 function setupIntegerMask(inputId) {
@@ -447,15 +455,7 @@ function formatDecimalFromDigits(value, decimals = 2) {
 }
 
 function parseDecimalInput(value) {
-    const raw = String(value ?? "").trim();
-    if (!raw) return 0;
-
-    const normalized = raw
-        .replace(/\./g, "")
-        .replace(",", ".");
-
-    const parsed = Number(normalized);
-    return Number.isNaN(parsed) ? 0 : parsed;
+    return window.DecimalInput?.parse(value) ?? 0;
 }
 
 function parseIntegerInput(value) {
@@ -495,7 +495,10 @@ function applyDecimalDisplay(inputId, decimals = 2) {
     const input = document.getElementById(inputId);
     if (!input) return;
 
-    input.value = formatDecimalForDisplay(input.value, decimals);
+    input.value = window.DecimalInput?.format(input.value, decimals, {
+        allowEmpty: false,
+        useGrouping: true
+    }) ?? formatDecimalForDisplay(input.value, decimals);
 }
 
 function applyIntegerDisplay(inputId) {

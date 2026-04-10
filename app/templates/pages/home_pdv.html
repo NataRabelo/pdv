@@ -22,7 +22,7 @@ min-h-screen flex flex-col
         <p class="text-slate-400">Venda rapida para pequenas lojas, com estoque e financeiro integrados.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <a href="/api/pdv/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="shopping-cart"></i>
@@ -60,6 +60,26 @@ min-h-screen flex flex-col
             <div>
                 <h4 class="text-white font-bold">Produtos</h4>
                 <p class="text-slate-400 text-sm">Cadastrar e atualizar os itens disponiveis no caixa</p>
+            </div>
+        </a>
+
+        <a href="/api/cupons/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="ticket-percent"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Cupons</h4>
+                <p class="text-slate-400 text-sm">Criar campanhas e descontos para aplicar direto na venda</p>
+            </div>
+        </a>
+
+        <a href="/api/adiantamentos/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="wallet-cards"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Vales</h4>
+                <p class="text-slate-400 text-sm">Registrar retiradas de funcionario em dinheiro ou produto</p>
             </div>
         </a>
     </div>

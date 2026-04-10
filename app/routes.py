@@ -1,8 +1,11 @@
+from app.controllers.adiantamento_controller import adiantamento_bp
 from app.controllers.auth_controller import auth_bp
 from app.controllers.categoria_controller import categoria_bp
+from app.controllers.cupom_controller import cupom_bp
 from app.controllers.estoque_controller import estoque_bp
 from app.controllers.financeiro_controller import financeiro_bp
 from app.controllers.funcionario_controller import funcionario_bp
+from app.controllers.import_export_controller import import_export_bp
 from app.controllers.main_controller import main_bp
 from app.controllers.permission_controller import permission_bp
 from app.controllers.pdv_controller import pdv_bp
@@ -18,9 +21,12 @@ def register_blueprints(app):
     app.register_blueprint(main_bp)
     app.register_blueprint(platform_bp)
     app.register_blueprint(produto_bp, url_prefix="/api/produtos")
+    app.register_blueprint(cupom_bp, url_prefix="/api/cupons")
+    app.register_blueprint(adiantamento_bp, url_prefix="/api/adiantamentos")
     app.register_blueprint(estoque_bp, url_prefix="/api/estoque")
     app.register_blueprint(pdv_bp, url_prefix="/api/pdv")
     app.register_blueprint(financeiro_bp, url_prefix="/api/financeiro")
+    app.register_blueprint(import_export_bp, url_prefix="/api/importacao-exportacao")
     app.register_blueprint(categoria_bp, url_prefix="/api/categorias")
     app.register_blueprint(funcionario_bp, url_prefix="/api/funcionarios")
     app.register_blueprint(role_bp, url_prefix="/api/roles")

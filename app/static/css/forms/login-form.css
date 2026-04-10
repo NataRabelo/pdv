@@ -1,83 +1,246 @@
-/* =========================
-   OCEAN BLUE - PRO LOGIN
-========================= */
-
-:root {
-  --input-bg: rgba(15, 23, 42, 0.6); /* Fundo escuro para contraste */
-  --input-border: rgba(255, 255, 255, 0.1);
-  --accent-primary: #38bdf8;
+.login-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.14), transparent 24%),
+    linear-gradient(145deg, #020617 0%, #0f172a 48%, #111827 100%);
 }
 
-body {
-  /* Mantendo a identidade do fundo que criamos para a Home */
-  background: radial-gradient(circle at top right, #1e293b, #020617);
-  font-family: 'Inter', sans-serif;
+.login-shell {
+  width: min(100%, 1380px);
+  min-height: 100vh;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(22rem, 30rem);
+  gap: clamp(2rem, 4vw, 5rem);
+  align-items: center;
+  padding: clamp(1.5rem, 3vw, 2.5rem);
 }
 
-/* Redesenho do Card de Login */
+.login-showcase {
+  position: relative;
+  padding: clamp(1rem, 2vw, 2rem);
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2.5rem;
+}
+
+.login-brand-mark {
+  width: 3.25rem;
+  height: 3.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+  background: rgba(14, 165, 233, 0.14);
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  color: #7dd3fc;
+  box-shadow: 0 16px 40px rgba(14, 165, 233, 0.16);
+}
+
+.login-overline {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.login-title {
+  margin: 0.35rem 0 0;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 800;
+  line-height: 1;
+  color: #f8fafc;
+}
+
+.login-copy {
+  max-width: 44rem;
+  margin-bottom: 2rem;
+}
+
+.login-copy h2 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: #f8fafc;
+}
+
+.login-copy p {
+  margin: 1.25rem 0 0;
+  max-width: 42rem;
+  color: #94a3b8;
+  font-size: 1.05rem;
+  line-height: 1.7;
+}
+
+.login-highlights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.login-highlight-card {
+  display: flex;
+  gap: 0.9rem;
+  align-items: flex-start;
+  padding: 1.15rem;
+  border-radius: 1.2rem;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.6);
+  box-shadow: 0 20px 50px rgba(2, 6, 23, 0.22);
+}
+
+.login-highlight-card strong {
+  display: block;
+  color: #f8fafc;
+  font-size: 0.98rem;
+}
+
+.login-highlight-card p {
+  margin: 0.4rem 0 0;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.login-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1rem;
+}
+
 .login-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.84));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border-radius: 1.5rem;
+  box-shadow: 0 35px 80px rgba(2, 6, 23, 0.38);
+  border-radius: 1.75rem;
+  padding: 1.75rem;
 }
 
-/* Inputs Refinados */
+.login-card-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1.75rem;
+}
+
 .input-field {
   width: 100%;
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
-  padding: 0.875rem 1rem;
-  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  padding: 0.95rem 1rem;
+  border-radius: 0.95rem;
   color: #f8fafc;
   font-size: 0.95rem;
-  transition: all 0.2s ease;
+  transition: all 0.22s ease;
 }
 
 .input-field:focus {
   outline: none;
-  border-color: var(--accent-primary);
-  background: rgba(15, 23, 42, 0.8);
-  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.1);
+  border-color: #38bdf8;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.12);
 }
 
 .input-field::placeholder {
   color: #64748b;
 }
 
-/* Botão Sólido e Imponente */
 .btn-submit {
   width: 100%;
-  background: var(--accent-primary);
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
   color: #020617;
-  font-weight: 600;
-  padding: 0.875rem;
-  border-radius: 0.75rem;
-  transition: all 0.3s ease;
+  font-weight: 800;
+  padding: 0.95rem;
+  border-radius: 0.95rem;
+  transition: all 0.25s ease;
   border: none;
   cursor: pointer;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
+  box-shadow: 0 18px 35px rgba(14, 165, 233, 0.25);
 }
 
 .btn-submit:hover {
-  background: #7dd3fc;
   transform: translateY(-1px);
-  box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.3);
+  box-shadow: 0 22px 40px rgba(14, 165, 233, 0.32);
 }
 
-.btn-submit:active {
-  transform: translateY(0);
-}
-
-/* Label Estilizada */
 .input-label {
   display: block;
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   color: #94a3b8;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.08em;
+}
+
+.login-footnote {
+  display: grid;
+  gap: 0.35rem;
+  text-align: center;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.login-footnote p {
+  margin: 0;
+}
+
+.login-environment {
+  margin: 0;
+  text-align: center;
+  color: #475569;
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1100px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
+  }
+
+  .login-highlights {
+    grid-template-columns: 1fr;
+  }
+
+  .login-panel {
+    max-width: 34rem;
+    width: 100%;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .login-card {
+    padding: 1.25rem;
+  }
+
+  .login-card-header {
+    grid-template-columns: 1fr;
+  }
+
+  .login-copy h2 {
+    font-size: 2.2rem;
+  }
+
+  .login-copy p {
+    font-size: 0.98rem;
+  }
 }

@@ -3,7 +3,7 @@
 {% block title %}OceanBlue - Acesso Restrito{% endblock %}
 
 {% block body_class %}
-min-h-screen flex items-center justify-center p-6
+min-h-screen login-page
 {% endblock %}
 
 {% block styles %}
@@ -11,60 +11,104 @@ min-h-screen flex items-center justify-center p-6
 {% endblock %}
 
 {% block content %}
-
-<div class="w-full max-w-[400px]">
-
-  <div class="text-center mb-8">
-    <div class="inline-flex items-center justify-center w-14 h-14 bg-sky-500/10 border border-sky-500/20 rounded-2xl mb-4">
-      <i data-lucide="shield-check" class="text-sky-400 w-8 h-8"></i>
+<main class="login-shell">
+  <section class="login-showcase">
+    <div class="login-brand">
+      <div class="login-brand-mark">
+        <i data-lucide="waves" class="w-7 h-7"></i>
+      </div>
+      <div>
+        <p class="login-overline">Gestao integrada</p>
+        <h1 class="login-title">
+          Ocean<span class="text-sky-300">Blue</span>
+        </h1>
+      </div>
     </div>
-    <h1 class="text-2xl font-bold text-white tracking-tight">
-      Ocean<span class="text-sky-400">Blue</span>
-    </h1>
-    <p class="text-slate-400 text-sm mt-1">Acesso da plataforma e dos tenants em um unico login</p>
-  </div>
 
-  <div class="login-card p-8">
-    <form action="/login" method="POST" class="space-y-6">
+    <div class="login-copy">
+      <h2>PDV, estoque e financeiro no mesmo ritmo da operacao.</h2>
+      <p>
+        Acesse um ambiente unico para vendas, controle de produtos, fluxo de caixa,
+        vales de funcionario, cupons e relatorios operacionais por tenant e empresa.
+      </p>
+    </div>
 
-      <div class="space-y-4">
+    <div class="login-highlights">
+      <article class="login-highlight-card">
+        <i data-lucide="shopping-cart" class="w-5 h-5 text-sky-300"></i>
         <div>
-          <label class="input-label">Identificacao</label>
-          <div class="relative">
-            <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
-            <input name="usuario" type="text" placeholder="Digite seu usuario" required
-                   class="input-field pl-10" />
-          </div>
+          <strong>PDV responsivo</strong>
+          <p>Venda rapida com baixa no estoque e integracao imediata no financeiro.</p>
         </div>
+      </article>
 
+      <article class="login-highlight-card">
+        <i data-lucide="boxes" class="w-5 h-5 text-emerald-300"></i>
         <div>
-          <div class="flex justify-between items-center mb-1">
-            <label class="input-label">Senha de Acesso</label>
-          </div>
-          <div class="relative">
-            <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
-            <input name="senha" type="password" placeholder="********" required
-                   class="input-field pl-10" />
-          </div>
+          <strong>Estoque com alertas</strong>
+          <p>Baixo saldo, vencimento e rastreabilidade de movimentacoes por empresa.</p>
+        </div>
+      </article>
+
+      <article class="login-highlight-card">
+        <i data-lucide="landmark" class="w-5 h-5 text-amber-300"></i>
+        <div>
+          <strong>Financeiro operacional</strong>
+          <p>Caixa, relatorios para impressao, adiantamentos e conferencias diarias.</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="login-panel">
+    <div class="login-card">
+      <div class="login-card-header">
+        <div class="inline-flex items-center justify-center w-14 h-14 bg-sky-500/10 border border-sky-500/20 rounded-2xl">
+          <i data-lucide="shield-check" class="text-sky-400 w-7 h-7"></i>
+        </div>
+        <div>
+          <p class="login-overline">Acesso protegido</p>
+          <h2 class="text-2xl font-bold text-white tracking-tight">Entrar no sistema</h2>
+          <p class="text-slate-400 text-sm mt-2">Use o mesmo login para plataforma e operacao do tenant.</p>
         </div>
       </div>
 
-      <button type="submit" class="btn-submit">
-        Entrar no Sistema
-      </button>
+      <form action="/login" method="POST" class="space-y-6">
+        <div class="space-y-4">
+          <div>
+            <label class="input-label">Usuario</label>
+            <div class="relative">
+              <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+              <input name="usuario" type="text" placeholder="Digite seu usuario" required
+                     class="input-field pl-10" />
+            </div>
+          </div>
 
-      <div class="text-center">
-        <p class="text-xs text-slate-500 leading-relaxed">
-          Dono da plataforma acessa o painel global.
-          Usuarios de tenant acessam os modulos operacionais.
-        </p>
-      </div>
-    </form>
-  </div>
+          <div>
+            <label class="input-label">Senha</label>
+            <div class="relative">
+              <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500"></i>
+              <input name="senha" type="password" placeholder="********" required
+                     class="input-field pl-10" />
+            </div>
+          </div>
+        </div>
 
-  <p class="mt-8 text-center text-slate-600 text-[10px] uppercase tracking-[0.2em]">
-    Ambiente Criptografado - ID: 029-XB
-  </p>
-</div>
+        <button type="submit" class="btn-submit">
+          Entrar no Sistema
+        </button>
+
+        <div class="login-footnote">
+          <p>Dono da plataforma acessa o painel global.</p>
+          <p>Usuarios do tenant entram diretamente no ambiente operacional.</p>
+        </div>
+      </form>
+    </div>
+
+    <p class="login-environment">
+      Ambiente criptografado - ID 029-XB
+    </p>
+  </section>
+</main>
 
 {% endblock %}

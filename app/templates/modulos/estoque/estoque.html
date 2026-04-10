@@ -41,7 +41,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
         </div>
     </section>
 
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
         <article class="estoque-kpi-card">
             <span class="estoque-kpi-label">Produtos monitorados</span>
             <strong id="kpi-total-produtos" class="estoque-kpi-value">0</strong>
@@ -58,6 +58,40 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <span class="estoque-kpi-label">Quantidade total em estoque</span>
             <strong id="kpi-quantidade-total" class="estoque-kpi-value">0</strong>
             <p class="estoque-kpi-help">Soma das quantidades atuais.</p>
+        </article>
+
+        <article class="estoque-kpi-card">
+            <span class="estoque-kpi-label">Perto do vencimento</span>
+            <strong id="kpi-proximo-vencimento" class="estoque-kpi-value text-sky-300">0</strong>
+            <p class="estoque-kpi-help">Produtos que exigem giro ou acao imediata.</p>
+        </article>
+
+        <article class="estoque-kpi-card">
+            <span class="estoque-kpi-label">Ja vencidos</span>
+            <strong id="kpi-vencidos" class="estoque-kpi-value text-rose-300">0</strong>
+            <p class="estoque-kpi-help">Itens que pedem tratativa imediata.</p>
+        </article>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+        <article class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+            <div class="border-b border-slate-800 px-5 py-4">
+                <h2 class="text-lg font-semibold text-white">Alertas de estoque</h2>
+                <p class="text-sm text-slate-400">Produtos sem saldo ou abaixo do minimo configurado.</p>
+            </div>
+            <div id="estoque-alertas-lista" class="p-5 space-y-3">
+                <p class="text-slate-400">Carregando alertas...</p>
+            </div>
+        </article>
+
+        <article class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+            <div class="border-b border-slate-800 px-5 py-4">
+                <h2 class="text-lg font-semibold text-white">Alertas de validade</h2>
+                <p class="text-sm text-slate-400">Produtos vencidos ou proximos do vencimento.</p>
+            </div>
+            <div id="estoque-validade-lista" class="p-5 space-y-3">
+                <p class="text-slate-400">Carregando alertas...</p>
+            </div>
         </article>
     </section>
 
@@ -90,7 +124,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[1100px]">
+            <table class="w-full min-w-[1240px]">
                 <thead class="bg-slate-950/70">
                     <tr class="border-b border-slate-800">
                         <th class="estoque-th">Produto</th>
@@ -98,6 +132,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         <th class="estoque-th">Empresa</th>
                         <th class="estoque-th text-right">Estoque atual</th>
                         <th class="estoque-th text-right">Estoque mínimo</th>
+                        <th class="estoque-th">Validade</th>
                         <th class="estoque-th text-right">Compra</th>
                         <th class="estoque-th text-right">Venda</th>
                         <th class="estoque-th text-center">Status</th>
@@ -106,7 +141,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
                 <tbody id="estoque-table-body" class="divide-y divide-slate-800">
                     <tr>
-                        <td colspan="8" class="px-5 py-8 text-center text-slate-400">
+                        <td colspan="9" class="px-5 py-8 text-center text-slate-400">
                             Carregando posição de estoque...
                         </td>
                     </tr>

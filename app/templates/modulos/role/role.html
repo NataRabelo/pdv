@@ -80,8 +80,8 @@ min-h-screen flex flex-col bg-slate-950 text-white
 </main>
 
 <div id="modal-cadastro"
-    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-start justify-center overflow-y-auto px-4 py-6 sm:items-center">
+    <div class="flex max-h-[calc(100vh-3rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
         <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
             <div>
                 <h3 class="text-xl font-bold text-white">Nova Role</h3>
@@ -93,7 +93,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             </button>
         </div>
 
-        <form id="form-cadastro" class="px-6 py-6 space-y-5">
+        <form id="form-cadastro" class="min-h-0 flex-1 overflow-y-auto px-6 py-6 space-y-5">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                     <label for="cadastro-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
@@ -119,8 +119,10 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Permissions</label>
-                <div id="cadastro-permissions" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <p class="text-sm text-slate-500">Carregando permissions...</p>
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 p-3">
+                    <div id="cadastro-permissions" class="grid max-h-[42vh] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:max-h-96 md:grid-cols-2">
+                        <p class="text-sm text-slate-500">Carregando permissions...</p>
+                    </div>
                 </div>
             </div>
 
@@ -147,8 +149,8 @@ min-h-screen flex flex-col bg-slate-950 text-white
 </div>
 
 <div id="modal-edicao"
-    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-start justify-center overflow-y-auto px-4 py-6 sm:items-center">
+    <div class="flex max-h-[calc(100vh-3rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
         <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
             <div>
                 <h3 class="text-xl font-bold text-white">Editar Role</h3>
@@ -160,7 +162,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             </button>
         </div>
 
-        <form id="form-edicao" class="px-6 py-6 space-y-5">
+        <form id="form-edicao" class="min-h-0 flex-1 overflow-y-auto px-6 py-6 space-y-5">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                     <label for="edicao-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
@@ -183,8 +185,10 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
             <div>
                 <label class="block text-sm font-medium text-slate-300 mb-2">Permissions</label>
-                <div id="edicao-permissions" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <p class="text-sm text-slate-500">Carregando permissions...</p>
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/40 p-3">
+                    <div id="edicao-permissions" class="grid max-h-[42vh] grid-cols-1 gap-3 overflow-y-auto pr-1 sm:max-h-96 md:grid-cols-2">
+                        <p class="text-sm text-slate-500">Carregando permissions...</p>
+                    </div>
                 </div>
             </div>
 

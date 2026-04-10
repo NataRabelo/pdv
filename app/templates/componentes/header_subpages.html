@@ -64,6 +64,18 @@
                 <i data-lucide="users" class="w-4 h-4"></i> Funcionarios
             </a>
 
+            <a href="/api/cupons/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="ticket-percent" class="w-4 h-4"></i> Cupons
+            </a>
+
+            <a href="/api/adiantamentos/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="wallet-cards" class="w-4 h-4"></i> Vales
+            </a>
+
+            <a href="/api/importacao-exportacao/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="sheet" class="w-4 h-4"></i> Importacao em Lote
+            </a>
+
             <div class="h-[1px] bg-white/5 my-2"></div>
 
             <a href="{{ url_for('platform.home') if current_auth_scope == 'platform' else url_for('main.home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 transition-colors">

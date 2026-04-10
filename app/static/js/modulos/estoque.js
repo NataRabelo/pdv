@@ -9,6 +9,18 @@ window.estoquePage = {
             SAIDA: []
         }
     },
+    notificacoes: {
+        resumo: {
+            estoque_baixo: 0,
+            sem_estoque: 0,
+            vencidos: 0,
+            proximos_vencimento: 0
+        },
+        estoque_baixo: [],
+        sem_estoque: [],
+        vencidos: [],
+        proximos_vencimento: []
+    },
     filtroEmpresa: "",
     busca: "",
     paginacao: {
@@ -41,7 +53,8 @@ async function carregarTudo() {
     await Promise.all([
         carregarAuxiliares(),
         carregarSaldos(),
-        carregarMovimentos()
+        carregarMovimentos(),
+        carregarNotificacoes()
     ]);
 }
 
@@ -82,6 +95,20 @@ async function carregarMovimentos() {
     renderTabelaMovimentos();
 }
 
+async function carregarNotificacoes() {
+    const url = new URL("/api/estoque/notificacoes", window.location.origin);
+    url.searchParams.set("dias_vencimento", "30");
+
+    if (estoquePage.filtroEmpresa) {
+        url.searchParams.set("empresa_id", estoquePage.filtroEmpresa);
+    }
+
+    const result = await requestJson(url.toString(), { method: "GET" });
+    estoquePage.notificacoes = result.data || estoquePage.notificacoes;
+    renderNotificacoes();
+    atualizarKpis();
+}
+
 function bindFilters() {
     const empresaFilter = document.getElementById("filtro-empresa");
     const buscaInput = document.getElementById("input-busca-estoque");
@@ -91,7 +118,7 @@ function bindFilters() {
             estoquePage.filtroEmpresa = empresaFilter.value || "";
             estoquePage.paginacao.saldos.paginaAtual = 1;
             estoquePage.paginacao.movimentos.paginaAtual = 1;
-            await Promise.all([carregarSaldos(), carregarMovimentos()]);
+            await Promise.all([carregarSaldos(), carregarMovimentos(), carregarNotificacoes()]);
         });
     }
 
@@ -123,7 +150,7 @@ function bindMovementForm() {
             showMessage("Movimentação registrada com sucesso.", "success");
             fecharModal("modal-movimentacao");
             limparFormularioMovimentacao();
-            await Promise.all([carregarSaldos(), carregarMovimentos(), carregarAuxiliares()]);
+            await Promise.all([carregarSaldos(), carregarMovimentos(), carregarAuxiliares(), carregarNotificacoes()]);
         } catch (error) {
             showMessage(error.message || "Erro ao registrar movimentação.", "error");
         }
@@ -266,10 +293,13 @@ function atualizarKpis() {
     const totalProdutos = estoquePage.saldos.length;
     const abaixoMinimo = estoquePage.saldos.filter((item) => item.abaixo_minimo).length;
     const quantidadeTotal = estoquePage.saldos.reduce((sum, item) => sum + itemToInteger(item.estoque_atual), 0);
+    const resumoNotificacoes = estoquePage.notificacoes?.resumo || {};
 
     setText("kpi-total-produtos", String(totalProdutos));
     setText("kpi-abaixo-minimo", String(abaixoMinimo));
     setText("kpi-quantidade-total", formatInteger(quantidadeTotal));
+    setText("kpi-proximo-vencimento", String(resumoNotificacoes.proximos_vencimento || 0));
+    setText("kpi-vencidos", String(resumoNotificacoes.vencidos || 0));
 }
 
 function renderTabelaEstoque() {
@@ -294,7 +324,7 @@ function renderTabelaEstoque() {
     if (!items.length) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="px-5 py-8 text-center text-slate-400">
+                <td colspan="9" class="px-5 py-8 text-center text-slate-400">
                     Nenhum produto encontrado para o filtro atual.
                 </td>
             </tr>
@@ -327,6 +357,7 @@ function renderTabelaEstoque() {
                 <td class="px-5 py-4 align-middle text-slate-300">${escapeHtml(item.empresa_nome || "-")}</td>
                 <td class="px-5 py-4 align-middle text-right text-white font-semibold">${formatInteger(item.estoque_atual)}</td>
                 <td class="px-5 py-4 align-middle text-right text-slate-300">${formatInteger(item.estoque_minimo)}</td>
+                <td class="px-5 py-4 align-middle text-slate-300">${formatValidadeEstoque(item.data_validade)}</td>
                 <td class="px-5 py-4 align-middle text-right text-slate-300">${formatCurrency(item.valor_compra)}</td>
                 <td class="px-5 py-4 align-middle text-right text-slate-300">${formatCurrency(item.valor_venda)}</td>
                 <td class="px-5 py-4 align-middle text-center">${statusBadge}</td>
@@ -368,7 +399,9 @@ function renderTabelaMovimentos() {
 
         const origemBadge = item.origem === "PDV"
             ? `<span class="inline-flex items-center rounded-full bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 text-[11px] font-medium text-sky-300">PDV</span>`
-            : `<span class="inline-flex items-center rounded-full bg-slate-700/40 border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300">Manual</span>`;
+            : item.origem === "VALE"
+                ? `<span class="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-300">Vale</span>`
+                : `<span class="inline-flex items-center rounded-full bg-slate-700/40 border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300">Manual</span>`;
 
         return `
             <tr class="hover:bg-slate-800/40 transition">
@@ -404,6 +437,80 @@ function abrirModalMovimentacao() {
     abrirModal("modal-movimentacao");
 }
 
+function renderNotificacoes() {
+    const estoqueContainer = document.getElementById("estoque-alertas-lista");
+    const validadeContainer = document.getElementById("estoque-validade-lista");
+    const notificacoes = estoquePage.notificacoes || {};
+
+    if (estoqueContainer) {
+        const itens = [
+            ...(notificacoes.sem_estoque || []).map((item) => ({
+                ...item,
+                tipo: "Sem estoque",
+                classe: "text-rose-300"
+            })),
+            ...(notificacoes.estoque_baixo || []).map((item) => ({
+                ...item,
+                tipo: "Baixo estoque",
+                classe: "text-amber-300"
+            }))
+        ].slice(0, 10);
+
+        estoqueContainer.innerHTML = itens.length
+            ? itens.map((item) => `
+                <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="font-medium text-white">${escapeHtml(item.nome || "-")}</p>
+                            <p class="text-sm text-slate-400">${escapeHtml(item.empresa_nome || "-")}</p>
+                        </div>
+                        <span class="text-xs font-semibold ${item.classe}">${item.tipo}</span>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between gap-3 text-sm text-slate-300">
+                        <span>Atual ${formatInteger(item.estoque_atual)}</span>
+                        <span>Minimo ${formatInteger(item.estoque_minimo)}</span>
+                    </div>
+                </article>
+            `).join("")
+            : `<p class="text-slate-400">Nenhum alerta de estoque no momento.</p>`;
+    }
+
+    if (validadeContainer) {
+        const itens = [
+            ...(notificacoes.vencidos || []).map((item) => ({
+                ...item,
+                tipo: "Vencido",
+                detalhe: `${Math.abs(Number(item.dias_para_vencimento || 0))} dia(s) atras`,
+                classe: "text-rose-300"
+            })),
+            ...(notificacoes.proximos_vencimento || []).map((item) => ({
+                ...item,
+                tipo: "A vencer",
+                detalhe: `${Number(item.dias_para_vencimento || 0)} dia(s)`,
+                classe: "text-sky-300"
+            }))
+        ].slice(0, 10);
+
+        validadeContainer.innerHTML = itens.length
+            ? itens.map((item) => `
+                <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <p class="font-medium text-white">${escapeHtml(item.nome || "-")}</p>
+                            <p class="text-sm text-slate-400">${escapeHtml(item.empresa_nome || "-")}</p>
+                        </div>
+                        <span class="text-xs font-semibold ${item.classe}">${item.tipo}</span>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between gap-3 text-sm text-slate-300">
+                        <span>${formatValidadeEstoque(item.data_validade)}</span>
+                        <span>${item.detalhe}</span>
+                    </div>
+                </article>
+            `).join("")
+            : `<p class="text-slate-400">Nenhum alerta de validade no momento.</p>`;
+    }
+}
+
 function limparFormularioMovimentacao() {
     const form = document.getElementById("form-movimentacao");
     if (form) form.reset();
@@ -434,18 +541,11 @@ function normalizarPayloadMovimentacao() {
 
 function bindDecimalMask(inputId, decimals) {
     const input = document.getElementById(inputId);
-    if (!input || input.dataset.maskBound === "true") return;
+    if (!input) return;
 
-    input.dataset.maskBound = "true";
-    input.addEventListener("input", () => {
-        input.value = formatDecimalFromDigits(input.value, decimals);
-    });
-    input.addEventListener("blur", () => {
-        if (!input.value.trim()) {
-            input.value = decimals === 3 ? "0,000" : "";
-            return;
-        }
-        input.value = formatDecimalFromDigits(input.value, decimals);
+    window.DecimalInput?.bind(input, {
+        decimals,
+        allowEmpty: true
     });
 }
 
@@ -561,13 +661,7 @@ function normalizeIntegerForApi(value) {
 }
 
 function parseDecimal(value) {
-    const normalized = String(value ?? "")
-        .trim()
-        .replace(/\./g, "")
-        .replace(",", ".");
-
-    const parsed = Number(normalized);
-    return Number.isNaN(parsed) ? 0 : parsed;
+    return window.DecimalInput?.parse(value) ?? 0;
 }
 
 function formatDecimalFromDigits(value, decimals = 2) {
@@ -613,6 +707,13 @@ function formatDate(value) {
         dateStyle: "short",
         timeStyle: "short"
     }).format(date);
+}
+
+function formatValidadeEstoque(value) {
+    if (!value) return "Sem validade";
+    const date = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return "Sem validade";
+    return new Intl.DateTimeFormat("pt-BR").format(date);
 }
 
 function formatMotivo(value) {

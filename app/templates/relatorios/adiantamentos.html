@@ -1,0 +1,99 @@
+{% extends "relatorios/base_print.html" %}
+
+{% block title %}Relatorio - Adiantamentos{% endblock %}
+
+{% block content %}
+<header class="report-header">
+    <div>
+        <h1 class="report-title">Relatorio de adiantamentos</h1>
+        <p class="report-subtitle">Resumo de vales em dinheiro e produto com impacto previsto na folha.</p>
+    </div>
+    <div class="report-meta">
+        <div>Competencia: {{ resumo.competencia }}</div>
+        <div>Funcionarios: {{ resumo.totais.funcionarios }}</div>
+        <div>Gerado pelo sistema OceanBlue</div>
+    </div>
+</header>
+
+<section class="summary-grid">
+    <article class="summary-card">
+        <span class="summary-label">Salarios base</span>
+        <strong class="summary-value">R$ {{ resumo.totais.salarios }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Total adiantado</span>
+        <strong class="summary-value">R$ {{ resumo.totais.adiantado }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Saldo a pagar</span>
+        <strong class="summary-value">R$ {{ resumo.totais.saldo_a_pagar }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Funcionarios</span>
+        <strong class="summary-value">{{ resumo.totais.funcionarios }}</strong>
+    </article>
+</section>
+
+<h2 class="section-title">Resumo por funcionario</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Funcionario</th>
+            <th>Empresas</th>
+            <th class="text-right">Salario</th>
+            <th class="text-right">Adiantado</th>
+            <th class="text-right">Saldo</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in resumo.funcionarios %}
+        <tr>
+            <td>{{ item.funcionario_nome }}</td>
+            <td>{{ item.empresa_nomes }}</td>
+            <td class="text-right">R$ {{ item.salario_base }}</td>
+            <td class="text-right">R$ {{ item.total_adiantado }}</td>
+            <td class="text-right">R$ {{ item.saldo_a_pagar }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5" class="text-center muted">Nenhum funcionario encontrado para a competencia.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 class="section-title">Historico detalhado</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Funcionario</th>
+            <th>Tipo</th>
+            <th>Descricao</th>
+            <th>Forma</th>
+            <th class="text-right">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in registros %}
+        <tr>
+            <td>{{ item.data_adiantamento or '-' }}</td>
+            <td>{{ item.funcionario_nome or '-' }}</td>
+            <td>{{ item.tipo_adiantamento or '-' }}</td>
+            <td>
+                <div>{{ item.descricao or '-' }}</div>
+                {% if item.produto_nome %}
+                <div class="muted small">{{ item.produto_nome }}{% if item.quantidade %} - {{ item.quantidade }} un.{% endif %}</div>
+                {% endif %}
+            </td>
+            <td>{{ item.forma_pagamento_nome or '-' }}</td>
+            <td class="text-right">R$ {{ item.valor_total }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6" class="text-center muted">Nenhum adiantamento registrado para o filtro atual.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

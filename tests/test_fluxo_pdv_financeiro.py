@@ -4,6 +4,7 @@ import unittest
 from app import create_app
 from app.extensions import db
 from app.models.db import (
+    AdiantamentoFuncionario,
     CategoriaProduto,
     Empresa,
     Funcionario,
@@ -19,6 +20,7 @@ from app.models.db import (
 )
 from app.security.password import hash_password
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.adiantamento_service import AdiantamentoService
 from app.services.financeiro_service import FinanceiroService
 from app.services.pdv_service import PdvService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
@@ -67,6 +69,7 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
             cpf="123.456.789-99",
             usuario="admin_teste",
             senha_hash=hash_password("123456"),
+            salario=2000,
             ativo=True,
         )
         db.session.add(funcionario)
@@ -231,6 +234,94 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
 
         self.assertEqual(produto["id"], self.produto.id)
         self.assertEqual(produto["codigo_barras"], "789000000001")
+
+    def test_adiantamento_em_produto_baixa_estoque_e_gera_financeiro(self):
+        auxiliares = AdiantamentoService.listar_auxiliares(self.tenant.id, self.escopo)
+        forma_pagamento_id = next(
+            item["id"]
+            for item in auxiliares["formas_pagamento"]
+            if item["nome"] == "Vale em folha"
+        )
+
+        registro = AdiantamentoService.criar(
+            {
+                "empresa_id": self.empresa.id,
+                "funcionario_id": self.funcionario.id,
+                "tipo_adiantamento": "PRODUTO",
+                "forma_pagamento_id": forma_pagamento_id,
+                "produto_id": self.produto.id,
+                "quantidade": 2,
+                "competencia": "2026-04",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        produto_empresa = db.session.get(ProdutoEmpresa, self.produto_empresa.id)
+
+        self.assertEqual(registro.tipo_adiantamento.value, "PRODUTO")
+        self.assertEqual(produto_empresa.estoque_atual, 8)
+        self.assertEqual(AdiantamentoFuncionario.query.count(), 1)
+        self.assertEqual(LancamentoFinanceiro.query.count(), 1)
+        self.assertEqual(MovimentoEstoque.query.count(), 1)
+
+    def test_resumo_folha_considera_adiantamento_em_dinheiro(self):
+        auxiliares = AdiantamentoService.listar_auxiliares(self.tenant.id, self.escopo)
+        forma_pagamento_id = next(
+            item["id"]
+            for item in auxiliares["formas_pagamento"]
+            if item["nome"] == "Vale em folha"
+        )
+
+        AdiantamentoService.criar(
+            {
+                "empresa_id": self.empresa.id,
+                "funcionario_id": self.funcionario.id,
+                "tipo_adiantamento": "DINHEIRO",
+                "forma_pagamento_id": forma_pagamento_id,
+                "valor_total": "150.00",
+                "competencia": "2026-04",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        resumo = AdiantamentoService.obter_resumo_folha(
+            tenant_id=self.tenant.id,
+            escopo=self.escopo,
+            empresa_id=self.empresa.id,
+            competencia="2026-04",
+        )
+
+        self.assertEqual(resumo["totais"]["adiantado"], "150.00")
+        self.assertEqual(resumo["funcionarios"][0]["saldo_a_pagar"], "1850.00")
+
+    def test_relatorio_produtos_mais_vendidos_consolida_itens_do_pdv(self):
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+
+        PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 3, "valor_unitario": "7.50"}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "22.50"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        relatorio = FinanceiroService.obter_relatorio_produtos_vendidos(
+            tenant_id=self.tenant.id,
+            escopo=self.escopo,
+            empresa_id=self.empresa.id,
+        )
+
+        self.assertEqual(relatorio["totais"]["produtos"], 1)
+        self.assertEqual(relatorio["itens"][0]["produto_nome"], "Refrigerante 2L")
+        self.assertEqual(relatorio["itens"][0]["quantidade"], 3)
 
 
 if __name__ == "__main__":

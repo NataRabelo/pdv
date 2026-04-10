@@ -123,6 +123,8 @@ function bindFinanceiroFilters() {
 function bindFinanceiroActions() {
     const openLaunch = document.getElementById("financeiro-open-launch");
     const openCloseout = document.getElementById("financeiro-open-closeout");
+    const printFlow = document.getElementById("financeiro-print-flow");
+    const printSales = document.getElementById("financeiro-print-sales");
     const launchForm = document.getElementById("financeiro-launch-form");
     const closeoutForm = document.getElementById("financeiro-closeout-form");
 
@@ -137,6 +139,32 @@ function bindFinanceiroActions() {
         openCloseout.addEventListener("click", () => {
             resetFinanceiroCloseoutForm();
             abrirFinanceiroModal("financeiro-closeout-modal");
+        });
+    }
+
+    if (printFlow) {
+        printFlow.addEventListener("click", () => {
+            const intervalo = getFinanceiroReportRange();
+            const url = new URL("/api/financeiro/relatorios/fluxo-caixa/impressao", window.location.origin);
+            url.searchParams.set("data_inicio", intervalo.dataInicio);
+            url.searchParams.set("data_fim", intervalo.dataFim);
+            if (financeiroPage.empresaId) {
+                url.searchParams.set("empresa_id", financeiroPage.empresaId);
+            }
+            window.open(url.toString(), "_blank", "noopener");
+        });
+    }
+
+    if (printSales) {
+        printSales.addEventListener("click", () => {
+            const intervalo = getFinanceiroReportRange();
+            const url = new URL("/api/financeiro/relatorios/produtos-mais-vendidos/impressao", window.location.origin);
+            url.searchParams.set("data_inicio", intervalo.dataInicio);
+            url.searchParams.set("data_fim", intervalo.dataFim);
+            if (financeiroPage.empresaId) {
+                url.searchParams.set("empresa_id", financeiroPage.empresaId);
+            }
+            window.open(url.toString(), "_blank", "noopener");
         });
     }
 
@@ -461,6 +489,18 @@ function resetFinanceiroCloseoutForm() {
     if (observacao) observacao.value = "";
 }
 
+function getFinanceiroReportRange() {
+    const periodo = Number(financeiroPage.periodoDias || "30");
+    const dataFim = new Date();
+    const dataInicio = new Date();
+    dataInicio.setDate(dataFim.getDate() - Math.max(periodo - 1, 0));
+
+    return {
+        dataInicio: dataInicio.toISOString().slice(0, 10),
+        dataFim: dataFim.toISOString().slice(0, 10)
+    };
+}
+
 function requestFinanceiroJson(url, options = {}) {
     return fetch(url, {
         credentials: "same-origin",
@@ -545,36 +585,27 @@ function showFinanceiroMessage(message, type = "success") {
 
 function bindFinanceiroMoneyMask(inputId) {
     const input = document.getElementById(inputId);
-    if (!input || input.dataset.maskBound === "true") return;
+    if (!input) return;
 
-    input.dataset.maskBound = "true";
-    input.addEventListener("input", () => {
-        input.value = formatFinanceiroMoneyInput(parseFinanceiroMoney(input.value));
-    });
-    input.addEventListener("blur", () => {
-        input.value = formatFinanceiroMoneyInput(parseFinanceiroMoney(input.value));
+    window.DecimalInput?.bind(input, {
+        decimals: 2,
+        allowEmpty: false
     });
 }
 
 function parseFinanceiroMoney(value) {
-    const raw = String(value ?? "").trim().replace(/[^\d,.-]/g, "");
-    if (!raw) return 0;
-    const normalized = raw.includes(",")
-        ? raw.replace(/\./g, "").replace(",", ".")
-        : raw;
-    const parsed = Number(normalized);
-    return Number.isNaN(parsed) ? 0 : parsed;
+    return window.DecimalInput?.parse(value) ?? 0;
 }
 
 function formatFinanceiroMoneyInput(value) {
-    return new Intl.NumberFormat("pt-BR", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(Number(value || 0));
+    return window.DecimalInput?.format(value, 2, {
+        allowEmpty: false,
+        useGrouping: true
+    }) ?? "0,00";
 }
 
 function normalizeFinanceiroMoney(value) {
-    return parseFinanceiroMoney(value).toFixed(2);
+    return window.DecimalInput?.normalize(value, 2) ?? "0.00";
 }
 
 function formatFinanceiroCurrency(value) {

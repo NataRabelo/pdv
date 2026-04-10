@@ -24,7 +24,7 @@ min-h-screen flex flex-col
             <p class="text-slate-400">Selecione o ambiente de trabalho para prosseguir.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
 
             <a href="{{ url_for('main.pdv_home') }}" class="glass module-card group">
                 <div class="icon-wrapper">
@@ -53,6 +53,16 @@ min-h-screen flex flex-col
                 <h3 class="text-xl font-bold text-white mb-2">Financeiro</h3>
                 <p class="text-slate-400 text-sm">
                     Fluxo de caixa e relatórios financeiros.
+                </p>
+            </a>
+
+            <a href="/api/importacao-exportacao/view" class="glass module-card group">
+                <div class="icon-wrapper">
+                    <i data-lucide="sheet" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Importacao em Lote</h3>
+                <p class="text-slate-400 text-sm">
+                    Modelos Excel, importacao de cadastros e exportacao de dados do tenant.
                 </p>
             </a>
 

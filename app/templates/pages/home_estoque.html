@@ -16,7 +16,7 @@ min-h-screen flex flex-col
 
 <main class="flex-1 page-shell-home">
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 
         <a href="/api/estoque/view" class="action-card">
             <div class="action-icon">
@@ -45,6 +45,26 @@ min-h-screen flex flex-col
             <div>
                 <h4 class="text-white font-bold">Categorias</h4>
                 <p class="text-slate-400 text-sm">Gerenciar categorias</p>
+            </div>
+        </a>
+
+        <a href="/api/estoque/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="shield-alert"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Alertas</h4>
+                <p class="text-slate-400 text-sm">Acompanhar baixo estoque e produtos proximos do vencimento</p>
+            </div>
+        </a>
+
+        <a href="/api/importacao-exportacao/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="sheet"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Importacao em lote</h4>
+                <p class="text-slate-400 text-sm">Cadastrar produtos, categorias e demais cadastros por Excel</p>
             </div>
         </a>
 

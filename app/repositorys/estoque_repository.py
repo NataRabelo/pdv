@@ -33,7 +33,8 @@ class EstoqueRepository:
             .options(
                 joinedload(MovimentoEstoque.empresa),
                 joinedload(MovimentoEstoque.produto),
-                joinedload(MovimentoEstoque.funcionario)
+                joinedload(MovimentoEstoque.funcionario),
+                joinedload(MovimentoEstoque.adiantamentos),
             )
             .filter(MovimentoEstoque.tenant_id == tenant_id)
             .order_by(MovimentoEstoque.data_movimento.desc(), MovimentoEstoque.id.desc())

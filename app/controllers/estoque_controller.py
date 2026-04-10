@@ -42,6 +42,7 @@ def listar_saldos():
                     "estoque_minimo": int(item.estoque_minimo),
                     "valor_compra": str(item.valor_compra),
                     "valor_venda": str(item.valor_venda),
+                    "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                     "ativo": item.ativo,
                     "abaixo_minimo": item.estoque_atual <= item.estoque_minimo,
                 }
@@ -80,7 +81,7 @@ def listar_movimentos():
                     "valor_total": str(item.valor_total) if item.valor_total is not None else None,
                     "observacao": item.observacao,
                     "venda_id": item.venda_id,
-                    "origem": "PDV" if item.venda_id else "MANUAL",
+                    "origem": "VALE" if getattr(item, "adiantamentos", None) else ("PDV" if item.venda_id else "MANUAL"),
                     "data_movimento": TimeService.serialize_utc_iso(item.data_movimento),
                 }
                 for item in movimentos
@@ -98,6 +99,30 @@ def auxiliares():
         funcionario_id = int(get_jwt_identity())
         escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
         dados = EstoqueService.listar_auxiliares(tenant_id, escopo)
+
+        return jsonify({
+            "success": True,
+            "data": dados
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@estoque_bp.route("/notificacoes", methods=["GET"])
+@permission_required("visualizar_notificacao")
+def listar_notificacoes():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        empresa_id = request.args.get("empresa_id", type=int)
+        dias_vencimento = request.args.get("dias_vencimento", default=30, type=int)
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        dados = EstoqueService.listar_notificacoes(
+            tenant_id=tenant_id,
+            escopo=escopo,
+            empresa_id=empresa_id,
+            dias_vencimento=dias_vencimento,
+        )
 
         return jsonify({
             "success": True,
@@ -134,6 +159,7 @@ def criar_movimento_manual():
                 "valor_total": str(movimento.valor_total) if movimento.valor_total is not None else None,
                 "observacao": movimento.observacao,
                 "venda_id": movimento.venda_id,
+                "origem": "VALE" if getattr(movimento, "adiantamentos", None) else ("PDV" if movimento.venda_id else "MANUAL"),
                 "data_movimento": TimeService.serialize_utc_iso(movimento.data_movimento),
             }
         }), 201

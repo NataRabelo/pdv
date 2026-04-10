@@ -8,7 +8,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/core.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
 
   {% block styles %}{% endblock %}
 </head>
@@ -23,6 +23,7 @@
     lucide.createIcons();
   </script>
 
+  <script src="{{ url_for('static', filename='js/core/decimal-input.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

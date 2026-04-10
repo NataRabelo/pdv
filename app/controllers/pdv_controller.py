@@ -129,3 +129,16 @@ def cancelar_venda(venda_id):
         })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 400
+
+
+@pdv_bp.route("/vendas/<int:venda_id>/comprovante", methods=["GET"])
+@permission_required("visualizar_pdv")
+def comprovante_venda(venda_id):
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        venda = PdvService.obter_venda(venda_id, tenant_id, escopo)
+        return render_template("relatorios/comprovante_venda.html", venda=venda)
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400

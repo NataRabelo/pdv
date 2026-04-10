@@ -43,6 +43,26 @@ min-h-screen flex flex-col bg-slate-950 text-white
         </div>
     </section>
 
+    <section class="flex flex-wrap gap-3 mb-8">
+        <a href="/api/adiantamentos/view"
+            class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+            <i data-lucide="wallet-cards" class="w-4 h-4"></i>
+            Vales e adiantamentos
+        </a>
+
+        <button type="button" id="financeiro-print-flow"
+            class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            Fluxo de caixa
+        </button>
+
+        <button type="button" id="financeiro-print-sales"
+            class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+            <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+            Produtos mais vendidos
+        </button>
+    </section>
+
     <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
         <article class="financeiro-kpi-card">
             <span class="financeiro-kpi-label">Entradas</span>

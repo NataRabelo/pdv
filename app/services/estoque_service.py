@@ -1,3 +1,4 @@
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from app.models.db import MotivoMovimentoEstoque, MovimentoEstoque, TipoMovimentoEstoque
@@ -76,9 +77,63 @@ class EstoqueService:
                     "estoque_minimo": int(item.estoque_minimo),
                     "valor_compra": str(item.valor_compra),
                     "valor_venda": str(item.valor_venda),
+                    "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                 }
                 for item in produtos_empresa
             ],
+        }
+
+    @staticmethod
+    def listar_notificacoes(tenant_id, escopo, empresa_id=None, dias_vencimento=30):
+        registros = EstoqueService.listar_saldos(tenant_id, escopo, empresa_id=empresa_id)
+        hoje = date.today()
+        dias_alerta = max(int(dias_vencimento or 30), 1)
+
+        estoque_baixo = []
+        sem_estoque = []
+        vencidos = []
+        proximos_vencimento = []
+
+        for item in registros:
+            dados = {
+                "id": item.id,
+                "produto_id": item.produto.id,
+                "empresa_id": item.empresa.id,
+                "empresa_nome": item.empresa.nome_fantasia,
+                "categoria_nome": item.produto.categoria.nome if item.produto.categoria else "",
+                "nome": item.produto.nome,
+                "codigo_barras": item.produto.codigo_barras,
+                "estoque_atual": int(item.estoque_atual),
+                "estoque_minimo": int(item.estoque_minimo),
+                "data_validade": item.data_validade.isoformat() if item.data_validade else None,
+            }
+
+            if int(item.estoque_atual) <= 0:
+                sem_estoque.append(dados)
+            elif int(item.estoque_atual) <= int(item.estoque_minimo):
+                estoque_baixo.append(dados)
+
+            if item.data_validade:
+                dias_restantes = (item.data_validade - hoje).days
+                dados["dias_para_vencimento"] = dias_restantes
+
+                if dias_restantes < 0:
+                    vencidos.append(dados)
+                elif dias_restantes <= dias_alerta:
+                    proximos_vencimento.append(dados)
+
+        return {
+            "resumo": {
+                "estoque_baixo": len(estoque_baixo),
+                "sem_estoque": len(sem_estoque),
+                "vencidos": len(vencidos),
+                "proximos_vencimento": len(proximos_vencimento),
+                "dias_vencimento": dias_alerta,
+            },
+            "estoque_baixo": estoque_baixo[:12],
+            "sem_estoque": sem_estoque[:12],
+            "vencidos": sorted(vencidos, key=lambda item: item["dias_para_vencimento"])[:12],
+            "proximos_vencimento": sorted(proximos_vencimento, key=lambda item: item["dias_para_vencimento"])[:12],
         }
 
     @staticmethod
@@ -214,6 +269,46 @@ class EstoqueService:
             if persistir:
                 EstoqueRepository.salvar()
             return movimentos
+        except Exception:
+            if persistir:
+                EstoqueRepository.rollback()
+            raise
+
+    @staticmethod
+    def registrar_saida_por_adiantamento(
+        tenant_id,
+        empresa_id,
+        produto_id,
+        quantidade,
+        funcionario_id=None,
+        valor_unitario=None,
+        observacao=None,
+        escopo=None,
+        persistir=True,
+    ):
+        if escopo is not None:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        try:
+            produto_empresa = EstoqueRepository.buscar_produto_empresa(produto_id, empresa_id, tenant_id)
+            if not produto_empresa:
+                raise ValueError("Produto nao encontrado no estoque da empresa.")
+
+            movimento = EstoqueService._registrar_movimento(
+                tenant_id=tenant_id,
+                produto_empresa=produto_empresa,
+                tipo_movimento=TipoMovimentoEstoque.SAIDA,
+                motivo=MotivoMovimentoEstoque.AJUSTE,
+                quantidade=EstoqueService._to_positive_int(quantidade, "quantidade"),
+                funcionario_id=funcionario_id,
+                valor_unitario=EstoqueService._to_optional_decimal(valor_unitario, "valor unitario", casas=2),
+                observacao=observacao or "Retirada de produto por adiantamento em folha.",
+            )
+
+            if persistir:
+                EstoqueRepository.salvar()
+
+            return movimento
         except Exception:
             if persistir:
                 EstoqueRepository.rollback()

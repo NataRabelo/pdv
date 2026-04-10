@@ -1,0 +1,69 @@
+{% extends "relatorios/base_print.html" %}
+
+{% block title %}Relatorio - Fluxo de Caixa{% endblock %}
+
+{% block content %}
+<header class="report-header">
+    <div>
+        <h1 class="report-title">Fluxo de caixa</h1>
+        <p class="report-subtitle">Entradas, saidas e saldo consolidado do periodo selecionado.</p>
+    </div>
+    <div class="report-meta">
+        <div>Periodo: {{ relatorio.periodo.data_inicio }} ate {{ relatorio.periodo.data_fim }}</div>
+        <div>Registros: {{ relatorio.totais.registros }}</div>
+        <div>Gerado pelo sistema OceanBlue</div>
+    </div>
+</header>
+
+<section class="summary-grid">
+    <article class="summary-card">
+        <span class="summary-label">Entradas</span>
+        <strong class="summary-value">R$ {{ relatorio.totais.entradas }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Saidas</span>
+        <strong class="summary-value">R$ {{ relatorio.totais.saidas }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Saldo</span>
+        <strong class="summary-value">R$ {{ relatorio.totais.saldo }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Movimentos</span>
+        <strong class="summary-value">{{ relatorio.totais.registros }}</strong>
+    </article>
+</section>
+
+<h2 class="section-title">Lancamentos</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Data</th>
+            <th>Descricao</th>
+            <th>Categoria</th>
+            <th>Forma</th>
+            <th>Origem</th>
+            <th class="text-right">Valor</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in relatorio.lancamentos %}
+        <tr>
+            <td class="small">{{ item.data_lancamento[:19].replace('T', ' ') if item.data_lancamento else '-' }}</td>
+            <td>
+                <div>{{ item.descricao or '-' }}</div>
+                <div class="muted small">{{ item.empresa_nome or '-' }}</div>
+            </td>
+            <td>{{ item.categoria_nome or '-' }}</td>
+            <td>{{ item.forma_pagamento_nome or '-' }}</td>
+            <td>{{ item.origem or '-' }}</td>
+            <td class="text-right">R$ {{ item.valor }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="6" class="text-center muted">Nenhum lancamento encontrado no periodo.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

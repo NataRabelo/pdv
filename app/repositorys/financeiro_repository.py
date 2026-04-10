@@ -128,6 +128,7 @@ class FinanceiroRepository:
             joinedload(LancamentoFinanceiro.categoria),
             joinedload(LancamentoFinanceiro.forma_pagamento),
             joinedload(LancamentoFinanceiro.venda),
+            joinedload(LancamentoFinanceiro.adiantamentos),
         )
         return query.order_by(
             LancamentoFinanceiro.data_lancamento.desc(),

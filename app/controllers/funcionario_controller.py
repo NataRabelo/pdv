@@ -89,6 +89,8 @@ def criar():
                 "nome": funcionario.funcionario.nome,
                 "cpf": funcionario.funcionario.cpf,
                 "usuario": funcionario.funcionario.usuario,
+                "salario": str(funcionario.funcionario.salario),
+                "meta": str(funcionario.funcionario.meta),
                 "ativo": funcionario.funcionario.ativo
             },
             "message": "Funcionario cadastrado com sucesso."
@@ -117,6 +119,8 @@ def atualizar(funcionario_empresa_id):
                 "nome": funcionario.funcionario.nome,
                 "cpf": funcionario.funcionario.cpf,
                 "usuario": funcionario.funcionario.usuario,
+                "salario": str(funcionario.funcionario.salario),
+                "meta": str(funcionario.funcionario.meta),
                 "ativo": funcionario.funcionario.ativo
             },
             "message": "Funcionario atualizado com sucesso."

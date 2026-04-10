@@ -42,6 +42,7 @@ def listar():
                     "estoque_minimo": int(item.estoque_minimo),
                     "valor_compra": str(item.valor_compra),
                     "valor_venda": str(item.valor_venda),
+                    "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                     "ativo": item.ativo
                 }
                 for item in registros
@@ -100,6 +101,7 @@ def criar():
                 "estoque_minimo": int(item.estoque_minimo),
                 "valor_compra": str(item.valor_compra),
                 "valor_venda": str(item.valor_venda),
+                "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                 "ativo": item.ativo
             }
         }), 201
@@ -135,6 +137,7 @@ def atualizar(produto_empresa_id):
                 "estoque_minimo": int(item.estoque_minimo),
                 "valor_compra": str(item.valor_compra),
                 "valor_venda": str(item.valor_venda),
+                "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                 "ativo": item.ativo
             },
             "message": "Produto atualizado com sucesso."

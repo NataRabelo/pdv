@@ -1,0 +1,61 @@
+{% extends "relatorios/base_print.html" %}
+
+{% block title %}Relatorio - Produtos Mais Vendidos{% endblock %}
+
+{% block content %}
+<header class="report-header">
+    <div>
+        <h1 class="report-title">Produtos mais vendidos</h1>
+        <p class="report-subtitle">Ranking de itens com maior giro e faturamento no PDV.</p>
+    </div>
+    <div class="report-meta">
+        <div>Periodo: {{ relatorio.periodo.data_inicio }} ate {{ relatorio.periodo.data_fim }}</div>
+        <div>Produtos no ranking: {{ relatorio.totais.produtos }}</div>
+        <div>Gerado pelo sistema OceanBlue</div>
+    </div>
+</header>
+
+<section class="summary-grid">
+    <article class="summary-card">
+        <span class="summary-label">Produtos</span>
+        <strong class="summary-value">{{ relatorio.totais.produtos }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Quantidade vendida</span>
+        <strong class="summary-value">{{ relatorio.totais.quantidade }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Faturamento</span>
+        <strong class="summary-value">R$ {{ relatorio.totais.faturamento }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Periodo</span>
+        <strong class="summary-value">{{ relatorio.periodo.data_inicio }} a {{ relatorio.periodo.data_fim }}</strong>
+    </article>
+</section>
+
+<table>
+    <thead>
+        <tr>
+            <th class="text-center">Posicao</th>
+            <th>Produto</th>
+            <th class="text-right">Quantidade</th>
+            <th class="text-right">Faturamento</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in relatorio.itens %}
+        <tr>
+            <td class="text-center">{{ loop.index }}</td>
+            <td>{{ item.produto_nome or '-' }}</td>
+            <td class="text-right">{{ item.quantidade }}</td>
+            <td class="text-right">R$ {{ item.faturamento }}</td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="4" class="text-center muted">Nenhum produto vendido no periodo selecionado.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -8,3 +8,4 @@ marshmallow==3.19.0
 gunicorn==21.2.0
 weasyprint==59.0
 mercadopago
+openpyxl==3.1.5

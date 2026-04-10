@@ -1,0 +1,101 @@
+{% extends "relatorios/base_print.html" %}
+
+{% block title %}Comprovante de Venda{% endblock %}
+
+{% block content %}
+<header class="report-header">
+    <div>
+        <h1 class="report-title">Comprovante de venda</h1>
+        <p class="report-subtitle">Resumo da venda registrada no PDV.</p>
+    </div>
+    <div class="report-meta">
+        <div>Numero: {{ venda.numero_unico }}</div>
+        <div>Data: {{ venda.data_venda[:19].replace('T', ' ') if venda.data_venda else '-' }}</div>
+        <div>Status: {{ venda.status }}</div>
+    </div>
+</header>
+
+<section class="summary-grid">
+    <article class="summary-card">
+        <span class="summary-label">Empresa</span>
+        <strong class="summary-value">{{ venda.empresa_nome or '-' }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Operador</span>
+        <strong class="summary-value">{{ venda.funcionario_nome or '-' }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Itens</span>
+        <strong class="summary-value">{{ venda.itens_quantidade }}</strong>
+    </article>
+    <article class="summary-card">
+        <span class="summary-label">Total</span>
+        <strong class="summary-value">R$ {{ venda.total }}</strong>
+    </article>
+</section>
+
+<h2 class="section-title">Itens da venda</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Produto</th>
+            <th class="text-right">Quantidade</th>
+            <th class="text-right">Unitario</th>
+            <th class="text-right">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in venda.itens %}
+        <tr>
+            <td>{{ item.produto_nome or '-' }}</td>
+            <td class="text-right">{{ item.quantidade }}</td>
+            <td class="text-right">R$ {{ item.valor_unitario }}</td>
+            <td class="text-right">R$ {{ item.valor_total }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 class="section-title">Pagamentos</h2>
+<table>
+    <thead>
+        <tr>
+            <th>Forma</th>
+            <th>Comprovante</th>
+            <th class="text-right">Valor</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in venda.pagamentos %}
+        <tr>
+            <td>{{ item.forma_pagamento_nome or '-' }}</td>
+            <td>{{ item.comprovante or 'Sem comprovante' }}</td>
+            <td class="text-right">R$ {{ item.valor }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h2 class="section-title">Resumo financeiro</h2>
+<table>
+    <tbody>
+        <tr>
+            <td>Subtotal</td>
+            <td class="text-right">R$ {{ venda.subtotal }}</td>
+        </tr>
+        <tr>
+            <td>Desconto</td>
+            <td class="text-right">R$ {{ venda.desconto }}</td>
+        </tr>
+        <tr>
+            <td><strong>Total</strong></td>
+            <td class="text-right"><strong>R$ {{ venda.total }}</strong></td>
+        </tr>
+    </tbody>
+</table>
+
+{% if venda.observacao %}
+<h2 class="section-title">Observacao</h2>
+<p class="muted">{{ venda.observacao }}</p>
+{% endif %}
+{% endblock %}

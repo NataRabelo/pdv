@@ -22,7 +22,7 @@ min-h-screen flex flex-col
         <p class="text-slate-400">Controle as entradas, saidas, faturamento e conferencias operacionais do negocio.</p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         <a href="/api/financeiro/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="landmark"></i>
@@ -60,6 +60,26 @@ min-h-screen flex flex-col
             <div>
                 <h4 class="text-white font-bold">Equipe</h4>
                 <p class="text-slate-400 text-sm">Conferir os operadores que movimentam o caixa</p>
+            </div>
+        </a>
+
+        <a href="/api/adiantamentos/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="wallet-cards"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Adiantamentos</h4>
+                <p class="text-slate-400 text-sm">Controlar vale em dinheiro ou produto para abatimento em folha</p>
+            </div>
+        </a>
+
+        <a href="/api/financeiro/view" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="printer"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Relatorios</h4>
+                <p class="text-slate-400 text-sm">Imprimir fluxo de caixa, adiantamentos e produtos mais vendidos</p>
             </div>
         </a>
     </div>

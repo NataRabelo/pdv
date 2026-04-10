@@ -55,6 +55,11 @@ class StatusVenda(enum.Enum):
     CANCELADA = "CANCELADA"
 
 
+class TipoAdiantamentoFuncionario(enum.Enum):
+    DINHEIRO = "DINHEIRO"
+    PRODUTO = "PRODUTO"
+
+
 class ModeloBase(db.Model):
     __abstract__ = True
 
@@ -161,6 +166,8 @@ class Funcionario(ModeloBase):
     cpf = db.Column(db.String(14), nullable=False)
     usuario = db.Column(db.String(80), nullable=False)
     senha_hash = db.Column(db.String(255), nullable=False)
+    salario = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    meta = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
     role = db.relationship("Role", backref=db.backref("funcionarios", lazy=True))
@@ -241,6 +248,7 @@ class ProdutoEmpresa(ModeloBase):
     estoque_minimo = db.Column(db.Integer, nullable=False, default=0)
     valor_compra = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     valor_venda = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    data_validade = db.Column(db.Date, nullable=True)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
     produto = db.relationship("Produto", backref=db.backref("dados_por_empresa", lazy=True, cascade="all, delete-orphan"))
@@ -295,6 +303,7 @@ class TipoOperacao(ModeloBase):
 class Cupom(ModeloBase):
     __tablename__ = "cupons"
 
+    criado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
     nome = db.Column(db.String(100), nullable=False)
     codigo = db.Column(db.String(60), nullable=False)
     data_validade = db.Column(db.Date, nullable=False)
@@ -302,8 +311,43 @@ class Cupom(ModeloBase):
     valor_desconto = db.Column(db.Numeric(12, 2), nullable=False)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
+    criado_por = db.relationship("Funcionario", backref=db.backref("cupons_criados", lazy=True))
+
     __table_args__ = (
         UniqueConstraint("tenant_id", "codigo", name="uq_cupom_tenant_codigo"),
+    )
+
+
+class AdiantamentoFuncionario(ModeloBase):
+    __tablename__ = "adiantamentos_funcionario"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=False)
+    produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=True)
+    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("formas_pagamento.id"), nullable=False)
+    lancamento_financeiro_id = db.Column(db.Integer, db.ForeignKey("lancamentos_financeiros.id"), nullable=True)
+    movimento_estoque_id = db.Column(db.Integer, db.ForeignKey("movimentos_estoque.id"), nullable=True)
+    tipo_adiantamento = db.Column(db.Enum(TipoAdiantamentoFuncionario), nullable=False)
+    descricao = db.Column(db.String(255), nullable=False)
+    quantidade = db.Column(db.Integer, nullable=True)
+    valor_unitario = db.Column(db.Numeric(12, 2), nullable=True)
+    valor_total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    data_adiantamento = db.Column(db.Date, nullable=False, default=date.today)
+    competencia = db.Column(db.Date, nullable=False, default=date.today)
+    observacao = db.Column(db.Text, nullable=True)
+
+    empresa = db.relationship("Empresa", backref=db.backref("adiantamentos_funcionario", lazy=True))
+    funcionario = db.relationship("Funcionario", backref=db.backref("adiantamentos", lazy=True))
+    produto = db.relationship("Produto", backref=db.backref("adiantamentos", lazy=True))
+    forma_pagamento = db.relationship("FormaPagamento", backref=db.backref("adiantamentos", lazy=True))
+    lancamento_financeiro = db.relationship("LancamentoFinanceiro", backref=db.backref("adiantamentos", lazy=True))
+    movimento_estoque = db.relationship("MovimentoEstoque", backref=db.backref("adiantamentos", lazy=True))
+
+    __table_args__ = (
+        CheckConstraint("quantidade IS NULL OR quantidade > 0", name="ck_adiantamento_quantidade_positive"),
+        CheckConstraint("valor_unitario IS NULL OR valor_unitario >= 0", name="ck_adiantamento_valor_unitario_non_negative"),
+        CheckConstraint("valor_total >= 0", name="ck_adiantamento_valor_total_non_negative"),
+        Index("ix_adiantamento_tenant_funcionario_competencia", "tenant_id", "funcionario_id", "competencia"),
     )
 
 

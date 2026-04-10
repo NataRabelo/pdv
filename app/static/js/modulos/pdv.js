@@ -10,6 +10,8 @@ window.pdvPage = {
     busca: "",
     statusVenda: "",
     vendaSelecionada: null,
+    payloadConfirmacaoPendente: null,
+    ultimaVendaFinalizada: null,
     paymentCounter: 1
 };
 
@@ -160,20 +162,16 @@ function bindCartActions() {
 function bindSaleActions() {
     const finalizeBtn = document.getElementById("pdv-finalizar-venda");
     const cancelBtn = document.getElementById("pdv-sale-cancel-button");
+    const salePrintBtn = document.getElementById("pdv-sale-print-button");
+    const confirmSubmitBtn = document.getElementById("pdv-confirm-submit");
+    const successPrintBtn = document.getElementById("pdv-success-print");
 
     if (finalizeBtn) {
-        finalizeBtn.addEventListener("click", async () => {
+        finalizeBtn.addEventListener("click", () => {
             try {
                 const payload = montarPayloadVenda();
-                const result = await requestJson("/api/pdv/vendas", {
-                    method: "POST",
-                    headers: getAuthHeaders(true),
-                    body: JSON.stringify(payload)
-                });
-
-                showMessage(result.message || "Venda registrada com sucesso.", "success");
-                limparCarrinho();
-                await carregarDadosPdv();
+                pdvPage.payloadConfirmacaoPendente = payload;
+                abrirModalConfirmacaoVenda(payload);
             } catch (error) {
                 showMessage(error.message || "Erro ao registrar a venda.", "error");
             }
@@ -201,6 +199,47 @@ function bindSaleActions() {
             } catch (error) {
                 showMessage(error.message || "Erro ao cancelar a venda.", "error");
             }
+        });
+    }
+
+    if (salePrintBtn) {
+        salePrintBtn.addEventListener("click", () => {
+            if (!pdvPage.vendaSelecionada) return;
+            abrirComprovanteVenda(pdvPage.vendaSelecionada.id);
+        });
+    }
+
+    if (confirmSubmitBtn) {
+        confirmSubmitBtn.addEventListener("click", async () => {
+            if (!pdvPage.payloadConfirmacaoPendente) return;
+
+            try {
+                confirmSubmitBtn.disabled = true;
+                const result = await requestJson("/api/pdv/vendas", {
+                    method: "POST",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify(pdvPage.payloadConfirmacaoPendente)
+                });
+
+                pdvPage.ultimaVendaFinalizada = result.data || null;
+                pdvPage.payloadConfirmacaoPendente = null;
+                fecharModal("pdv-confirm-modal");
+                abrirModalSucessoVenda(pdvPage.ultimaVendaFinalizada);
+                showMessage(result.message || "Venda registrada com sucesso.", "success");
+                limparCarrinho();
+                await carregarDadosPdv();
+            } catch (error) {
+                showMessage(error.message || "Erro ao registrar a venda.", "error");
+            } finally {
+                confirmSubmitBtn.disabled = false;
+            }
+        });
+    }
+
+    if (successPrintBtn) {
+        successPrintBtn.addEventListener("click", () => {
+            if (!pdvPage.ultimaVendaFinalizada?.id) return;
+            abrirComprovanteVenda(pdvPage.ultimaVendaFinalizada.id);
         });
     }
 }
@@ -592,6 +631,11 @@ function renderVendas() {
                             onclick="abrirModalVenda(${venda.id}, false)">
                             <i data-lucide="file-text" class="w-4 h-4"></i>
                         </button>
+                        <button type="button"
+                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 text-slate-200 hover:border-sky-500/30 hover:text-white transition"
+                            onclick="abrirComprovanteVenda(${venda.id})">
+                            <i data-lucide="printer" class="w-4 h-4"></i>
+                        </button>
                         ${venda.permite_cancelamento ? `
                             <button type="button"
                                 class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 transition"
@@ -692,6 +736,109 @@ function abrirModalVenda(vendaId, focarCancelamento) {
     if (window.lucide) {
         lucide.createIcons();
     }
+}
+
+function abrirModalConfirmacaoVenda(payload) {
+    const content = document.getElementById("pdv-confirm-content");
+    if (!content) return;
+
+    const subtotal = pdvPage.carrinho.reduce((sum, item) => sum + multiplicar(item.valor_venda, item.quantidade), 0);
+    const desconto = parseCurrencyValue(document.getElementById("pdv-total-desconto")?.textContent || "0");
+    const total = parseCurrencyValue(document.getElementById("pdv-total-geral")?.textContent || "0");
+    const empresa = pdvPage.auxiliares.empresas.find((item) => String(item.id) === String(payload.empresa_id));
+
+    content.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Empresa</p>
+                <strong class="block text-white mt-2">${escapeHtml(empresa?.nome || "-")}</strong>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Itens</p>
+                <strong class="block text-white mt-2">${formatInteger(payload.itens.length)}</strong>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Total</p>
+                <strong class="block text-white mt-2">${formatCurrency(total)}</strong>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+            <div class="flex items-center justify-between gap-4 mb-3">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Itens confirmados</p>
+                <span class="text-sm text-slate-400">Subtotal ${formatCurrency(subtotal)} · Desconto ${formatCurrency(desconto)}</span>
+            </div>
+            <div class="space-y-3">
+                ${pdvPage.carrinho.map((item) => `
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <p class="font-medium text-white">${escapeHtml(item.nome)}</p>
+                            <p class="text-sm text-slate-400">${formatInteger(item.quantidade)} x ${formatCurrency(item.valor_venda)}</p>
+                        </div>
+                        <strong class="text-white">${formatCurrency(multiplicar(item.valor_venda, item.quantidade))}</strong>
+                    </div>
+                `).join("")}
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+            <p class="text-xs uppercase tracking-[0.14em] text-slate-500 mb-3">Pagamentos</p>
+            <div class="space-y-3">
+                ${payload.pagamentos.map((pagamento) => {
+                    const forma = pdvPage.auxiliares.formas_pagamento.find((item) => String(item.id) === String(pagamento.forma_pagamento_id));
+                    return `
+                        <div class="flex items-center justify-between gap-4">
+                            <p class="font-medium text-white">${escapeHtml(forma?.nome || "-")}</p>
+                            <strong class="text-white">${formatCurrency(pagamento.valor)}</strong>
+                        </div>
+                    `;
+                }).join("")}
+            </div>
+        </div>
+    `;
+
+    abrirModal("pdv-confirm-modal");
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+function abrirModalSucessoVenda(venda) {
+    if (!venda) return;
+
+    const message = document.getElementById("pdv-success-message");
+    const summary = document.getElementById("pdv-success-summary");
+
+    if (message) {
+        message.textContent = `${venda.numero_unico} finalizada em ${formatCurrency(venda.total)}.`;
+    }
+
+    if (summary) {
+        summary.innerHTML = `
+            <div class="space-y-2 text-sm text-slate-300">
+                <div class="flex items-center justify-between gap-3">
+                    <span>Empresa</span>
+                    <strong class="text-white">${escapeHtml(venda.empresa_nome || "-")}</strong>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <span>Itens</span>
+                    <strong class="text-white">${formatInteger(venda.itens_quantidade)}</strong>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <span>Total</span>
+                    <strong class="text-white">${formatCurrency(venda.total)}</strong>
+                </div>
+            </div>
+        `;
+    }
+
+    abrirModal("pdv-success-modal");
+}
+
+function abrirComprovanteVenda(vendaId) {
+    if (!vendaId) return;
+    const url = new URL(`/api/pdv/vendas/${vendaId}/comprovante`, window.location.origin);
+    window.open(url.toString(), "_blank", "noopener");
 }
 
 function atualizarKpis() {
@@ -807,6 +954,7 @@ function syncSinglePaymentWithTotal(totalOverride) {
 
 function limparCarrinho() {
     pdvPage.carrinho = [];
+    pdvPage.payloadConfirmacaoPendente = null;
     const cupom = document.getElementById("pdv-cupom-codigo");
     const desconto = document.getElementById("pdv-desconto-manual");
     const observacao = document.getElementById("pdv-observacao");
@@ -940,46 +1088,42 @@ function bindMoneyMask(inputId) {
     const input = document.getElementById(inputId);
     if (!input) return;
     bindMoneyMaskToElement(input);
-    input.addEventListener("input", () => atualizarResumoVenda());
 }
 
 function bindMoneyMaskToElement(input) {
-    if (!input || input.dataset.maskBound === "true") return;
+    if (!input) return;
 
-    input.dataset.maskBound = "true";
-    input.addEventListener("input", () => {
-        input.value = formatCurrencyInput(parseCurrencyValue(input.value));
-        if (input.id === "pdv-desconto-manual") {
-            atualizarResumoVenda();
-        }
-    });
-    input.addEventListener("blur", () => {
-        input.value = formatCurrencyInput(parseCurrencyValue(input.value));
-        if (input.id === "pdv-desconto-manual") {
-            atualizarResumoVenda();
+    const isDiscountInput = input.id === "pdv-desconto-manual";
+
+    window.DecimalInput?.bind(input, {
+        decimals: 2,
+        allowEmpty: !isDiscountInput,
+        onInput: () => {
+            if (isDiscountInput) {
+                atualizarResumoVenda();
+            }
+        },
+        onBlur: () => {
+            if (isDiscountInput) {
+                atualizarResumoVenda();
+            }
         }
     });
 }
 
 function parseCurrencyValue(value) {
-    const raw = String(value ?? "").trim().replace(/[^\d,.-]/g, "");
-    if (!raw) return 0;
-    const normalized = raw.includes(",")
-        ? raw.replace(/\./g, "").replace(",", ".")
-        : raw;
-    const parsed = Number(normalized);
-    return Number.isNaN(parsed) ? 0 : parsed;
+    return window.DecimalInput?.parse(value) ?? 0;
 }
 
 function formatCurrencyInput(value) {
-    return new Intl.NumberFormat("pt-BR", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(Number(value || 0));
+    return window.DecimalInput?.format(value, 2, {
+        allowEmpty: false,
+        useGrouping: true
+    }) ?? "0,00";
 }
 
 function normalizeMoneyForApi(value) {
-    return parseCurrencyValue(value).toFixed(2);
+    return window.DecimalInput?.normalize(value, 2) ?? "0.00";
 }
 
 function multiplicar(valor, quantidade) {

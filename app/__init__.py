@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
@@ -60,6 +62,7 @@ def register_commands(app: Flask) -> None:
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object(get_config())
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 
     register_extensions(app)
     register_blueprints(app)

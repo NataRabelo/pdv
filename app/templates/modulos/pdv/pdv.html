@@ -248,10 +248,77 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     Fechar
                 </button>
 
+                <button type="button" id="pdv-sale-print-button"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold px-5 py-3 transition">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    Imprimir comprovante
+                </button>
+
                 <button type="button" id="pdv-sale-cancel-button"
                     class="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-semibold px-5 py-3 transition">
                     <i data-lucide="ban" class="w-4 h-4"></i>
                     Cancelar venda
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="pdv-confirm-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Confirmar venda</h3>
+                <p class="text-sm text-slate-400 mt-1">Revise o fechamento antes de concluir o atendimento.</p>
+            </div>
+            <button type="button" data-close-modal="pdv-confirm-modal"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div id="pdv-confirm-content" class="px-6 py-6 space-y-4"></div>
+
+        <div class="px-6 pb-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <button type="button" data-close-modal="pdv-confirm-modal"
+                class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                Voltar
+            </button>
+            <button type="button" id="pdv-confirm-submit"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                <i data-lucide="wallet" class="w-4 h-4"></i>
+                Confirmar venda
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="pdv-success-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-6 space-y-4">
+            <div class="flex items-center gap-3">
+                <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300">
+                    <i data-lucide="badge-check" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-white">Venda concluida</h3>
+                    <p id="pdv-success-message" class="text-sm text-slate-400 mt-1">O atendimento foi finalizado com sucesso.</p>
+                </div>
+            </div>
+
+            <div id="pdv-success-summary" class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"></div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button type="button" data-close-modal="pdv-success-modal"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Continuar
+                </button>
+                <button type="button" id="pdv-success-print"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    Imprimir comprovante
                 </button>
             </div>
         </div>

@@ -1,0 +1,287 @@
+.import-export-kpi,
+.import-export-panel {
+    border: 1px solid rgba(51, 65, 85, 0.9);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(2, 6, 23, 0.92));
+    border-radius: 24px;
+    box-shadow: 0 24px 60px rgba(2, 6, 23, 0.28);
+}
+
+.import-export-kpi {
+    padding: 1.5rem;
+}
+
+.import-export-kpi-label {
+    display: block;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: rgb(148 163 184);
+}
+
+.import-export-kpi-value {
+    display: block;
+    margin-top: 0.9rem;
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    font-weight: 700;
+    color: white;
+}
+
+.import-export-kpi-help {
+    margin-top: 0.75rem;
+    color: rgb(100 116 139);
+    font-size: 0.95rem;
+}
+
+.import-export-panel {
+    padding: 1.6rem;
+}
+
+.import-export-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.import-export-panel-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+}
+
+.import-export-panel-subtitle {
+    margin-top: 0.45rem;
+    color: rgb(148 163 184);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.import-export-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 1rem;
+    border: 1px solid transparent;
+}
+
+.import-export-icon-sky {
+    color: rgb(14 165 233);
+    background: rgba(14, 165, 233, 0.12);
+    border-color: rgba(14, 165, 233, 0.2);
+}
+
+.import-export-icon-emerald {
+    color: rgb(16 185 129);
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.import-export-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: rgb(203 213 225);
+}
+
+.import-export-input {
+    width: 100%;
+    border-radius: 1rem;
+    border: 1px solid rgb(30 41 59);
+    background: rgba(2, 6, 23, 0.9);
+    color: white;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    padding: 0.95rem 1rem;
+}
+
+.import-export-input:focus {
+    border-color: rgba(14, 165, 233, 0.9);
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.12);
+}
+
+.import-export-file {
+    padding-block: 0.72rem;
+}
+
+.import-export-primary-btn,
+.import-export-secondary-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    border-radius: 1rem;
+    font-weight: 700;
+    transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    min-height: 3.25rem;
+}
+
+.import-export-primary-btn {
+    background: rgb(14 165 233);
+    color: rgb(2 6 23);
+    padding: 0.95rem 1.2rem;
+}
+
+.import-export-primary-btn:hover {
+    background: rgb(56 189 248);
+    transform: translateY(-1px);
+}
+
+.import-export-secondary-btn {
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    background: rgba(14, 165, 233, 0.08);
+    color: rgb(186 230 253);
+    padding: 0.95rem 1rem;
+}
+
+.import-export-secondary-btn:hover {
+    border-color: rgba(14, 165, 233, 0.45);
+    background: rgba(14, 165, 233, 0.14);
+}
+
+.import-export-primary-btn:disabled,
+.import-export-secondary-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.import-export-help {
+    border-radius: 1rem;
+    border: 1px dashed rgba(71, 85, 105, 0.9);
+    background: rgba(15, 23, 42, 0.55);
+    padding: 1rem;
+    color: rgb(148 163 184);
+    line-height: 1.6;
+}
+
+.import-export-entities {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+}
+
+.import-export-entity-card {
+    border-radius: 1.25rem;
+    border: 1px solid rgba(51, 65, 85, 0.95);
+    background: rgba(2, 6, 23, 0.72);
+    padding: 1.2rem;
+}
+
+.import-export-entity-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.import-export-entity-title {
+    color: white;
+    font-weight: 700;
+}
+
+.import-export-entity-text {
+    margin-top: 0.55rem;
+    color: rgb(148 163 184);
+    font-size: 0.93rem;
+    line-height: 1.5;
+}
+
+.import-export-entity-columns {
+    margin-top: 1rem;
+    color: rgb(203 213 225);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.import-export-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.import-export-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.4rem 0.7rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.import-export-badge-ok {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    color: rgb(167 243 208);
+}
+
+.import-export-badge-muted {
+    background: rgba(71, 85, 105, 0.25);
+    border: 1px solid rgba(71, 85, 105, 0.32);
+    color: rgb(203 213 225);
+}
+
+.import-export-result-empty,
+.import-export-result-box {
+    border-radius: 1.25rem;
+    border: 1px solid rgba(51, 65, 85, 0.9);
+    background: rgba(2, 6, 23, 0.72);
+    padding: 1.15rem;
+    color: rgb(148 163 184);
+}
+
+.import-export-result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.85rem;
+    margin-top: 1rem;
+}
+
+.import-export-result-stat {
+    border-radius: 1rem;
+    border: 1px solid rgba(51, 65, 85, 0.85);
+    background: rgba(15, 23, 42, 0.82);
+    padding: 0.95rem;
+}
+
+.import-export-result-stat span {
+    display: block;
+    color: rgb(100 116 139);
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.import-export-result-stat strong {
+    display: block;
+    margin-top: 0.4rem;
+    color: white;
+    font-size: 1.3rem;
+}
+
+.import-export-error-list {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.75rem;
+}
+
+.import-export-error-item {
+    border-radius: 1rem;
+    border: 1px solid rgba(244, 63, 94, 0.18);
+    background: rgba(127, 29, 29, 0.14);
+    padding: 0.9rem 1rem;
+    color: rgb(254 205 211);
+}
+
+@media (max-width: 640px) {
+    .import-export-panel,
+    .import-export-kpi {
+        padding: 1.2rem;
+    }
+}
