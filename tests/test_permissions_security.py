@@ -1,0 +1,149 @@
+import os
+import unittest
+
+from app import create_app
+from app.extensions import db
+from app.models.db import (
+    Empresa,
+    Funcionario,
+    FuncionarioEmpresa,
+    Permission,
+    RolePermission,
+    Tenant,
+    TipoEmpresa,
+)
+from app.security.password import hash_password
+from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.tenant_bootstrap_service import TenantBootstrapService
+
+
+class PermissionsSecurityTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        os.environ["DATABASE_URL"] = "sqlite:///test_permissions_security.db"
+        cls.app = create_app()
+        cls.app_context = cls.app.app_context()
+        cls.app_context.push()
+
+    @classmethod
+    def tearDownClass(cls):
+        db.session.remove()
+        db.drop_all()
+        cls.app_context.pop()
+
+    def setUp(self):
+        db.drop_all()
+        db.create_all()
+
+        tenant = Tenant(nome="Tenant Seguranca")
+        db.session.add(tenant)
+        db.session.commit()
+
+        roles = TenantBootstrapService.garantir_permissoes_e_roles(tenant.id)
+        TenantBootstrapService.garantir_cadastros_operacionais(tenant.id)
+
+        empresa = Empresa(
+            tenant_id=tenant.id,
+            cnpj="11.222.333/0001-44",
+            razao_social="Seguranca LTDA",
+            nome_fantasia="Seguranca Matriz",
+            tipo_empresa=TipoEmpresa.MATRIZ,
+            ativo=True,
+        )
+        db.session.add(empresa)
+        db.session.flush()
+
+        operador = Funcionario(
+            tenant_id=tenant.id,
+            role_id=roles["operador"].id,
+            nome="Operador Restrito",
+            cpf="444.555.666-77",
+            usuario="operador.restrito",
+            senha_hash=hash_password("123456"),
+            salario=1800,
+            ativo=True,
+        )
+        db.session.add(operador)
+        db.session.flush()
+
+        db.session.add(
+            FuncionarioEmpresa(
+                tenant_id=tenant.id,
+                funcionario_id=operador.id,
+                empresa_id=empresa.id,
+                ativo=True,
+            )
+        )
+        db.session.commit()
+
+        self.tenant = tenant
+        self.empresa = empresa
+        self.operador = operador
+        self.operator_role_id = roles["operador"].id
+
+        self._remover_permissoes_financeiras_do_operador()
+        self.client = self.app.test_client()
+
+    def _remover_permissoes_financeiras_do_operador(self):
+        codigos_bloqueados = [
+            "visualizar_financeiro",
+            "criar_lancamento_financeiro",
+            "fechar_caixa",
+            "visualizar_relatorio_financeiro",
+        ]
+        permission_ids = [
+            item.id
+            for item in Permission.query.filter(
+                Permission.tenant_id == self.tenant.id,
+                Permission.codigo.in_(codigos_bloqueados),
+            ).all()
+        ]
+
+        if permission_ids:
+            (
+                RolePermission.query.filter(
+                    RolePermission.tenant_id == self.tenant.id,
+                    RolePermission.role_id == self.operator_role_id,
+                    RolePermission.permission_id.in_(permission_ids),
+                )
+                .delete(synchronize_session=False)
+            )
+            db.session.commit()
+
+    def _login_operador(self):
+        response = self.client.post(
+            "/login",
+            data={"usuario": "operador.restrito", "senha": "123456"},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        return response
+
+    def test_bootstrap_nao_reaplica_permissoes_removidas_da_role_existente(self):
+        TenantBootstrapService.garantir_permissoes_e_roles(self.tenant.id)
+        db.session.commit()
+
+        escopo = AcessoEmpresaService.obter_escopo(self.operador.id, self.tenant.id)
+
+        self.assertNotIn("visualizar_financeiro", escopo["permission_codes"])
+        self.assertNotIn("criar_lancamento_financeiro", escopo["permission_codes"])
+        self.assertNotIn("fechar_caixa", escopo["permission_codes"])
+        self.assertNotIn("visualizar_relatorio_financeiro", escopo["permission_codes"])
+
+    def test_login_nao_renderiza_financeiro_e_bloqueia_url_direta(self):
+        self._login_operador()
+
+        escopo = AcessoEmpresaService.obter_escopo(self.operador.id, self.tenant.id)
+        self.assertNotIn("visualizar_financeiro", escopo["permission_codes"])
+
+        home_response = self.client.get("/home")
+        self.assertEqual(home_response.status_code, 200)
+        self.assertNotIn(b"/financeiro/home", home_response.data)
+
+        blocked_response = self.client.get("/financeiro/home", follow_redirects=False)
+        self.assertEqual(blocked_response.status_code, 302)
+        self.assertIn("/home", blocked_response.headers.get("Location", ""))
+
+
+if __name__ == "__main__":
+    unittest.main()

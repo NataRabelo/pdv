@@ -1,5 +1,6 @@
 from app.models.db import Permission
 from app.repositorys.permission_repository import PermissionRepository
+from app.security.permissions import build_permission_groups
 
 
 class PermissionService:
@@ -7,6 +8,11 @@ class PermissionService:
     @staticmethod
     def listar(tenant_id):
         return PermissionRepository.listar(tenant_id)
+
+    @staticmethod
+    def listar_agrupadas(tenant_id):
+        permissions = PermissionRepository.listar(tenant_id)
+        return build_permission_groups(permissions)
 
     @staticmethod
     def criar(data, tenant_id):

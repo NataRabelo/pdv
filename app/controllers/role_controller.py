@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, render_template, request
 from flask_jwt_extended import get_jwt, jwt_required
 
 from app.security.decorators import permission_required, ui_permission_required
+from app.security.permissions import build_permission_groups, normalize_permission_codes
 from app.services.permission_service import PermissionService
 from app.services.role_service import RoleService
 
@@ -22,33 +23,49 @@ def listar():
         tenant_id = get_jwt().get("tenant_id")
         roles = RoleService.listar(tenant_id)
 
+        def _serializar_permissions(role):
+            permissions = [link.permission for link in role.permissions_links if link.permission]
+            effective_codes = normalize_permission_codes(
+                permission.codigo
+                for permission in permissions
+            )
+            filtered_permissions = [
+                permission
+                for permission in permissions
+                if permission.codigo in effective_codes
+            ]
+            return filtered_permissions
+
+        serialized_roles = []
+        for role in roles:
+            filtered_permissions = _serializar_permissions(role)
+            serialized_roles.append({
+                "id": role.id,
+                "nome": role.nome,
+                "codigo": role.codigo,
+                "descricao": role.descricao,
+                "ativo": role.ativo,
+                "permission_ids": [permission.id for permission in filtered_permissions],
+                "permissions_text": " ".join(
+                    [
+                        f"{permission.nome or ''} {permission.codigo or ''}".strip()
+                        for permission in filtered_permissions
+                    ]
+                ),
+                "permissions": [
+                    {
+                        "id": permission.id,
+                        "nome": permission.nome,
+                        "codigo": permission.codigo,
+                    }
+                    for permission in filtered_permissions
+                ],
+                "permissions_grouped": build_permission_groups(filtered_permissions),
+            })
+
         return jsonify({
             "success": True,
-            "data": [
-                {
-                    "id": role.id,
-                    "nome": role.nome,
-                    "codigo": role.codigo,
-                    "descricao": role.descricao,
-                    "ativo": role.ativo,
-                    "permission_ids": [link.permission.id for link in role.permissions_links if link.permission],
-                    "permissions_text": " ".join(
-                        [
-                            f"{link.permission.nome or ''} {link.permission.codigo or ''}".strip()
-                            for link in role.permissions_links if link.permission
-                        ]
-                    ),
-                    "permissions": [
-                        {
-                            "id": link.permission.id,
-                            "nome": link.permission.nome,
-                            "codigo": link.permission.codigo,
-                        }
-                        for link in role.permissions_links if link.permission
-                    ]
-                }
-                for role in roles
-            ]
+            "data": serialized_roles
         }), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -59,20 +76,11 @@ def listar():
 def listar_permissions_disponiveis():
     try:
         tenant_id = get_jwt().get("tenant_id")
-        permissions = PermissionService.listar(tenant_id)
+        permission_groups = PermissionService.listar_agrupadas(tenant_id)
 
         return jsonify({
             "success": True,
-            "data": [
-                {
-                    "id": permission.id,
-                    "nome": permission.nome,
-                    "codigo": permission.codigo,
-                    "descricao": permission.descricao,
-                    "ativo": permission.ativo
-                }
-                for permission in permissions
-            ]
+            "data": permission_groups
         }), 200
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500

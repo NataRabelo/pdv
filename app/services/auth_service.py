@@ -25,6 +25,8 @@ class AuthService:
         if funcionario and verify_password(senha, funcionario.senha_hash):
             if not funcionario.ativo:
                 raise ValueError("Usuario inativo")
+            if not funcionario.role or not funcionario.role.ativo:
+                raise ValueError("Perfil de acesso inativo ou nao configurado.")
             try:
                 TenantBootstrapService.garantir_permissoes_e_roles(funcionario.tenant_id)
                 TenantBootstrapService.garantir_cadastros_operacionais(funcionario.tenant_id)

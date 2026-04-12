@@ -1,5 +1,6 @@
 from app.models.db import Role, RolePermission
 from app.repositorys.role_repository import RoleRepository
+from app.security.permissions import get_permission_dependency_codes, normalize_permission_codes
 
 
 class RoleService:
@@ -27,9 +28,7 @@ class RoleService:
             if RoleRepository.buscar_por_codigo(codigo, tenant_id):
                 raise ValueError("Ja existe uma role com esse codigo.")
 
-            permissions = RoleRepository.listar_permissions_por_ids(permission_ids, tenant_id)
-            if len(permissions) != len(permission_ids):
-                raise ValueError("Uma ou mais permissions informadas nao existem.")
+            permissions = RoleService._resolver_permissions_validas(permission_ids, tenant_id)
 
             role = Role(
                 tenant_id=tenant_id,
@@ -77,9 +76,7 @@ class RoleService:
             if RoleRepository.buscar_por_codigo(codigo, tenant_id, ignorar_role_id=role.id):
                 raise ValueError("Ja existe uma role com esse codigo.")
 
-            permissions = RoleRepository.listar_permissions_por_ids(permission_ids, tenant_id)
-            if len(permissions) != len(permission_ids):
-                raise ValueError("Uma ou mais permissions informadas nao existem.")
+            permissions = RoleService._resolver_permissions_validas(permission_ids, tenant_id)
 
             role.nome = nome
             role.codigo = codigo
@@ -145,3 +142,27 @@ class RoleService:
             return value
 
         return str(value).strip().lower() in ["1", "true", "on", "sim", "yes"]
+
+    @staticmethod
+    def _resolver_permissions_validas(permission_ids, tenant_id):
+        permissions = RoleRepository.listar_permissions_por_ids(permission_ids, tenant_id)
+        if len(permissions) != len(permission_ids):
+            raise ValueError("Uma ou mais permissions informadas nao existem.")
+
+        permissions_by_id = {permission.id: permission for permission in permissions}
+        selected_codes = {permission.codigo for permission in permissions}
+        effective_codes = normalize_permission_codes(selected_codes)
+
+        valid_permissions = []
+        for permission_id in permission_ids:
+            permission = permissions_by_id.get(permission_id)
+            if not permission:
+                continue
+
+            dependency_codes = get_permission_dependency_codes(permission.codigo)
+            if dependency_codes and permission.codigo not in effective_codes:
+                continue
+
+            valid_permissions.append(permission)
+
+        return valid_permissions

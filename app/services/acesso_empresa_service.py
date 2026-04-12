@@ -1,8 +1,25 @@
 from app.repositorys.funcionario_repository import FuncionarioRepository
-from app.security.permissions import ADMIN_ROLE_CODE, VISUALIZAR_TODAS_EMPRESAS
+from app.security.permissions import (
+    ADMIN_ROLE_CODE,
+    VISUALIZAR_TODAS_EMPRESAS,
+    normalize_permission_codes,
+)
 
 
 class AcessoEmpresaService:
+
+    @staticmethod
+    def extrair_codigos_permissao(funcionario):
+        role = getattr(funcionario, "role", None)
+        if not funcionario or not role or not getattr(role, "ativo", False):
+            return set()
+
+        granted_codes = {
+            link.permission.codigo
+            for link in (role.permissions_links or [])
+            if link.permission and link.permission.ativo
+        }
+        return normalize_permission_codes(granted_codes)
 
     @staticmethod
     def obter_escopo(funcionario_id, tenant_id):
@@ -11,11 +28,7 @@ class AcessoEmpresaService:
             raise PermissionError("Funcionario autenticado nao encontrado.")
 
         empresa_ids = FuncionarioRepository.listar_ids_empresas_por_funcionario(funcionario_id, tenant_id)
-        permissions = {
-            link.permission.codigo
-            for link in (funcionario.role.permissions_links if funcionario.role else [])
-            if link.permission and link.permission.ativo
-        }
+        permissions = AcessoEmpresaService.extrair_codigos_permissao(funcionario)
         role_code = funcionario.role.codigo if funcionario.role else None
 
         return {
@@ -24,7 +37,7 @@ class AcessoEmpresaService:
             "empresa_ids": empresa_ids,
             "role_code": role_code,
             "role_name": funcionario.role.nome if funcionario.role else None,
-            "is_admin": role_code == ADMIN_ROLE_CODE,
+            "is_admin": role_code == ADMIN_ROLE_CODE and getattr(funcionario.role, "ativo", False),
             "permission_codes": permissions,
         }
 

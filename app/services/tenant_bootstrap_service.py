@@ -82,10 +82,6 @@ class TenantBootstrapService:
                 )
                 db.session.add(permission)
                 db.session.flush()
-            else:
-                permission.nome = definicao["nome"]
-                permission.descricao = definicao.get("descricao")
-                permission.ativo = True
 
             permissions_by_code[permission.codigo] = permission
 
@@ -96,6 +92,7 @@ class TenantBootstrapService:
                 tenant_id=tenant_id,
                 codigo=definicao["codigo"],
             ).first()
+            role_criada = False
             if not role:
                 role = Role(
                     tenant_id=tenant_id,
@@ -106,29 +103,27 @@ class TenantBootstrapService:
                 )
                 db.session.add(role)
                 db.session.flush()
-            else:
-                role.nome = definicao["nome"]
-                role.descricao = definicao.get("descricao")
-                role.ativo = True
+                role_criada = True
 
             roles_por_codigo[role.codigo] = role
 
-            for permission_code in definicao["permissoes"]:
-                permission = permissions_by_code[permission_code]
-                vinculo = RolePermission.query.filter_by(
-                    tenant_id=tenant_id,
-                    role_id=role.id,
-                    permission_id=permission.id,
-                ).first()
+            if role_criada:
+                for permission_code in definicao["permissoes"]:
+                    permission = permissions_by_code[permission_code]
+                    vinculo = RolePermission.query.filter_by(
+                        tenant_id=tenant_id,
+                        role_id=role.id,
+                        permission_id=permission.id,
+                    ).first()
 
-                if not vinculo:
-                    db.session.add(
-                        RolePermission(
-                            tenant_id=tenant_id,
-                            role_id=role.id,
-                            permission_id=permission.id,
+                    if not vinculo:
+                        db.session.add(
+                            RolePermission(
+                                tenant_id=tenant_id,
+                                role_id=role.id,
+                                permission_id=permission.id,
+                            )
                         )
-                    )
 
         db.session.flush()
         return roles_por_codigo

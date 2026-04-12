@@ -9,6 +9,7 @@ from app.models.db import Funcionario, ModoVisualEmpresa, PlatformOwner
 from app.routes import register_blueprints
 from app.security.jwt import get_auth_scope
 from app.seeds.seed import run_seed
+from app.services.acesso_empresa_service import AcessoEmpresaService
 
 
 def register_extensions(app: Flask) -> None:
@@ -66,14 +67,7 @@ def register_context_processors(app: Flask) -> None:
         }
 
     def _get_permission_codes(funcionario):
-        if not funcionario or not getattr(funcionario, "role", None):
-            return set()
-
-        return {
-            link.permission.codigo
-            for link in (funcionario.role.permissions_links or [])
-            if getattr(link, "permission", None) and link.permission.ativo
-        }
+        return AcessoEmpresaService.extrair_codigos_permissao(funcionario)
 
     def _build_navigation(permission_codes):
         navigation = []
