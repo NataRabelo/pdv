@@ -1,4 +1,6 @@
 window.funcionarioPage = null;
+const funcionarioCanEdit = () => window.userHasPermission?.("editar_funcionario");
+const funcionarioCanDelete = () => window.userHasPermission?.("excluir_funcionario");
 
 document.addEventListener("DOMContentLoaded", async () => {
     window.funcionarioPage = new CrudPage({
@@ -88,23 +90,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 <td class="px-5 py-4 align-middle">
                     <div class="flex items-center justify-center gap-2">
-                        <button
-                            type="button"
-                            onclick="funcionarioPage.openEditModal(${item.id})"
-                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
-                            title="Editar funcionario"
-                        >
-                            <i data-lucide="square-pen" class="w-4 h-4"></i>
-                        </button>
-
-                        <button
-                            type="button"
-                            onclick="funcionarioPage.openDeleteModal(${item.id})"
-                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
-                            title="Excluir funcionario"
-                        >
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
+                        ${renderFuncionarioActions(item)}
                     </div>
                 </td>
             </tr>
@@ -295,6 +281,40 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function renderFuncionarioActions(item) {
+    const actions = [];
+
+    if (funcionarioCanEdit()) {
+        actions.push(`
+            <button
+                type="button"
+                onclick="funcionarioPage.openEditModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
+                title="Editar funcionario"
+            >
+                <i data-lucide="square-pen" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    if (funcionarioCanDelete()) {
+        actions.push(`
+            <button
+                type="button"
+                onclick="funcionarioPage.openDeleteModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
+                title="Excluir funcionario"
+            >
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    return actions.length
+        ? actions.join("")
+        : '<span class="text-xs font-medium text-slate-500">Somente leitura</span>';
 }
 
 function getAuthHeaders() {

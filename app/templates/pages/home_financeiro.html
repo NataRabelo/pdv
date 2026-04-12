@@ -19,7 +19,7 @@ min-h-screen flex flex-col
         <h2 class="text-4xl font-light text-white mb-2">
             Gestao de <span class="font-bold">Caixa</span>
         </h2>
-        <p class="text-slate-400">Controle as entradas, saidas, faturamento e conferencias operacionais do negocio.</p>
+        <p class="text-slate-400">Indicadores, fluxo de caixa e entregas operacionais do financeiro.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -29,59 +29,79 @@ min-h-screen flex flex-col
             </div>
             <div>
                 <h4 class="text-white font-bold">Painel financeiro</h4>
-                <p class="text-slate-400 text-sm">Acompanhar saldo, categorias e formas de recebimento</p>
+                <p class="text-slate-400 text-sm">Saldo, fechamento, relatorios e previsoes</p>
             </div>
         </a>
 
+        <a href="{{ url_for('financeiro.pagina_lancamentos') }}" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="receipt"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Lancamentos</h4>
+                <p class="text-slate-400 text-sm">Historico financeiro e registro manual</p>
+            </div>
+        </a>
+
+        {% if ui_flags.can_view_pdv %}
         <a href="/pdv/home" class="action-card">
             <div class="action-icon">
                 <i data-lucide="shopping-cart"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Voltar ao PDV</h4>
-                <p class="text-slate-400 text-sm">Consultar vendas e manter o caixa fluindo</p>
+                <p class="text-slate-400 text-sm">Consultar vendas e operacao de caixa</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_stock %}
         <a href="/api/estoque/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="boxes"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Estoque</h4>
-                <p class="text-slate-400 text-sm">Validar impactos das compras e vendas no resultado</p>
+                <p class="text-slate-400 text-sm">Valor em estoque, reposicao e giro</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_staff %}
         <a href="/api/funcionarios/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="users"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Equipe</h4>
-                <p class="text-slate-400 text-sm">Conferir os operadores que movimentam o caixa</p>
+                <p class="text-slate-400 text-sm">Perfis, responsabilidades e acessos</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_advance %}
         <a href="/api/adiantamentos/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="wallet-cards"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Adiantamentos</h4>
-                <p class="text-slate-400 text-sm">Controlar vale em dinheiro ou produto para abatimento em folha</p>
+                <p class="text-slate-400 text-sm">Vale em dinheiro ou produto para abatimento</p>
             </div>
         </a>
+        {% endif %}
 
-        <a href="/api/financeiro/view" class="action-card">
+        {% if ui_flags.can_view_finance_reports %}
+        <a href="{{ url_for('financeiro.pagina_relatorios') }}" class="action-card">
             <div class="action-icon">
                 <i data-lucide="printer"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Relatorios</h4>
-                <p class="text-slate-400 text-sm">Imprimir fluxo de caixa, adiantamentos e produtos mais vendidos</p>
+                <p class="text-slate-400 text-sm">Fluxo, mensal, projecoes e recomendacoes</p>
             </div>
         </a>
+        {% endif %}
     </div>
 </main>
 {% endblock %}

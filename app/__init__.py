@@ -5,7 +5,7 @@ from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 
 from app.config import get_config
 from app.extensions import db, jwt, migrate
-from app.models.db import Funcionario, PlatformOwner
+from app.models.db import Funcionario, ModoVisualEmpresa, PlatformOwner
 from app.routes import register_blueprints
 from app.security.jwt import get_auth_scope
 from app.seeds.seed import run_seed
@@ -18,6 +18,98 @@ def register_extensions(app: Flask) -> None:
 
 
 def register_context_processors(app: Flask) -> None:
+    tenant_navigation_items = [
+        {"label": "Home Operacional", "endpoint": "main.home", "icon": "layout-grid", "permission": None},
+        {"label": "PDV", "endpoint": "main.pdv_home", "icon": "shopping-cart", "permission": "visualizar_pdv"},
+        {"label": "Estoque", "endpoint": "main.estoque_home", "icon": "boxes", "permission": "visualizar_produto"},
+        {"label": "Financeiro", "endpoint": "main.financeiro_home", "icon": "landmark", "permission": "visualizar_financeiro"},
+        {"label": "Funcionarios", "href": "/api/funcionarios/view", "icon": "users", "permission": "visualizar_funcionario"},
+        {"label": "Roles", "href": "/api/roles/view", "icon": "shield-check", "permission": "visualizar_role"},
+        {"label": "Permissions", "href": "/api/permissions/view", "icon": "key-round", "permission": "visualizar_permission"},
+        {"label": "Produtos", "href": "/api/produtos/view", "icon": "package-plus", "permission": "visualizar_produto"},
+        {"label": "Categorias", "href": "/api/categorias/view", "icon": "layers", "permission": "visualizar_categoria"},
+        {"label": "Cupons", "href": "/api/cupons/view", "icon": "ticket-percent", "permission": "visualizar_cupom"},
+        {"label": "Vales", "href": "/api/adiantamentos/view", "icon": "wallet-cards", "permission": "visualizar_adiantamento"},
+        {"label": "Importacao em Lote", "href": "/api/importacao-exportacao/view", "icon": "sheet", "permission": "visualizar_importacao_exportacao"},
+    ]
+
+    def _to_theme_skin(mode):
+        visual_mode = mode or ModoVisualEmpresa.MODERNO
+        if isinstance(visual_mode, str):
+            visual_mode = visual_mode.upper()
+            return "classic" if visual_mode == ModoVisualEmpresa.LEGADO.value else "modern"
+
+        return "classic" if visual_mode == ModoVisualEmpresa.LEGADO else "modern"
+
+    def _build_tenant_theme_config(funcionario):
+        empresas_ativas = []
+
+        for vinculo in getattr(funcionario, "empresas_vinculadas", []) or []:
+            empresa = getattr(vinculo, "empresa", None)
+            if not vinculo.ativo or not empresa or not empresa.ativo:
+                continue
+            empresas_ativas.append(empresa)
+
+        empresas_ativas.sort(key=lambda item: (item.nome_fantasia or "").lower())
+
+        company_modes = {
+            str(empresa.id): _to_theme_skin(getattr(empresa, "visual_modo", None))
+            for empresa in empresas_ativas
+        }
+        unique_modes = set(company_modes.values())
+        default_mode = next(iter(unique_modes)) if len(unique_modes) == 1 else "modern"
+
+        return {
+            "defaultMode": default_mode,
+            "companyModes": company_modes,
+            "storageKey": "oceanblue:empresa-visual-selecionada",
+        }
+
+    def _get_permission_codes(funcionario):
+        if not funcionario or not getattr(funcionario, "role", None):
+            return set()
+
+        return {
+            link.permission.codigo
+            for link in (funcionario.role.permissions_links or [])
+            if getattr(link, "permission", None) and link.permission.ativo
+        }
+
+    def _build_navigation(permission_codes):
+        navigation = []
+        for item in tenant_navigation_items:
+            permission = item.get("permission")
+            if permission and permission not in permission_codes:
+                continue
+            navigation.append(item)
+        return navigation
+
+    def _build_template_flags(permission_codes):
+        return {
+            "can_view_pdv": "visualizar_pdv" in permission_codes,
+            "can_manage_sales": "registrar_venda" in permission_codes,
+            "can_cancel_sales": "cancelar_venda" in permission_codes,
+            "can_view_stock": "visualizar_produto" in permission_codes,
+            "can_manage_products": "criar_produto" in permission_codes or "editar_produto" in permission_codes,
+            "can_view_categories": "visualizar_categoria" in permission_codes,
+            "can_manage_categories": any(
+                permission in permission_codes
+                for permission in ["criar_categoria", "editar_categoria", "excluir_categoria"]
+            ),
+            "can_view_finance": "visualizar_financeiro" in permission_codes,
+            "can_view_finance_reports": "visualizar_relatorio_financeiro" in permission_codes,
+            "can_manage_finance_entries": "criar_lancamento_financeiro" in permission_codes,
+            "can_close_cashier": "fechar_caixa" in permission_codes,
+            "can_view_notifications": "visualizar_notificacao" in permission_codes,
+            "can_manage_stock_alerts": "gerenciar_alerta_estoque" in permission_codes,
+            "can_view_staff": "visualizar_funcionario" in permission_codes,
+            "can_view_roles": "visualizar_role" in permission_codes,
+            "can_view_permissions": "visualizar_permission" in permission_codes,
+            "can_view_coupons": "visualizar_cupom" in permission_codes,
+            "can_view_advance": "visualizar_adiantamento" in permission_codes,
+            "can_view_import_export": "visualizar_importacao_exportacao" in permission_codes,
+        }
+
     @app.context_processor
     def inject_user():
         try:
@@ -33,13 +125,36 @@ def register_context_processors(app: Flask) -> None:
                         "current_user": None,
                         "current_platform_owner": owner,
                         "current_auth_scope": auth_scope,
+                        "current_permission_codes": [],
+                        "tenant_navigation_items": [],
+                        "has_permission": lambda *_args, **_kwargs: False,
+                        "ui_flags": {},
+                        "tenant_theme_config": {
+                            "defaultMode": "modern",
+                            "companyModes": {},
+                            "storageKey": "oceanblue:empresa-visual-selecionada",
+                        },
+                        "current_visual_mode": "modern",
                     }
 
                 funcionario = db.session.get(Funcionario, int(user_id))
+                permission_codes = _get_permission_codes(funcionario)
+                tenant_theme_config = _build_tenant_theme_config(funcionario) if funcionario else {
+                    "defaultMode": "modern",
+                    "companyModes": {},
+                    "storageKey": "oceanblue:empresa-visual-selecionada",
+                }
+                ui_flags = _build_template_flags(permission_codes)
                 return {
                     "current_user": funcionario,
                     "current_platform_owner": None,
                     "current_auth_scope": auth_scope,
+                    "current_permission_codes": sorted(permission_codes),
+                    "tenant_navigation_items": _build_navigation(permission_codes),
+                    "has_permission": lambda code: code in permission_codes,
+                    "ui_flags": ui_flags,
+                    "tenant_theme_config": tenant_theme_config,
+                    "current_visual_mode": tenant_theme_config["defaultMode"],
                 }
 
         except Exception:
@@ -49,6 +164,16 @@ def register_context_processors(app: Flask) -> None:
             "current_user": None,
             "current_platform_owner": None,
             "current_auth_scope": None,
+            "current_permission_codes": [],
+            "tenant_navigation_items": [],
+            "has_permission": lambda *_args, **_kwargs: False,
+            "ui_flags": {},
+            "tenant_theme_config": {
+                "defaultMode": "modern",
+                "companyModes": {},
+                "storageKey": "oceanblue:empresa-visual-selecionada",
+            },
+            "current_visual_mode": "modern",
         }
 
 

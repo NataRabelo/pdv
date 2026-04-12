@@ -18,11 +18,9 @@ min-h-screen flex flex-col
 <main class="flex-1 page-shell">
     <section class="glass platform-hero mb-8">
         <div>
-            <p class="platform-kicker">Painel global do sistema</p>
-            <h2 class="platform-title">Governanca multi-tenant com provisionamento centralizado</h2>
-            <p class="platform-copy">
-                Crie novos tenants, cadastre empresas e entregue acessos administrativos iniciais sem depender de ajustes manuais no banco.
-            </p>
+            <p class="platform-kicker">Painel global</p>
+            <h2 class="platform-title">Cadastro central de tenants, empresas e administradores</h2>
+            <p class="platform-copy">Use esta area apenas para provisionamento e manutencao da plataforma.</p>
         </div>
 
         <div class="platform-hero-actions">
@@ -37,27 +35,27 @@ min-h-screen flex flex-col
         <article class="glass platform-stat-card">
             <span class="platform-stat-label">Tenants ativos</span>
             <strong id="platformTotalTenants" class="platform-stat-value">0</strong>
-            <span class="platform-stat-helper">Ambientes provisionados</span>
+            <span class="platform-stat-helper">Ambientes cadastrados</span>
         </article>
 
         <article class="glass platform-stat-card">
             <span class="platform-stat-label">Empresas</span>
             <strong id="platformTotalEmpresas" class="platform-stat-value">0</strong>
-            <span class="platform-stat-helper">Operacoes cadastradas</span>
+            <span class="platform-stat-helper">Operacoes vinculadas</span>
         </article>
 
         <article class="glass platform-stat-card">
             <span class="platform-stat-label">Admins iniciais</span>
             <strong id="platformTotalAdmins" class="platform-stat-value">0</strong>
-            <span class="platform-stat-helper">Responsaveis por tenant</span>
+            <span class="platform-stat-helper">Responsaveis cadastrados</span>
         </article>
     </section>
 
     <section class="glass platform-panel">
         <div class="platform-panel-header">
             <div>
-                <p class="platform-panel-kicker">Provisionamento</p>
-                <h3 class="platform-panel-title">Mapa atual da plataforma</h3>
+                <p class="platform-panel-kicker">Tenants</p>
+                <h3 class="platform-panel-title">Visao atual da plataforma</h3>
             </div>
             <button type="button" class="platform-secondary-btn" id="refreshPlatformBtn">
                 <i data-lucide="refresh-cw"></i>
@@ -67,6 +65,7 @@ min-h-screen flex flex-col
 
         <div id="platformFeedback" class="platform-feedback hidden"></div>
         <div id="platformTenantGrid" class="platform-tenant-grid"></div>
+        <div id="platformTenantPagination"></div>
     </section>
 </main>
 

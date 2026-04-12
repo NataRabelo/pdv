@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from app.security.decorators import permission_required
+from app.security.decorators import permission_required, ui_permission_required
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.pdv_service import PdvService
 
@@ -10,6 +10,7 @@ pdv_bp = Blueprint("pdv", __name__)
 
 @pdv_bp.route("/view", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_pdv")
 def pagina():
     return render_template("modulos/pdv/pdv.html")
 

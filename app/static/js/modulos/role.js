@@ -1,4 +1,6 @@
 window.rolePage = null;
+const roleCanEdit = () => window.userHasPermission?.("editar_role");
+const roleCanDelete = () => window.userHasPermission?.("excluir_role");
 
 document.addEventListener("DOMContentLoaded", async () => {
     window.rolePage = new CrudPage({
@@ -71,23 +73,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 <td class="px-5 py-4 align-middle">
                     <div class="flex items-center justify-center gap-2">
-                        <button
-                            type="button"
-                            onclick="rolePage.openEditModal(${item.id})"
-                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
-                            title="Editar role"
-                        >
-                            <i data-lucide="square-pen" class="w-4 h-4"></i>
-                        </button>
-
-                        <button
-                            type="button"
-                            onclick="rolePage.openDeleteModal(${item.id})"
-                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
-                            title="Excluir role"
-                        >
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
+                        ${renderRoleActions(item)}
                     </div>
                 </td>
             </tr>
@@ -187,4 +173,38 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function renderRoleActions(item) {
+    const actions = [];
+
+    if (roleCanEdit()) {
+        actions.push(`
+            <button
+                type="button"
+                onclick="rolePage.openEditModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
+                title="Editar role"
+            >
+                <i data-lucide="square-pen" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    if (roleCanDelete()) {
+        actions.push(`
+            <button
+                type="button"
+                onclick="rolePage.openDeleteModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
+                title="Excluir role"
+            >
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    return actions.length
+        ? actions.join("")
+        : '<span class="text-xs font-medium text-slate-500">Somente leitura</span>';
 }

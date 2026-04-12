@@ -1,6 +1,6 @@
 {% extends "bases/base.html" %}
 
-{% block title %}OceanBlue • Home{% endblock %}
+{% block title %}OceanBlue - Home{% endblock %}
 
 {% block body_class %}
 min-h-screen flex flex-col
@@ -21,54 +21,51 @@ min-h-screen flex flex-col
             <h2 class="text-4xl font-light text-white mb-2">
                 Painel de <span class="font-bold">Controle</span>
             </h2>
-            <p class="text-slate-400">Selecione o ambiente de trabalho para prosseguir.</p>
+            <p class="text-slate-400">Acesse somente os modulos liberados para o seu perfil.</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
-
+            {% if ui_flags.can_view_pdv %}
             <a href="{{ url_for('main.pdv_home') }}" class="glass module-card group">
                 <div class="icon-wrapper">
                     <i data-lucide="shopping-cart" class="w-8 h-8"></i>
                 </div>
                 <h3 class="text-xl font-bold text-white mb-2">PDV Comercial</h3>
-                <p class="text-slate-400 text-sm">
-                    Interface de vendas rápidas e frente de caixa.
-                </p>
+                <p class="text-slate-400 text-sm">Atendimento, carrinho, recebimentos e historico do caixa.</p>
             </a>
+            {% endif %}
 
+            {% if ui_flags.can_view_stock %}
             <a href="{{ url_for('main.estoque_home') }}" class="glass module-card group">
                 <div class="icon-wrapper">
                     <i data-lucide="package" class="w-8 h-8"></i>
                 </div>
                 <h3 class="text-xl font-bold text-white mb-2">Estoque</h3>
-                <p class="text-slate-400 text-sm">
-                    Controle completo de produtos e movimentações.
-                </p>
+                <p class="text-slate-400 text-sm">Produtos, categorias, movimentacoes e alertas operacionais.</p>
             </a>
+            {% endif %}
 
+            {% if ui_flags.can_view_finance %}
             <a href="{{ url_for('main.financeiro_home') }}" class="glass module-card group">
                 <div class="icon-wrapper">
                     <i data-lucide="landmark" class="w-8 h-8"></i>
                 </div>
                 <h3 class="text-xl font-bold text-white mb-2">Financeiro</h3>
-                <p class="text-slate-400 text-sm">
-                    Fluxo de caixa e relatórios financeiros.
-                </p>
+                <p class="text-slate-400 text-sm">Fluxo de caixa, indicadores, lancamentos e fechamento.</p>
             </a>
+            {% endif %}
 
+            {% if ui_flags.can_view_import_export %}
             <a href="/api/importacao-exportacao/view" class="glass module-card group">
                 <div class="icon-wrapper">
                     <i data-lucide="sheet" class="w-8 h-8"></i>
                 </div>
                 <h3 class="text-xl font-bold text-white mb-2">Importacao em Lote</h3>
-                <p class="text-slate-400 text-sm">
-                    Modelos Excel, importacao de cadastros e exportacao de dados do tenant.
-                </p>
+                <p class="text-slate-400 text-sm">Modelos, importacao e exportacao de cadastros do tenant.</p>
             </a>
-
+            {% endif %}
         </div>
     </div>
 </main>
 
 {% endblock %}
-

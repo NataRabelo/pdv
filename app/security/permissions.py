@@ -33,6 +33,7 @@ DEFAULT_PERMISSION_DEFINITIONS = [
     {"codigo": "criar_adiantamento", "nome": "Criar adiantamentos"},
     {"codigo": "visualizar_relatorio_financeiro", "nome": "Visualizar relatorios financeiros"},
     {"codigo": "visualizar_notificacao", "nome": "Visualizar notificacoes"},
+    {"codigo": "gerenciar_alerta_estoque", "nome": "Gerenciar configuracoes de alertas"},
     {"codigo": "visualizar_importacao_exportacao", "nome": "Visualizar importacao e exportacao"},
     {"codigo": "importar_dados_cadastrais", "nome": "Importar dados cadastrais"},
     {"codigo": "exportar_dados_cadastrais", "nome": "Exportar dados cadastrais"},

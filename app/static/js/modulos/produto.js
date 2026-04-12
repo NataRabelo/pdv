@@ -1,4 +1,6 @@
 window.produtoPage = null;
+const produtoCanEdit = () => window.userHasPermission?.("editar_produto");
+const produtoCanDelete = () => window.userHasPermission?.("excluir_produto");
 
 document.addEventListener("DOMContentLoaded", () => {
     window.produtoPage = new CrudPage({
@@ -54,6 +56,44 @@ document.addEventListener("DOMContentLoaded", () => {
             const ativoBadge = item.ativo
                 ? `<span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-400">Ativo</span>`
                 : `<span class="inline-flex items-center rounded-full bg-slate-700/40 border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-400">Inativo</span>`;
+            const actions = [
+                `
+                    <button
+                        type="button"
+                        onclick="visualizarCodigoBarras(${item.id})"
+                        class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 hover:bg-sky-500/20 transition"
+                        title="Visualizar codigo de barras"
+                    >
+                        <i data-lucide="barcode" class="w-4 h-4"></i>
+                    </button>
+                `
+            ];
+
+            if (produtoCanEdit()) {
+                actions.push(`
+                    <button
+                        type="button"
+                        onclick="produtoPage.openEditModal(${item.id})"
+                        class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
+                        title="Editar produto"
+                        >
+                            <i data-lucide="square-pen" class="w-4 h-4"></i>
+                        </button>
+                `);
+            }
+
+            if (produtoCanDelete()) {
+                actions.push(`
+                    <button
+                        type="button"
+                        onclick="produtoPage.openDeleteModal(${item.id})"
+                        class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
+                        title="Excluir produto"
+                    >
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `);
+            }
 
             return `
                 <tr class="hover:bg-slate-800/40 transition">
@@ -100,23 +140,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     <td class="px-5 py-4 align-middle">
                         <div class="flex items-center justify-center gap-2">
-                            <button
-                                type="button"
-                                onclick="produtoPage.openEditModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
-                                title="Editar produto"
-                            >
-                                <i data-lucide="square-pen" class="w-4 h-4"></i>
-                            </button>
-
-                            <button
-                                type="button"
-                                onclick="produtoPage.openDeleteModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
-                                title="Excluir produto"
-                            >
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+                            ${actions.join("")}
                         </div>
                     </td>
                 </tr>
@@ -521,4 +545,268 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function visualizarCodigoBarras(produtoEmpresaId) {
+    const item = window.produtoPage?.items?.find((produto) => String(produto.id) === String(produtoEmpresaId));
+    if (!item) {
+        window.produtoPage?.showMessage("Produto nao encontrado para gerar a etiqueta.", "error");
+        return;
+    }
+
+    const codigo = normalizeDigits(item.codigo_barras, 13);
+    const popup = window.open("", "_blank", "noopener,width=720,height=640");
+    if (!popup) {
+        window.produtoPage?.showMessage("Nao foi possivel abrir a visualizacao do codigo de barras.", "error");
+        return;
+    }
+
+    const barcodeMarkup = codigo.length === 13
+        ? gerarMarkupEan13(codigo)
+        : `<div style="padding:24px;border:1px solid #d5d8dc;border-radius:12px;background:#fafafa;text-align:center;">
+            <p style="font-size:14px;color:#5f6368;margin:0 0 12px;">Codigo sem padrao EAN-13. Exibicao textual:</p>
+            <strong style="font-size:28px;letter-spacing:0.2em;">${escapeHtml(codigo || "SEM CODIGO")}</strong>
+        </div>`;
+
+    popup.document.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>Etiqueta - ${escapeHtml(item.nome || "Produto")}</title>
+            <style>
+                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
+                .sheet { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 28px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14); }
+                .title { margin: 0 0 8px; font-size: 28px; }
+                .meta { margin: 0 0 20px; color: #4b5563; }
+                .actions { display: flex; gap: 12px; margin-top: 24px; }
+                .actions button { border: none; border-radius: 10px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
+                .print { background: #0ea5e9; color: #082f49; }
+                .close { background: #e5e7eb; color: #111827; }
+                @media print {
+                    body { background: #fff; padding: 0; }
+                    .sheet { box-shadow: none; padding: 0; }
+                    .actions { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="sheet">
+                <h1 class="title">${escapeHtml(item.nome || "Produto")}</h1>
+                <p class="meta">Empresa: ${escapeHtml(item.empresa_nome || "-")} · Codigo: ${escapeHtml(item.codigo_barras || "-")}</p>
+                ${barcodeMarkup}
+                <div class="actions">
+                    <button class="print" onclick="window.print()">Imprimir</button>
+                    <button class="close" onclick="window.close()">Fechar</button>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
+    popup.document.close();
+}
+
+function gerarMarkupEan13(codigo) {
+    const patternsA = {
+        0: "0001101", 1: "0011001", 2: "0010011", 3: "0111101", 4: "0100011",
+        5: "0110001", 6: "0101111", 7: "0111011", 8: "0110111", 9: "0001011"
+    };
+    const patternsB = {
+        0: "0100111", 1: "0110011", 2: "0011011", 3: "0100001", 4: "0011101",
+        5: "0111001", 6: "0000101", 7: "0010001", 8: "0001001", 9: "0010111"
+    };
+    const patternsC = {
+        0: "1110010", 1: "1100110", 2: "1101100", 3: "1000010", 4: "1011100",
+        5: "1001110", 6: "1010000", 7: "1000100", 8: "1001000", 9: "1110100"
+    };
+    const parity = {
+        0: "AAAAAA", 1: "AABABB", 2: "AABBAB", 3: "AABBBA", 4: "ABAABB",
+        5: "ABBAAB", 6: "ABBBAA", 7: "ABABAB", 8: "ABABBA", 9: "ABBABA"
+    };
+
+    const firstDigit = Number(codigo[0]);
+    const leftDigits = codigo.slice(1, 7).split("").map(Number);
+    const rightDigits = codigo.slice(7).split("").map(Number);
+    const parityPattern = parity[firstDigit];
+
+    let encoded = "101";
+    leftDigits.forEach((digit, index) => {
+        encoded += parityPattern[index] === "A" ? patternsA[digit] : patternsB[digit];
+    });
+    encoded += "01010";
+    rightDigits.forEach((digit) => {
+        encoded += patternsC[digit];
+    });
+    encoded += "101";
+
+    const bars = encoded.split("").map((bit, index) => {
+        const isGuard = index < 3 || (index >= 45 && index < 50) || index >= 92;
+        const height = isGuard ? 110 : 96;
+        return `<rect x="${index * 2}" y="0" width="2" height="${height}" fill="${bit === "1" ? "#111827" : "#ffffff"}"></rect>`;
+    }).join("");
+
+    return `
+        <div style="padding:24px;border:1px solid #d5d8dc;border-radius:12px;background:#fff;">
+            <svg viewBox="0 0 190 132" width="100%" height="180" role="img" aria-label="Codigo de barras EAN-13">
+                <rect x="0" y="0" width="190" height="132" fill="#ffffff"></rect>
+                <g transform="translate(10,10)">
+                    ${bars}
+                </g>
+                <text x="95" y="128" text-anchor="middle" font-size="16" font-family="Arial, sans-serif" letter-spacing="3">${escapeHtml(codigo)}</text>
+            </svg>
+        </div>
+    `;
+}
+
+function visualizarCodigoBarras(produtoEmpresaId) {
+    const item = window.produtoPage?.items?.find((produto) => String(produto.id) === String(produtoEmpresaId));
+    if (!item) {
+        window.produtoPage?.showMessage("Produto nao encontrado para gerar a etiqueta.", "error");
+        return;
+    }
+
+    const codigoOriginal = normalizeDigits(item.codigo_barras, 50);
+    if (!codigoOriginal) {
+        window.produtoPage?.showMessage("Este produto ainda nao possui codigo de barras cadastrado.", "error");
+        return;
+    }
+
+    const codigo = normalizarCodigoEtiqueta(codigoOriginal);
+    const popup = window.open("about:blank", "_blank", "width=720,height=640");
+    if (!popup) {
+        window.produtoPage?.showMessage("Nao foi possivel abrir a visualizacao do codigo de barras.", "error");
+        return;
+    }
+
+    const barcodeMarkup = codigo.length === 13
+        ? gerarMarkupEan13(codigo)
+        : `<div style="padding:24px;border:1px solid #d5d8dc;border-radius:12px;background:#fafafa;text-align:center;">
+            <p style="font-size:14px;color:#5f6368;margin:0 0 12px;">Codigo fora do padrao EAN-13. Exibicao textual:</p>
+            <strong style="font-size:28px;letter-spacing:0.2em;">${escapeHtml(codigoOriginal)}</strong>
+        </div>`;
+
+    popup.document.open();
+    popup.document.write(`
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+            <meta charset="UTF-8">
+            <title>Etiqueta - ${escapeHtml(item.nome || "Produto")}</title>
+            <style>
+                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
+                .sheet { max-width: 640px; margin: 0 auto; background: #fff; border-radius: 18px; padding: 28px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14); }
+                .title { margin: 0 0 8px; font-size: 28px; }
+                .meta { margin: 0 0 20px; color: #4b5563; }
+                .actions { display: flex; gap: 12px; margin-top: 24px; }
+                .actions button { border: none; border-radius: 10px; padding: 12px 18px; font-weight: 600; cursor: pointer; }
+                .print { background: #0ea5e9; color: #082f49; }
+                .close { background: #e5e7eb; color: #111827; }
+                @media print {
+                    body { background: #fff; padding: 0; }
+                    .sheet { box-shadow: none; padding: 0; }
+                    .actions { display: none; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="sheet">
+                <h1 class="title">${escapeHtml(item.nome || "Produto")}</h1>
+                <p class="meta">Empresa: ${escapeHtml(item.empresa_nome || "-")} | Codigo: ${escapeHtml(codigoOriginal)}</p>
+                ${barcodeMarkup}
+                <div class="actions">
+                    <button type="button" class="print" onclick="window.print()">Imprimir</button>
+                    <button type="button" class="close" onclick="window.close()">Fechar</button>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
+    popup.document.close();
+    popup.focus();
+}
+
+function normalizarCodigoEtiqueta(codigo) {
+    if (!codigo) return "";
+
+    if (codigo.length === 13) {
+        return codigo;
+    }
+
+    if (codigo.length === 12) {
+        return `${codigo}${calcularDigitoEan13(codigo)}`;
+    }
+
+    return "";
+}
+
+function calcularDigitoEan13(base) {
+    if (!/^\d{12}$/.test(String(base || ""))) {
+        return "";
+    }
+
+    const digitos = String(base).split("").map(Number);
+    const soma = digitos.reduce((total, digito, index) => {
+        return total + (index % 2 === 0 ? digito : digito * 3);
+    }, 0);
+
+    return String((10 - (soma % 10)) % 10);
+}
+
+function gerarMarkupEan13(codigo) {
+    const patternsA = {
+        0: "0001101", 1: "0011001", 2: "0010011", 3: "0111101", 4: "0100011",
+        5: "0110001", 6: "0101111", 7: "0111011", 8: "0110111", 9: "0001011"
+    };
+    const patternsB = {
+        0: "0100111", 1: "0110011", 2: "0011011", 3: "0100001", 4: "0011101",
+        5: "0111001", 6: "0000101", 7: "0010001", 8: "0001001", 9: "0010111"
+    };
+    const patternsC = {
+        0: "1110010", 1: "1100110", 2: "1101100", 3: "1000010", 4: "1011100",
+        5: "1001110", 6: "1010000", 7: "1000100", 8: "1001000", 9: "1110100"
+    };
+    const parity = {
+        0: "AAAAAA", 1: "AABABB", 2: "AABBAB", 3: "AABBBA", 4: "ABAABB",
+        5: "ABBAAB", 6: "ABBBAA", 7: "ABABAB", 8: "ABABBA", 9: "ABBABA"
+    };
+
+    const firstDigit = Number(codigo[0]);
+    const leftDigits = codigo.slice(1, 7).split("").map(Number);
+    const rightDigits = codigo.slice(7).split("").map(Number);
+    const parityPattern = parity[firstDigit];
+    const moduleWidth = 2;
+    const quietZone = 12;
+
+    let encoded = "101";
+    leftDigits.forEach((digit, index) => {
+        encoded += parityPattern[index] === "A" ? patternsA[digit] : patternsB[digit];
+    });
+    encoded += "01010";
+    rightDigits.forEach((digit) => {
+        encoded += patternsC[digit];
+    });
+    encoded += "101";
+
+    const bars = encoded.split("").map((bit, index) => {
+        if (bit !== "1") {
+            return "";
+        }
+
+        const isGuard = index < 3 || (index >= 45 && index < 50) || index >= 92;
+        const height = isGuard ? 110 : 96;
+        return `<rect x="${quietZone + (index * moduleWidth)}" y="10" width="${moduleWidth}" height="${height}" fill="#111827"></rect>`;
+    }).join("");
+
+    const svgWidth = (encoded.length * moduleWidth) + (quietZone * 2);
+    const svgHeight = 138;
+
+    return `
+        <div style="padding:24px;border:1px solid #d5d8dc;border-radius:12px;background:#fff;">
+            <svg viewBox="0 0 ${svgWidth} ${svgHeight}" width="100%" height="180" role="img" aria-label="Codigo de barras EAN-13">
+                <rect x="0" y="0" width="${svgWidth}" height="${svgHeight}" fill="#ffffff"></rect>
+                ${bars}
+                <text x="${svgWidth / 2}" y="${svgHeight - 8}" text-anchor="middle" font-size="16" font-family="Arial, sans-serif" letter-spacing="3">${escapeHtml(codigo)}</text>
+            </svg>
+        </div>
+    `;
 }

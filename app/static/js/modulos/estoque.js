@@ -1,6 +1,13 @@
 window.estoquePage = {
     saldos: [],
     movimentos: [],
+    configuracaoAlerta: null,
+    maisVendidos: {
+        periodo: "mes",
+        dataInicio: "",
+        dataFim: "",
+        itens: []
+    },
     auxiliares: {
         empresas: [],
         produtos: [],
@@ -24,8 +31,8 @@ window.estoquePage = {
     filtroEmpresa: "",
     busca: "",
     paginacao: {
-        saldos: { paginaAtual: 1, porPagina: 8 },
-        movimentos: { paginaAtual: 1, porPagina: 8 }
+        saldos: { paginaAtual: 1, porPagina: 10 },
+        movimentos: { paginaAtual: 1, porPagina: 10 }
     }
 };
 
@@ -34,6 +41,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     bindFilters();
     bindMovementForm();
     bindMovementHelpers();
+    bindAlertPanels();
+    bindBestSellerFilters();
     bindIntegerMask("movimento-quantidade");
     bindDecimalMask("movimento-valor_unitario", 2);
 
@@ -49,13 +58,53 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
+function estoqueNeedsAuxiliares() {
+    return Boolean(
+        document.getElementById("filtro-empresa")
+        || document.getElementById("movimento-empresa_id")
+    );
+}
+
+function estoqueNeedsSaldos() {
+    return Boolean(document.getElementById("estoque-table-body"));
+}
+
+function estoqueNeedsMovimentos() {
+    return Boolean(document.getElementById("movimento-table-body"));
+}
+
+function estoqueNeedsNotificacoes() {
+    return Boolean(
+        document.getElementById("estoque-alerta-resumo")
+        || document.getElementById("estoque-alertas-lista")
+        || document.getElementById("estoque-validade-lista")
+    );
+}
+
+function estoqueNeedsMaisVendidos() {
+    return Boolean(document.getElementById("estoque-best-sellers-list"));
+}
+
 async function carregarTudo() {
-    await Promise.all([
-        carregarAuxiliares(),
-        carregarSaldos(),
-        carregarMovimentos(),
-        carregarNotificacoes()
-    ]);
+    const tarefas = [];
+
+    if (estoqueNeedsAuxiliares()) {
+        tarefas.push(carregarAuxiliares());
+    }
+    if (estoqueNeedsSaldos()) {
+        tarefas.push(carregarSaldos());
+    }
+    if (estoqueNeedsMovimentos()) {
+        tarefas.push(carregarMovimentos());
+    }
+    if (estoqueNeedsNotificacoes()) {
+        tarefas.push(carregarNotificacoes());
+    }
+    if (estoqueNeedsMaisVendidos()) {
+        tarefas.push(carregarMaisVendidos());
+    }
+
+    await Promise.all(tarefas);
 }
 
 async function carregarAuxiliares() {
@@ -84,7 +133,7 @@ async function carregarSaldos() {
 
 async function carregarMovimentos() {
     const url = new URL("/api/estoque/movimentos", window.location.origin);
-    url.searchParams.set("limite", "50");
+    url.searchParams.set("limite", "500");
 
     if (estoquePage.filtroEmpresa) {
         url.searchParams.set("empresa_id", estoquePage.filtroEmpresa);
@@ -109,6 +158,39 @@ async function carregarNotificacoes() {
     atualizarKpis();
 }
 
+async function carregarConfiguracaoAlerta() {
+    const response = await requestJson("/api/estoque/notificacoes/configuracao", {
+        method: "GET"
+    });
+    estoquePage.configuracaoAlerta = response.data || null;
+    preencherFormularioConfiguracaoAlerta();
+}
+
+async function carregarMaisVendidos() {
+    const periodo = document.getElementById("estoque-best-sellers-periodo")?.value || estoquePage.maisVendidos.periodo || "mes";
+    const dataInicio = document.getElementById("estoque-best-sellers-data-inicio")?.value || "";
+    const dataFim = document.getElementById("estoque-best-sellers-data-fim")?.value || "";
+    const url = new URL("/api/estoque/indicadores/produtos-mais-vendidos", window.location.origin);
+    url.searchParams.set("periodo", periodo);
+    url.searchParams.set("limite", "10");
+    if (estoquePage.filtroEmpresa) {
+        url.searchParams.set("empresa_id", estoquePage.filtroEmpresa);
+    }
+    if (periodo === "periodo") {
+        if (dataInicio) url.searchParams.set("data_inicio", dataInicio);
+        if (dataFim) url.searchParams.set("data_fim", dataFim);
+    }
+
+    const result = await requestJson(url.toString(), { method: "GET" });
+    estoquePage.maisVendidos = {
+        periodo,
+        dataInicio,
+        dataFim,
+        ...(result.data || { itens: [] })
+    };
+    renderMaisVendidos();
+}
+
 function bindFilters() {
     const empresaFilter = document.getElementById("filtro-empresa");
     const buscaInput = document.getElementById("input-busca-estoque");
@@ -118,7 +200,12 @@ function bindFilters() {
             estoquePage.filtroEmpresa = empresaFilter.value || "";
             estoquePage.paginacao.saldos.paginaAtual = 1;
             estoquePage.paginacao.movimentos.paginaAtual = 1;
-            await Promise.all([carregarSaldos(), carregarMovimentos(), carregarNotificacoes()]);
+            const tarefas = [];
+            if (estoqueNeedsSaldos()) tarefas.push(carregarSaldos());
+            if (estoqueNeedsMovimentos()) tarefas.push(carregarMovimentos());
+            if (estoqueNeedsNotificacoes()) tarefas.push(carregarNotificacoes());
+            if (estoqueNeedsMaisVendidos()) tarefas.push(carregarMaisVendidos());
+            await Promise.all(tarefas);
         });
     }
 
@@ -129,6 +216,74 @@ function bindFilters() {
             renderTabelaEstoque();
         });
     }
+}
+
+function bindAlertPanels() {
+    const alertCenterBtn = document.getElementById("btn-central-alertas");
+    const alertConfigBtn = document.getElementById("btn-config-alertas");
+    const alertConfigForm = document.getElementById("estoque-alert-settings-form");
+
+    if (alertCenterBtn) {
+        alertCenterBtn.addEventListener("click", () => abrirModal("estoque-alert-center-modal"));
+    }
+
+    if (alertConfigBtn) {
+        alertConfigBtn.addEventListener("click", async () => {
+            try {
+                await carregarConfiguracaoAlerta();
+                abrirModal("estoque-alert-settings-modal");
+            } catch (error) {
+                showMessage(error.message || "Erro ao carregar configuracoes de alerta.", "error");
+            }
+        });
+    }
+
+    if (alertConfigForm) {
+        alertConfigForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            try {
+                const payload = {
+                    popup_ao_entrar: document.getElementById("alert-popup-ao-entrar")?.checked,
+                    resumo_diario: document.getElementById("alert-resumo-diario")?.checked,
+                    alertar_estoque_baixo: document.getElementById("alert-estoque-baixo")?.checked,
+                    alertar_sem_estoque: document.getElementById("alert-sem-estoque")?.checked,
+                    alertar_validade: document.getElementById("alert-validade")?.checked,
+                    dias_vencimento_alerta: document.getElementById("alert-dias-vencimento")?.value || "30",
+                    email_habilitado: document.getElementById("alert-email-habilitado")?.checked,
+                    email_destinatarios: document.getElementById("alert-email-destinatarios")?.value || "",
+                    whatsapp_habilitado: document.getElementById("alert-whatsapp-habilitado")?.checked,
+                    whatsapp_destinatarios: document.getElementById("alert-whatsapp-destinatarios")?.value || ""
+                };
+
+                const result = await requestJson("/api/estoque/notificacoes/configuracao", {
+                    method: "PUT",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+                estoquePage.configuracaoAlerta = result.data || null;
+                showMessage(result.message || "Configuracoes salvas com sucesso.", "success");
+                fecharModal("estoque-alert-settings-modal");
+                await carregarNotificacoes();
+            } catch (error) {
+                showMessage(error.message || "Erro ao salvar configuracoes de alerta.", "error");
+            }
+        });
+    }
+}
+
+function bindBestSellerFilters() {
+    const periodo = document.getElementById("estoque-best-sellers-periodo");
+    const dataInicio = document.getElementById("estoque-best-sellers-data-inicio");
+    const dataFim = document.getElementById("estoque-best-sellers-data-fim");
+
+    [periodo, dataInicio, dataFim].filter(Boolean).forEach((element) => {
+        element.addEventListener("change", async () => {
+            toggleBestSellerDateFilters();
+            await carregarMaisVendidos();
+        });
+    });
+
+    toggleBestSellerDateFilters();
 }
 
 function bindMovementForm() {
@@ -300,6 +455,23 @@ function atualizarKpis() {
     setText("kpi-quantidade-total", formatInteger(quantidadeTotal));
     setText("kpi-proximo-vencimento", String(resumoNotificacoes.proximos_vencimento || 0));
     setText("kpi-vencidos", String(resumoNotificacoes.vencidos || 0));
+    setText("kpi-movimentos", String(estoquePage.movimentos.length));
+}
+
+function preencherFormularioConfiguracaoAlerta() {
+    const config = estoquePage.configuracaoAlerta;
+    if (!config) return;
+
+    setChecked("alert-popup-ao-entrar", config.popup_ao_entrar);
+    setChecked("alert-resumo-diario", config.resumo_diario);
+    setChecked("alert-estoque-baixo", config.alertar_estoque_baixo);
+    setChecked("alert-sem-estoque", config.alertar_sem_estoque);
+    setChecked("alert-validade", config.alertar_validade);
+    setChecked("alert-email-habilitado", config.email_habilitado);
+    setChecked("alert-whatsapp-habilitado", config.whatsapp_habilitado);
+    setValue("alert-dias-vencimento", config.dias_vencimento_alerta);
+    setValue("alert-email-destinatarios", config.email_destinatarios || "");
+    setValue("alert-whatsapp-destinatarios", config.whatsapp_destinatarios || "");
 }
 
 function renderTabelaEstoque() {
@@ -438,6 +610,7 @@ function abrirModalMovimentacao() {
 }
 
 function renderNotificacoes() {
+    renderResumoAlertas();
     const estoqueContainer = document.getElementById("estoque-alertas-lista");
     const validadeContainer = document.getElementById("estoque-validade-lista");
     const notificacoes = estoquePage.notificacoes || {};
@@ -509,6 +682,98 @@ function renderNotificacoes() {
             `).join("")
             : `<p class="text-slate-400">Nenhum alerta de validade no momento.</p>`;
     }
+
+    renderDestaquesAlerta(notificacoes);
+}
+
+function renderResumoAlertas() {
+    const container = document.getElementById("estoque-alerta-resumo");
+    if (!container) return;
+
+    const resumo = estoquePage.notificacoes?.resumo || {};
+    const cards = [
+        { label: "Baixo", value: resumo.estoque_baixo || 0, tone: "text-amber-300" },
+        { label: "Sem saldo", value: resumo.sem_estoque || 0, tone: "text-rose-300" },
+        { label: "Vencidos", value: resumo.vencidos || 0, tone: "text-rose-300" },
+        { label: "A vencer", value: resumo.proximos_vencimento || 0, tone: "text-sky-300" }
+    ];
+
+    container.innerHTML = cards.map((card) => `
+        <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+            <p class="text-xs uppercase tracking-[0.14em] text-slate-500">${card.label}</p>
+            <strong class="block mt-2 text-2xl ${card.tone}">${formatInteger(card.value)}</strong>
+        </article>
+    `).join("");
+}
+
+function renderDestaquesAlerta(notificacoes) {
+    const container = document.getElementById("estoque-alerta-destaques");
+    if (!container) return;
+
+    const itens = [
+        ...(notificacoes.sem_estoque || []).slice(0, 2).map((item) => ({
+            ...item,
+            titulo: "Sem estoque",
+            detalhe: `Atual ${formatInteger(item.estoque_atual)} / minimo ${formatInteger(item.estoque_minimo)}`
+        })),
+        ...(notificacoes.estoque_baixo || []).slice(0, 2).map((item) => ({
+            ...item,
+            titulo: "Baixo estoque",
+            detalhe: `Atual ${formatInteger(item.estoque_atual)} / minimo ${formatInteger(item.estoque_minimo)}`
+        })),
+        ...(notificacoes.vencidos || []).slice(0, 1).map((item) => ({
+            ...item,
+            titulo: "Produto vencido",
+            detalhe: formatValidadeEstoque(item.data_validade)
+        })),
+        ...(notificacoes.proximos_vencimento || []).slice(0, 1).map((item) => ({
+            ...item,
+            titulo: "Validade proxima",
+            detalhe: formatValidadeEstoque(item.data_validade)
+        }))
+    ].slice(0, 4);
+
+    container.innerHTML = itens.length
+        ? itens.map((item) => `
+            <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <p class="font-semibold text-white">${escapeHtml(item.nome || "-")}</p>
+                        <p class="text-sm text-slate-400">${escapeHtml(item.empresa_nome || "-")}</p>
+                    </div>
+                    <span class="text-xs uppercase tracking-[0.14em] text-sky-300">${escapeHtml(item.titulo || "Alerta")}</span>
+                </div>
+                <p class="text-sm text-slate-300 mt-3">${escapeHtml(item.detalhe || "-")}</p>
+            </article>
+        `).join("")
+        : `<p class="text-slate-400">Nenhum alerta prioritario no momento.</p>`;
+}
+
+function renderMaisVendidos() {
+    const container = document.getElementById("estoque-best-sellers-list");
+    if (!container) return;
+
+    const itens = estoquePage.maisVendidos?.itens || [];
+    if (!itens.length) {
+        container.innerHTML = `<p class="text-slate-400">Nenhuma venda encontrada para o filtro informado.</p>`;
+        return;
+    }
+
+    container.innerHTML = itens.map((item, index) => `
+        <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="font-semibold text-white">${index + 1}. ${escapeHtml(item.produto_nome || "-")}</p>
+                    <p class="text-sm text-slate-400">${escapeHtml(item.empresa_nome || "-")}</p>
+                </div>
+                <span class="text-xs uppercase tracking-[0.14em] text-sky-300">${formatInteger(item.quantidade)} un.</span>
+            </div>
+            <div class="mt-3 flex items-center justify-between gap-3 text-sm text-slate-300">
+                <span>Faturamento</span>
+                <strong class="text-white">${formatCurrency(item.faturamento)}</strong>
+            </div>
+        </article>
+    `).join("");
 }
 
 function limparFormularioMovimentacao() {
@@ -525,6 +790,18 @@ function limparFormularioMovimentacao() {
 
     atualizarMotivos();
     atualizarProdutosModal();
+}
+
+function toggleBestSellerDateFilters() {
+    const periodo = document.getElementById("estoque-best-sellers-periodo")?.value || "mes";
+    const dataInicio = document.getElementById("estoque-best-sellers-data-inicio");
+    const dataFim = document.getElementById("estoque-best-sellers-data-fim");
+    const disabled = periodo !== "periodo";
+
+    [dataInicio, dataFim].filter(Boolean).forEach((field) => {
+        field.disabled = disabled;
+        field.classList.toggle("opacity-60", disabled);
+    });
 }
 
 function normalizarPayloadMovimentacao() {
@@ -733,6 +1010,20 @@ function setText(id, value) {
     const element = document.getElementById(id);
     if (element) {
         element.textContent = value;
+    }
+}
+
+function setValue(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.value = value ?? "";
+    }
+}
+
+function setChecked(id, checked) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.checked = Boolean(checked);
     }
 }
 

@@ -1,6 +1,6 @@
 from functools import wraps
 
-from flask import flash, jsonify, redirect, url_for
+from flask import flash, jsonify, redirect, request, url_for
 from flask_jwt_extended import get_jwt, get_jwt_identity, verify_jwt_in_request
 from flask_jwt_extended.exceptions import JWTExtendedException
 
@@ -41,6 +41,43 @@ def permission_required(permissao_codigo):
                     "success": False,
                     "message": "Sessao invalida ou expirada."
                 }), 401
+
+        return wrapper
+
+    return decorator
+
+
+def ui_permission_required(permissao_codigo, redirect_endpoint="main.home"):
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            try:
+                verify_jwt_in_request()
+                auth_scope = get_auth_scope()
+                if auth_scope != "tenant":
+                    if auth_scope == "platform":
+                        flash("Esse recurso pertence ao painel operacional do tenant.", "warning")
+                        return redirect(url_for("platform.home"))
+
+                    flash("Esse recurso pertence ao painel operacional do tenant.", "warning")
+                    return redirect(url_for("auth.login"))
+
+                tenant_id = get_jwt().get("tenant_id")
+                funcionario_id = int(get_jwt_identity())
+                escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+
+                if not AcessoEmpresaService.possui_permissao(escopo, permissao_codigo):
+                    flash("Voce nao tem permissao para acessar essa area.", "warning")
+                    return redirect(url_for(redirect_endpoint))
+
+                request.current_user_scope = escopo
+                return fn(*args, **kwargs)
+            except PermissionError as e:
+                flash(str(e), "warning")
+                return redirect(url_for(redirect_endpoint))
+            except JWTExtendedException:
+                flash("Sua sessao expirou. Faca login novamente.", "warning")
+                return redirect(url_for("auth.login"))
 
         return wrapper
 

@@ -90,6 +90,11 @@
   font-size: 0.88rem;
 }
 
+.platform-inline-btn-compact {
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+}
+
 .platform-close-btn {
   width: 2.75rem;
   height: 2.75rem;
@@ -277,6 +282,35 @@
   font-size: 0.85rem;
 }
 
+.platform-company-visual-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+}
+
+.platform-company-visual-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.62);
+  color: #cbd5e1;
+}
+
+.platform-company-visual-badge.is-modern {
+  border-color: rgba(56, 189, 248, 0.22);
+  color: #7dd3fc;
+}
+
+.platform-company-visual-badge.is-classic {
+  border-color: rgba(250, 204, 21, 0.22);
+  color: #fde68a;
+}
+
 .platform-tenant-card-footer {
   margin-top: 1.25rem;
 }
@@ -300,17 +334,19 @@
   inset: 0;
   z-index: 90;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  padding: 1.25rem;
+  overflow-y: auto;
+  padding: 1rem;
 }
 
 .platform-modal-card {
   width: min(860px, 100%);
-  max-height: calc(100vh - 2rem);
+  max-height: calc(100vh - 1.5rem);
   overflow: auto;
   border-radius: 1.5rem;
   padding: 1.5rem;
+  margin-block: auto;
 }
 
 .platform-form-grid {
@@ -364,5 +400,16 @@
 
   .span-2 {
     grid-column: span 1;
+  }
+}
+
+@media (min-width: 768px) {
+  .platform-modal {
+    align-items: center;
+    padding: 1.25rem;
+  }
+
+  .platform-modal-card {
+    max-height: calc(100vh - 2rem);
   }
 }

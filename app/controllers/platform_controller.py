@@ -48,6 +48,19 @@ def criar_empresa(tenant_id):
         return jsonify({"success": False, "message": str(e)}), 500
 
 
+@platform_bp.route("/api/platform/tenants/<int:tenant_id>/empresas/<int:empresa_id>/visual", methods=["PUT"])
+@platform_owner_required(api=True)
+def atualizar_visual_empresa(tenant_id, empresa_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        empresa = PlatformService.atualizar_visual_empresa(tenant_id, empresa_id, data)
+        return jsonify({"success": True, "data": empresa})
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @platform_bp.route("/api/platform/tenants/<int:tenant_id>/admins", methods=["POST"])
 @platform_owner_required(api=True)
 def criar_admin(tenant_id):

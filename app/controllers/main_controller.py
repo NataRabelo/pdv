@@ -1,6 +1,7 @@
 from flask import Blueprint, flash, redirect, render_template, url_for
 from flask_jwt_extended import jwt_required
 
+from app.security.decorators import ui_permission_required
 from app.security.jwt import get_auth_scope
 
 main_bp = Blueprint("main", __name__)
@@ -38,6 +39,7 @@ def home():
 
 @main_bp.route("/pdv/home", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_pdv")
 def pdv_home():
     try:
         redirect_response = _redirecionar_platform_owner()
@@ -53,6 +55,7 @@ def pdv_home():
 
 @main_bp.route("/estoque/home", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_produto")
 def estoque_home():
     try:
         redirect_response = _redirecionar_platform_owner()
@@ -68,6 +71,7 @@ def estoque_home():
 
 @main_bp.route("/financeiro/home", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_financeiro")
 def financeiro_home():
     try:
         redirect_response = _redirecionar_platform_owner()

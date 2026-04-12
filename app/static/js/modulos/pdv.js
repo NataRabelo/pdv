@@ -12,7 +12,13 @@ window.pdvPage = {
     vendaSelecionada: null,
     payloadConfirmacaoPendente: null,
     ultimaVendaFinalizada: null,
-    paymentCounter: 1
+    pagamentoConfirmado: false,
+    pagamentoConfirmadoTotal: null,
+    paymentCounter: 1,
+    paginacao: {
+        produtos: { paginaAtual: 1, porPagina: 10 },
+        vendas: { paginaAtual: 1, porPagina: 10 }
+    }
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -20,7 +26,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     bindPdvFilters();
     bindCartActions();
     bindSaleActions();
+    bindTopActions();
+    bindCloseoutActions();
     bindMoneyMask("pdv-desconto-manual");
+    bindMoneyMask("pdv-closeout-inicial");
+    bindMoneyMask("pdv-closeout-final");
 
     await carregarAuxiliares();
 
@@ -73,7 +83,7 @@ async function carregarProdutos() {
 
 async function carregarVendas() {
     const url = new URL("/api/pdv/vendas", window.location.origin);
-    url.searchParams.set("limite", "30");
+    url.searchParams.set("limite", "500");
     if (pdvPage.empresaId) {
         url.searchParams.set("empresa_id", pdvPage.empresaId);
     }
@@ -97,6 +107,8 @@ function bindPdvFilters() {
     if (empresaSelect) {
         empresaSelect.addEventListener("change", async () => {
             pdvPage.empresaId = empresaSelect.value || "";
+            pdvPage.paginacao.produtos.paginaAtual = 1;
+            pdvPage.paginacao.vendas.paginaAtual = 1;
             limparCatalogoPdv();
             limparCarrinho();
             limparBarcodeField();
@@ -109,6 +121,7 @@ function bindPdvFilters() {
     if (buscaInput) {
         buscaInput.addEventListener("input", async () => {
             pdvPage.busca = buscaInput.value || "";
+            pdvPage.paginacao.produtos.paginaAtual = 1;
             await carregarProdutos();
         });
     }
@@ -130,6 +143,7 @@ function bindPdvFilters() {
     if (statusSelect) {
         statusSelect.addEventListener("change", async () => {
             pdvPage.statusVenda = statusSelect.value || "";
+            pdvPage.paginacao.vendas.paginaAtual = 1;
             await carregarVendas();
         });
     }
@@ -139,6 +153,7 @@ function bindCartActions() {
     const clearCartBtn = document.getElementById("pdv-clear-cart");
     const addPaymentBtn = document.getElementById("pdv-add-payment");
     const cupomInput = document.getElementById("pdv-cupom-codigo");
+    const openPaymentStepBtn = document.getElementById("pdv-open-payment-modal");
 
     if (clearCartBtn) {
         clearCartBtn.addEventListener("click", () => {
@@ -150,12 +165,20 @@ function bindCartActions() {
     if (addPaymentBtn) {
         addPaymentBtn.addEventListener("click", () => {
             pdvPage.pagamentos.push(criarPagamentoVazio());
+            marcarPagamentoPendente();
             renderPayments();
         });
     }
 
     if (cupomInput) {
         cupomInput.addEventListener("input", () => atualizarResumoVenda());
+    }
+
+    if (openPaymentStepBtn) {
+        openPaymentStepBtn.addEventListener("click", () => {
+            renderPayments();
+            abrirModal("pdv-payments-modal");
+        });
     }
 }
 
@@ -165,10 +188,16 @@ function bindSaleActions() {
     const salePrintBtn = document.getElementById("pdv-sale-print-button");
     const confirmSubmitBtn = document.getElementById("pdv-confirm-submit");
     const successPrintBtn = document.getElementById("pdv-success-print");
+    const confirmPaymentBtn = document.getElementById("pdv-confirm-payment-modal");
 
     if (finalizeBtn) {
         finalizeBtn.addEventListener("click", () => {
             try {
+                if (!pagamentoEstaConfirmadoParaTotalAtual()) {
+                    abrirModal("pdv-payments-modal");
+                    throw new Error("Confirme o pagamento antes de finalizar a venda.");
+                }
+
                 const payload = montarPayloadVenda();
                 pdvPage.payloadConfirmacaoPendente = payload;
                 abrirModalConfirmacaoVenda(payload);
@@ -242,10 +271,22 @@ function bindSaleActions() {
             abrirComprovanteVenda(pdvPage.ultimaVendaFinalizada.id);
         });
     }
+
+    if (confirmPaymentBtn) {
+        confirmPaymentBtn.addEventListener("click", () => {
+            try {
+                confirmarPagamentoAtual();
+                showMessage("Pagamento confirmado para esta venda.", "success");
+            } catch (error) {
+                showMessage(error.message || "Erro ao confirmar pagamento.", "error");
+            }
+        });
+    }
 }
 
 function popularEmpresas() {
     const empresaSelect = document.getElementById("pdv-empresa");
+    const closeoutSelect = document.getElementById("pdv-closeout-empresa");
     if (empresaSelect) {
         empresaSelect.innerHTML = `<option value="">Selecione a empresa</option>`;
         pdvPage.auxiliares.empresas.forEach((empresa) => {
@@ -254,6 +295,17 @@ function popularEmpresas() {
             option.textContent = empresa.nome;
             option.selected = String(empresa.id) === String(pdvPage.empresaId);
             empresaSelect.appendChild(option);
+        });
+    }
+
+    if (closeoutSelect) {
+        closeoutSelect.innerHTML = `<option value="">Selecione a empresa</option>`;
+        pdvPage.auxiliares.empresas.forEach((empresa) => {
+            const option = document.createElement("option");
+            option.value = empresa.id;
+            option.textContent = empresa.nome;
+            option.selected = String(empresa.id) === String(pdvPage.empresaId);
+            closeoutSelect.appendChild(option);
         });
     }
 
@@ -275,6 +327,7 @@ function popularEmpresas() {
 
 function renderProdutos() {
     const grid = document.getElementById("pdv-produtos-grid");
+    const paginacao = pdvPage.paginacao.produtos;
     if (!grid) return;
 
     if (!pdvPage.empresaId) {
@@ -284,6 +337,7 @@ function renderProdutos() {
                 <p>Selecione uma empresa para iniciar o PDV.</p>
             </article>
         `;
+        renderPdvPagination("pdv-produtos-pagination", paginacao, 0, () => renderProdutos());
         if (window.lucide) lucide.createIcons();
         return;
     }
@@ -295,13 +349,18 @@ function renderProdutos() {
                 <p>Nenhum produto encontrado para o filtro atual.</p>
             </article>
         `;
+        renderPdvPagination("pdv-produtos-pagination", paginacao, 0, () => renderProdutos());
         if (window.lucide) lucide.createIcons();
         return;
     }
 
-    grid.innerHTML = pdvPage.produtos.map((produto) => {
+    const itensPagina = getPdvPageItems(pdvPage.produtos, paginacao);
+    const podeRegistrarVenda = Boolean(window.__uiFlags?.can_manage_sales);
+
+    grid.innerHTML = itensPagina.map((produto) => {
         const baixoEstoque = Number(produto.estoque_atual) <= Number(produto.estoque_minimo);
         const semEstoque = Number(produto.estoque_atual) <= 0;
+        const botaoDesabilitado = semEstoque || !podeRegistrarVenda;
         const badge = semEstoque
             ? `<span class="pdv-tag pdv-tag-danger">Sem estoque</span>`
             : baixoEstoque
@@ -336,11 +395,11 @@ function renderProdutos() {
                         </div>
 
                         <button type="button"
-                            class="pdv-product-action inline-flex items-center gap-2 rounded-xl ${semEstoque ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-400 text-slate-950"} font-semibold px-4 py-3 transition"
-                            ${semEstoque ? "disabled" : ""}
+                            class="pdv-product-action inline-flex items-center gap-2 rounded-xl ${botaoDesabilitado ? "bg-slate-800 text-slate-500 cursor-not-allowed" : "bg-sky-500 hover:bg-sky-400 text-slate-950"} font-semibold px-4 py-3 transition"
+                            ${botaoDesabilitado ? "disabled" : ""}
                             onclick="adicionarAoCarrinho(${produto.id})">
                             <i data-lucide="plus" class="w-4 h-4"></i>
-                            Adicionar
+                            ${podeRegistrarVenda ? "Adicionar" : "Somente leitura"}
                         </button>
                     </div>
                 </div>
@@ -348,8 +407,57 @@ function renderProdutos() {
         `;
     }).join("");
 
+    renderPdvPagination("pdv-produtos-pagination", paginacao, pdvPage.produtos.length, () => renderProdutos());
+
     if (window.lucide) {
         lucide.createIcons();
+    }
+}
+
+function bindTopActions() {
+    const salesBtn = document.getElementById("pdv-open-sales-modal");
+
+    if (salesBtn) {
+        salesBtn.addEventListener("click", () => abrirModal("pdv-sales-history-modal"));
+    }
+}
+
+function bindCloseoutActions() {
+    const openCloseoutBtn = document.getElementById("pdv-open-closeout-modal");
+    const closeoutForm = document.getElementById("pdv-closeout-form");
+
+    if (openCloseoutBtn) {
+        openCloseoutBtn.addEventListener("click", () => {
+            resetPdvCloseoutForm();
+            abrirModal("pdv-closeout-modal");
+        });
+    }
+
+    if (closeoutForm) {
+        closeoutForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            try {
+                const payload = {
+                    empresa_id: document.getElementById("pdv-closeout-empresa")?.value || "",
+                    data_fechamento: document.getElementById("pdv-closeout-data")?.value || "",
+                    valor_inicial: normalizeMoneyForApi(document.getElementById("pdv-closeout-inicial")?.value || "0"),
+                    valor_final: normalizeMoneyForApi(document.getElementById("pdv-closeout-final")?.value || "0"),
+                    observacao: (document.getElementById("pdv-closeout-observacao")?.value || "").trim()
+                };
+
+                const result = await requestJson("/api/financeiro/fechamentos", {
+                    method: "POST",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+
+                showMessage(result.message || "Fechamento registrado com sucesso.", "success");
+                fecharModal("pdv-closeout-modal");
+            } catch (error) {
+                showMessage(error.message || "Erro ao registrar o fechamento.", "error");
+            }
+        });
     }
 }
 
@@ -387,11 +495,17 @@ function adicionarProdutoAoCarrinho(produto) {
         });
     }
 
+    marcarPagamentoPendente();
     renderCarrinho();
     return true;
 }
 
 async function adicionarProdutoPorCodigoDeBarras() {
+    if (!window.__uiFlags?.can_manage_sales) {
+        showMessage("Seu perfil pode consultar o PDV, mas nao registrar vendas.", "error");
+        return;
+    }
+
     const input = document.getElementById("pdv-barcode-input");
     const codigo = normalizeBarcodeValue(input?.value || "");
 
@@ -462,11 +576,13 @@ function alterarQuantidadeCarrinho(produtoId, delta) {
     }
 
     item.quantidade = novaQuantidade;
+    marcarPagamentoPendente();
     renderCarrinho();
 }
 
 function removerDoCarrinho(produtoId) {
     pdvPage.carrinho = pdvPage.carrinho.filter((item) => Number(item.produto_id) !== Number(produtoId));
+    marcarPagamentoPendente();
     renderCarrinho();
 }
 
@@ -481,6 +597,7 @@ function renderCarrinho() {
         cartItems.innerHTML = "";
         resetPayments();
         atualizarResumoVenda();
+        atualizarStatusPagamento();
         return;
     }
 
@@ -518,6 +635,7 @@ function renderCarrinho() {
     `).join("");
 
     atualizarResumoVenda();
+    atualizarStatusPagamento();
     if (window.lucide) {
         lucide.createIcons();
     }
@@ -563,6 +681,8 @@ function renderPayments() {
             const payment = pdvPage.pagamentos.find((item) => String(item.uid) === String(select.dataset.paymentUid));
             if (!payment) return;
             payment.forma_pagamento_id = select.value || "";
+            marcarPagamentoPendente();
+            renderPaymentSnapshot();
         });
     });
 
@@ -573,18 +693,22 @@ function renderPayments() {
             if (!payment) return;
             payment.valor = input.value;
             payment.touched = true;
+            marcarPagamentoPendente();
+            renderPaymentSnapshot();
         });
     });
 
     container.querySelectorAll("[data-remove-payment]").forEach((button) => {
         button.addEventListener("click", () => {
             pdvPage.pagamentos = pdvPage.pagamentos.filter((item) => String(item.uid) !== String(button.dataset.removePayment));
+            marcarPagamentoPendente();
             renderPayments();
             atualizarResumoVenda();
         });
     });
 
     syncSinglePaymentWithTotal();
+    renderPaymentSnapshot();
 
     if (window.lucide) {
         lucide.createIcons();
@@ -593,6 +717,7 @@ function renderPayments() {
 
 function renderVendas() {
     const body = document.getElementById("pdv-vendas-body");
+    const paginacao = pdvPage.paginacao.vendas;
     if (!body) return;
 
     if (!pdvPage.vendas.length) {
@@ -603,10 +728,13 @@ function renderVendas() {
                 </td>
             </tr>
         `;
+        renderPdvPagination("pdv-vendas-pagination", paginacao, 0, () => renderVendas());
         return;
     }
 
-    body.innerHTML = pdvPage.vendas.map((venda) => {
+    const itensPagina = getPdvPageItems(pdvPage.vendas, paginacao);
+
+    body.innerHTML = itensPagina.map((venda) => {
         const pagamentos = venda.pagamentos.map((item) => item.forma_pagamento_nome).filter(Boolean).join(", ") || "-";
         const statusBadge = venda.status === "FINALIZADA"
             ? `<span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-300">Finalizada</span>`
@@ -648,6 +776,8 @@ function renderVendas() {
             </tr>
         `;
     }).join("");
+
+    renderPdvPagination("pdv-vendas-pagination", paginacao, pdvPage.vendas.length, () => renderVendas());
 
     if (window.lucide) {
         lucide.createIcons();
@@ -864,17 +994,7 @@ function montarPayloadVenda() {
         throw new Error("Adicione pelo menos um item ao carrinho.");
     }
 
-    const pagamentos = pdvPage.pagamentos
-        .filter((item) => item.forma_pagamento_id && parseCurrencyValue(item.valor) > 0)
-        .map((item) => ({
-            forma_pagamento_id: item.forma_pagamento_id,
-            valor: normalizeMoneyForApi(item.valor),
-            comprovante: ""
-        }));
-
-    if (!pagamentos.length) {
-        throw new Error("Informe ao menos um pagamento valido.");
-    }
+    const pagamentos = validarPagamentosConfigurados();
 
     return {
         empresa_id: pdvPage.empresaId,
@@ -902,7 +1022,13 @@ function atualizarResumoVenda() {
     setText("pdv-total-desconto", formatCurrency(descontoTotal));
     setText("pdv-total-geral", formatCurrency(total));
 
+    if (pdvPage.pagamentoConfirmado && !pagamentoEstaConfirmadoParaTotalAtual(total)) {
+        marcarPagamentoPendente();
+    }
+
     syncSinglePaymentWithTotal(total);
+    renderPaymentSnapshot(total);
+    atualizarStatusPagamento(total);
 }
 
 function obterCupomSelecionado() {
@@ -923,7 +1049,10 @@ function calcularDescontoCupom(cupom, subtotal) {
 
 function resetPayments() {
     pdvPage.pagamentos = [criarPagamentoVazio()];
+    pdvPage.pagamentoConfirmado = false;
+    pdvPage.pagamentoConfirmadoTotal = null;
     renderPayments();
+    atualizarStatusPagamento();
 }
 
 function criarPagamentoVazio() {
@@ -950,6 +1079,135 @@ function syncSinglePaymentWithTotal(totalOverride) {
             input.value = payment.valor;
         }
     }
+
+    renderPaymentSnapshot(total);
+}
+
+function validarPagamentosConfigurados() {
+    const pagamentosNormalizados = pdvPage.pagamentos.map((item) => {
+        const formaPagamentoId = String(item.forma_pagamento_id || "").trim();
+        const valorNumerico = parseCurrencyValue(item.valor);
+
+        return {
+            forma_pagamento_id: formaPagamentoId,
+            valorNumerico,
+            valor: normalizeMoneyForApi(item.valor || "0"),
+            comprovante: ""
+        };
+    });
+
+    const possuiLinhaIncompleta = pagamentosNormalizados.some((item) => {
+        const temForma = Boolean(item.forma_pagamento_id);
+        const temValor = item.valorNumerico > 0;
+        return temForma !== temValor;
+    });
+
+    if (possuiLinhaIncompleta) {
+        throw new Error("Preencha forma e valor em cada pagamento informado.");
+    }
+
+    const pagamentos = pagamentosNormalizados.filter((item) => item.forma_pagamento_id && item.valorNumerico > 0);
+
+    if (!pagamentos.length) {
+        throw new Error("Informe ao menos um pagamento valido.");
+    }
+
+    const totalVenda = obterTotalAtualVenda();
+
+    const totalInformado = pagamentos.reduce((sum, item) => sum + item.valorNumerico, 0);
+    if (Math.abs(totalInformado - totalVenda) > 0.009) {
+        throw new Error("A soma dos pagamentos deve ser igual ao total da venda.");
+    }
+
+    return pagamentos.map(({ forma_pagamento_id, valor, comprovante }) => ({
+        forma_pagamento_id,
+        valor,
+        comprovante
+    }));
+}
+
+function confirmarPagamentoAtual() {
+    if (!pdvPage.carrinho.length) {
+        throw new Error("Adicione itens ao carrinho antes de confirmar o pagamento.");
+    }
+
+    validarPagamentosConfigurados();
+    pdvPage.pagamentoConfirmado = true;
+    pdvPage.pagamentoConfirmadoTotal = normalizeMoneyForApi(obterTotalAtualVenda());
+    atualizarStatusPagamento();
+    fecharModal("pdv-payments-modal");
+}
+
+function marcarPagamentoPendente() {
+    pdvPage.pagamentoConfirmado = false;
+    pdvPage.pagamentoConfirmadoTotal = null;
+    atualizarStatusPagamento();
+}
+
+function pagamentoEstaConfirmadoParaTotalAtual(totalOverride) {
+    if (!pdvPage.pagamentoConfirmado) return false;
+    const totalAtual = typeof totalOverride === "number" ? totalOverride : obterTotalAtualVenda();
+    return pdvPage.pagamentoConfirmadoTotal === normalizeMoneyForApi(totalAtual);
+}
+
+function atualizarStatusPagamento(totalOverride) {
+    const status = document.getElementById("pdv-payment-status");
+    const finalizeBtn = document.getElementById("pdv-finalizar-venda");
+    const totalAtual = typeof totalOverride === "number" ? totalOverride : obterTotalAtualVenda();
+    const prontoParaFinalizar = pdvPage.carrinho.length > 0 && pagamentoEstaConfirmadoParaTotalAtual(totalAtual);
+
+    if (status) {
+        status.classList.remove("is-success", "is-warning");
+        if (!pdvPage.carrinho.length) {
+            status.textContent = "Adicione itens para liberar o pagamento.";
+        } else if (prontoParaFinalizar) {
+            status.textContent = "Pagamento confirmado. Venda pronta para finalizar.";
+            status.classList.add("is-success");
+        } else {
+            status.textContent = "Pagamento ainda nao confirmado.";
+            status.classList.add("is-warning");
+        }
+    }
+
+    if (finalizeBtn) {
+        finalizeBtn.disabled = !prontoParaFinalizar;
+    }
+
+    renderPaymentSnapshot(totalAtual);
+}
+
+function renderPaymentSnapshot(totalOverride) {
+    const totalDueEl = document.getElementById("pdv-payment-total-due");
+    const totalInformedEl = document.getElementById("pdv-payment-total-informed");
+    const totalDiffEl = document.getElementById("pdv-payment-total-diff");
+    if (!totalDueEl || !totalInformedEl || !totalDiffEl) return;
+
+    const totalVenda = typeof totalOverride === "number" ? totalOverride : obterTotalAtualVenda();
+    const totalInformado = pdvPage.pagamentos.reduce((sum, item) => {
+        return sum + (item.forma_pagamento_id ? parseCurrencyValue(item.valor) : 0);
+    }, 0);
+    const diferenca = totalVenda - totalInformado;
+    const diffRow = totalDiffEl.closest(".pdv-payment-summary-row");
+
+    totalDueEl.textContent = formatCurrency(totalVenda);
+    totalInformedEl.textContent = formatCurrency(totalInformado);
+    totalDiffEl.textContent = formatCurrency(Math.abs(diferenca));
+
+    if (diffRow) {
+        diffRow.classList.remove("is-balanced", "is-warning", "is-error");
+        if (Math.abs(diferenca) <= 0.009) {
+            diffRow.classList.add("is-balanced");
+            totalDiffEl.textContent = formatCurrency(0);
+        } else if (diferenca > 0) {
+            diffRow.classList.add("is-warning");
+        } else {
+            diffRow.classList.add("is-error");
+        }
+    }
+}
+
+function obterTotalAtualVenda() {
+    return parseCurrencyValue(document.getElementById("pdv-total-geral")?.textContent || "0");
 }
 
 function limparCarrinho() {
@@ -961,7 +1219,33 @@ function limparCarrinho() {
     if (cupom) cupom.value = "";
     if (desconto) desconto.value = "0,00";
     if (observacao) observacao.value = "";
+    pdvPage.pagamentoConfirmado = false;
+    pdvPage.pagamentoConfirmadoTotal = null;
     renderCarrinho();
+}
+
+function resetPdvCloseoutForm() {
+    const empresa = document.getElementById("pdv-closeout-empresa");
+    const data = document.getElementById("pdv-closeout-data");
+    const inicial = document.getElementById("pdv-closeout-inicial");
+    const final = document.getElementById("pdv-closeout-final");
+    const observacao = document.getElementById("pdv-closeout-observacao");
+
+    if (empresa) {
+        empresa.value = pdvPage.empresaId || pdvPage.auxiliares.empresas[0]?.id || "";
+    }
+    if (data) {
+        data.value = new Date().toISOString().slice(0, 10);
+    }
+    if (inicial) {
+        inicial.value = "0,00";
+    }
+    if (final) {
+        final.value = "0,00";
+    }
+    if (observacao) {
+        observacao.value = "";
+    }
 }
 
 function limparCatalogoPdv() {
@@ -1174,4 +1458,74 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function getPdvPageItems(items, paginacao) {
+    const totalPaginas = Math.max(Math.ceil(items.length / paginacao.porPagina), 1);
+    if (paginacao.paginaAtual > totalPaginas) {
+        paginacao.paginaAtual = totalPaginas;
+    }
+
+    const inicio = (paginacao.paginaAtual - 1) * paginacao.porPagina;
+    return items.slice(inicio, inicio + paginacao.porPagina);
+}
+
+function renderPdvPagination(containerId, paginacao, totalItens, onChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const totalPaginas = Math.max(Math.ceil(totalItens / paginacao.porPagina), 1);
+
+    if (!totalItens) {
+        container.innerHTML = "";
+        return;
+    }
+
+    if (totalPaginas <= 1) {
+        container.innerHTML = `<div class="pagination-summary px-1 py-4">Exibindo ${totalItens} registro(s).</div>`;
+        return;
+    }
+
+    const inicio = ((paginacao.paginaAtual - 1) * paginacao.porPagina) + 1;
+    const fim = Math.min(paginacao.paginaAtual * paginacao.porPagina, totalItens);
+    const paginas = buildPdvPageNumbers(paginacao.paginaAtual, totalPaginas);
+
+    container.innerHTML = `
+        <div class="pagination-shell">
+            <div class="pagination-summary">Exibindo ${inicio}-${fim} de ${totalItens} registros</div>
+            <div class="pagination-controls">
+                <button type="button" class="pagination-btn" data-page="${paginacao.paginaAtual - 1}" ${paginacao.paginaAtual === 1 ? "disabled" : ""}>Anterior</button>
+                ${paginas.map((pagina) => pagina === "..."
+                    ? `<span class="pagination-ellipsis">...</span>`
+                    : `<button type="button" class="pagination-btn ${pagina === paginacao.paginaAtual ? "pagination-btn-active" : ""}" data-page="${pagina}">${pagina}</button>`
+                ).join("")}
+                <button type="button" class="pagination-btn" data-page="${paginacao.paginaAtual + 1}" ${paginacao.paginaAtual === totalPaginas ? "disabled" : ""}>Proxima</button>
+            </div>
+        </div>
+    `;
+
+    container.querySelectorAll("[data-page]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const pagina = Number(button.getAttribute("data-page"));
+            if (!Number.isInteger(pagina)) return;
+            paginacao.paginaAtual = Math.min(Math.max(pagina, 1), totalPaginas);
+            onChange();
+        });
+    });
+}
+
+function buildPdvPageNumbers(paginaAtual, totalPaginas) {
+    if (totalPaginas <= 7) {
+        return Array.from({ length: totalPaginas }, (_, index) => index + 1);
+    }
+
+    if (paginaAtual <= 4) {
+        return [1, 2, 3, 4, 5, "...", totalPaginas];
+    }
+
+    if (paginaAtual >= totalPaginas - 3) {
+        return [1, "...", totalPaginas - 4, totalPaginas - 3, totalPaginas - 2, totalPaginas - 1, totalPaginas];
+    }
+
+    return [1, "...", paginaAtual - 1, paginaAtual, paginaAtual + 1, "...", totalPaginas];
 }

@@ -1,6 +1,7 @@
 from app.extensions import db
 from app.models.db import (
     CategoriaFinanceira,
+    ConfiguracaoNotificacaoEstoque,
     FormaPagamento,
     Permission,
     Role,
@@ -137,6 +138,11 @@ class TenantBootstrapService:
         formas_pagamento = {}
         categorias_financeiras = {}
         tipos_operacao = {}
+        configuracao_alerta = (
+            ConfiguracaoNotificacaoEstoque.query
+            .filter_by(tenant_id=tenant_id)
+            .first()
+        )
 
         for nome in TenantBootstrapService.DEFAULT_FORMAS_PAGAMENTO:
             forma = FormaPagamento.query.filter_by(tenant_id=tenant_id, nome=nome).first()
@@ -195,9 +201,25 @@ class TenantBootstrapService:
 
             tipos_operacao[tipo_operacao.codigo] = tipo_operacao
 
+        if not configuracao_alerta:
+            configuracao_alerta = ConfiguracaoNotificacaoEstoque(
+                tenant_id=tenant_id,
+                popup_ao_entrar=True,
+                alertar_estoque_baixo=True,
+                alertar_sem_estoque=True,
+                alertar_validade=True,
+                dias_vencimento_alerta=30,
+                email_habilitado=False,
+                whatsapp_habilitado=False,
+                resumo_diario=False,
+            )
+            db.session.add(configuracao_alerta)
+            db.session.flush()
+
         db.session.flush()
         return {
             "formas_pagamento": formas_pagamento,
             "categorias_financeiras": categorias_financeiras,
             "tipos_operacao": tipos_operacao,
+            "configuracao_alerta": configuracao_alerta,
         }

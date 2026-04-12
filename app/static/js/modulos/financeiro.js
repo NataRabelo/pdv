@@ -9,7 +9,11 @@ window.financeiroPage = {
     fechamentos: [],
     empresaId: "",
     periodoDias: "30",
-    tipoLancamento: ""
+    tipoLancamento: "",
+    paginacao: {
+        lancamentos: { paginaAtual: 1, porPagina: 10 },
+        fechamentos: { paginaAtual: 1, porPagina: 10 }
+    }
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -33,17 +37,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
+function financeiroNeedsDashboard() {
+    return Boolean(
+        document.getElementById("financeiro-serie-list")
+        || document.getElementById("financeiro-mensal-list")
+        || document.getElementById("financeiro-kpi-saldo")
+    );
+}
+
+function financeiroNeedsLancamentos() {
+    return Boolean(document.getElementById("financeiro-lancamentos-body"));
+}
+
+function financeiroNeedsFechamentos() {
+    return Boolean(document.getElementById("financeiro-fechamentos-body"));
+}
+
 async function carregarFinanceiroAuxiliares() {
     const result = await requestFinanceiroJson("/api/financeiro/auxiliares", { method: "GET" });
     financeiroPage.auxiliares = result.data || financeiroPage.auxiliares;
 }
 
 async function carregarFinanceiroTudo() {
-    await Promise.all([
-        carregarDashboardFinanceiro(),
-        carregarLancamentosFinanceiro(),
-        carregarFechamentosFinanceiro()
-    ]);
+    const tarefas = [];
+
+    if (financeiroNeedsDashboard()) {
+        tarefas.push(carregarDashboardFinanceiro());
+    }
+    if (financeiroNeedsLancamentos()) {
+        tarefas.push(carregarLancamentosFinanceiro());
+    }
+    if (financeiroNeedsFechamentos()) {
+        tarefas.push(carregarFechamentosFinanceiro());
+    }
+
+    await Promise.all(tarefas);
 }
 
 async function carregarDashboardFinanceiro() {
@@ -60,7 +88,7 @@ async function carregarDashboardFinanceiro() {
 
 async function carregarLancamentosFinanceiro() {
     const url = new URL("/api/financeiro/lancamentos", window.location.origin);
-    url.searchParams.set("limite", "100");
+    url.searchParams.set("limite", "500");
     if (financeiroPage.empresaId) {
         url.searchParams.set("empresa_id", financeiroPage.empresaId);
     }
@@ -75,7 +103,7 @@ async function carregarLancamentosFinanceiro() {
 
 async function carregarFechamentosFinanceiro() {
     const url = new URL("/api/financeiro/fechamentos", window.location.origin);
-    url.searchParams.set("limite", "20");
+    url.searchParams.set("limite", "500");
     if (financeiroPage.empresaId) {
         url.searchParams.set("empresa_id", financeiroPage.empresaId);
     }
@@ -94,6 +122,8 @@ function bindFinanceiroFilters() {
     if (empresaSelect) {
         empresaSelect.addEventListener("change", async () => {
             financeiroPage.empresaId = empresaSelect.value || "";
+            financeiroPage.paginacao.lancamentos.paginaAtual = 1;
+            financeiroPage.paginacao.fechamentos.paginaAtual = 1;
             popularEmpresasFinanceiro();
             await carregarFinanceiroTudo();
         });
@@ -102,14 +132,19 @@ function bindFinanceiroFilters() {
     if (periodoSelect) {
         periodoSelect.addEventListener("change", async () => {
             financeiroPage.periodoDias = periodoSelect.value || "30";
-            await carregarDashboardFinanceiro();
+            if (financeiroNeedsDashboard()) {
+                await carregarDashboardFinanceiro();
+            }
         });
     }
 
     if (tipoSelect) {
         tipoSelect.addEventListener("change", async () => {
             financeiroPage.tipoLancamento = tipoSelect.value || "";
-            await carregarLancamentosFinanceiro();
+            financeiroPage.paginacao.lancamentos.paginaAtual = 1;
+            if (financeiroNeedsLancamentos()) {
+                await carregarLancamentosFinanceiro();
+            }
         });
     }
 
@@ -294,10 +329,17 @@ function renderDashboardFinanceiro() {
     setFinanceiroText("financeiro-kpi-saldo", formatFinanceiroCurrency(dashboard.kpis.saldo));
     setFinanceiroText("financeiro-kpi-faturamento", formatFinanceiroCurrency(dashboard.kpis.faturamento));
     setFinanceiroText("financeiro-kpi-ticket", formatFinanceiroCurrency(dashboard.kpis.ticket_medio));
+    setFinanceiroText("financeiro-kpi-valor-estoque", formatFinanceiroCurrency(dashboard.kpis.valor_estoque));
+    setFinanceiroText("financeiro-kpi-lucro-bruto", formatFinanceiroCurrency(dashboard.kpis.lucro_bruto));
+    setFinanceiroText("financeiro-kpi-necessidade-compra", formatFinanceiroCurrency(dashboard.kpis.necessidade_compra));
+    setFinanceiroText("financeiro-kpi-margem-bruta", `${formatFinanceiroPercent(dashboard.kpis.margem_bruta)} no periodo`);
 
     renderFinanceiroSerie(dashboard.serie_diaria || []);
     renderFinanceiroStack("financeiro-formas-list", dashboard.formas_pagamento || [], "forma_nome");
     renderFinanceiroStack("financeiro-categorias-list", dashboard.categorias_top || [], "categoria_nome", true);
+    renderFinanceiroMensal(dashboard.mensal_resumo || []);
+    renderFinanceiroProjecoes(dashboard.projecoes || []);
+    renderFinanceiroRecomendacoes(dashboard.recomendacoes_compra || []);
 
     const caixaHoje = document.getElementById("financeiro-caixa-hoje");
     if (caixaHoje) {
@@ -323,6 +365,76 @@ function renderDashboardFinanceiro() {
             </div>
         `;
     }
+}
+
+function renderFinanceiroMensal(items) {
+    const container = document.getElementById("financeiro-mensal-list");
+    if (!container) return;
+
+    if (!items.length) {
+        container.innerHTML = `<p class="text-slate-400">Sem consolidado mensal para o periodo selecionado.</p>`;
+        return;
+    }
+
+    container.innerHTML = items.map((item) => `
+        <div class="financeiro-stack-item">
+            <div>
+                <p class="font-medium text-white">${escapeFinanceiroHtml(formatCompetencia(item.competencia))}</p>
+                <p class="text-xs text-slate-500 mt-1">
+                    Entradas ${formatFinanceiroCurrency(item.entradas)} · Saidas ${formatFinanceiroCurrency(item.saidas)}
+                </p>
+            </div>
+            <strong class="text-white">${formatFinanceiroCurrency(item.saldo)}</strong>
+        </div>
+    `).join("");
+}
+
+function renderFinanceiroProjecoes(items) {
+    const container = document.getElementById("financeiro-projecoes-list");
+    if (!container) return;
+
+    if (!items.length) {
+        container.innerHTML = `<p class="text-slate-400">Sem dados suficientes para projecao.</p>`;
+        return;
+    }
+
+    container.innerHTML = items.map((item) => `
+        <div class="financeiro-stack-item">
+            <div>
+                <p class="font-medium text-white">${escapeFinanceiroHtml(String(item.dias || 0))} dias</p>
+                <p class="text-xs text-slate-500 mt-1">Media diaria ${formatFinanceiroCurrency(item.saldo_medio_diario)}</p>
+            </div>
+            <div class="text-right">
+                <strong class="block text-white">${formatFinanceiroCurrency(item.saldo_projetado)}</strong>
+                <span class="text-xs text-slate-500">${formatFinanceiroCurrency(item.variacao_prevista)}</span>
+            </div>
+        </div>
+    `).join("");
+}
+
+function renderFinanceiroRecomendacoes(items) {
+    const container = document.getElementById("financeiro-recomendacoes-list");
+    if (!container) return;
+
+    if (!items.length) {
+        container.innerHTML = `<p class="text-slate-400">Nenhuma recomendacao de compra para o periodo.</p>`;
+        return;
+    }
+
+    container.innerHTML = items.map((item) => `
+        <div class="financeiro-stack-item">
+            <div>
+                <p class="font-medium text-white">${escapeFinanceiroHtml(item.produto_nome || "-")}</p>
+                <p class="text-xs text-slate-500 mt-1">
+                    Vendido ${escapeFinanceiroHtml(String(item.quantidade_vendida || 0))} · Cobertura ${escapeFinanceiroHtml(String(item.cobertura_dias || "0"))} dia(s)
+                </p>
+            </div>
+            <div class="text-right">
+                <strong class="block text-white">${escapeFinanceiroHtml(String(item.quantidade_sugerida || 0))} un.</strong>
+                <span class="text-xs text-slate-500">${formatFinanceiroCurrency(item.valor_compra_sugerido)}</span>
+            </div>
+        </div>
+    `).join("");
 }
 
 function renderFinanceiroSerie(items) {
@@ -383,6 +495,7 @@ function renderFinanceiroStack(containerId, items, labelKey, showType = false) {
 function renderLancamentosFinanceiro() {
     const body = document.getElementById("financeiro-lancamentos-body");
     if (!body) return;
+    const paginacao = financeiroPage.paginacao.lancamentos;
 
     if (!financeiroPage.lancamentos.length) {
         body.innerHTML = `
@@ -390,10 +503,13 @@ function renderLancamentosFinanceiro() {
                 <td colspan="6" class="px-5 py-8 text-center text-slate-400">Nenhum lancamento encontrado.</td>
             </tr>
         `;
+        renderFinanceiroPagination("financeiro-lancamentos-pagination", paginacao, 0, () => renderLancamentosFinanceiro());
         return;
     }
 
-    body.innerHTML = financeiroPage.lancamentos.map((item) => `
+    const itensPagina = getFinanceiroPageItems(financeiroPage.lancamentos, paginacao);
+
+    body.innerHTML = itensPagina.map((item) => `
         <tr class="hover:bg-slate-800/40 transition">
             <td class="px-5 py-4 align-middle text-slate-300">${formatFinanceiroDateTime(item.data_lancamento)}</td>
             <td class="px-5 py-4 align-middle">
@@ -412,18 +528,29 @@ function renderLancamentosFinanceiro() {
             </td>
         </tr>
     `).join("");
+
+    renderFinanceiroPagination(
+        "financeiro-lancamentos-pagination",
+        paginacao,
+        financeiroPage.lancamentos.length,
+        () => renderLancamentosFinanceiro()
+    );
 }
 
 function renderFechamentosFinanceiro() {
     const container = document.getElementById("financeiro-fechamentos-body");
     if (!container) return;
+    const paginacao = financeiroPage.paginacao.fechamentos;
 
     if (!financeiroPage.fechamentos.length) {
         container.innerHTML = `<p class="text-slate-400 px-1">Nenhum fechamento registrado ainda.</p>`;
+        renderFinanceiroPagination("financeiro-fechamentos-pagination", paginacao, 0, () => renderFechamentosFinanceiro());
         return;
     }
 
-    container.innerHTML = financeiroPage.fechamentos.map((item) => `
+    const itensPagina = getFinanceiroPageItems(financeiroPage.fechamentos, paginacao);
+
+    container.innerHTML = itensPagina.map((item) => `
         <article class="financeiro-closure-card">
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -452,6 +579,13 @@ function renderFechamentosFinanceiro() {
             </div>
         </article>
     `).join("");
+
+    renderFinanceiroPagination(
+        "financeiro-fechamentos-pagination",
+        paginacao,
+        financeiroPage.fechamentos.length,
+        () => renderFechamentosFinanceiro()
+    );
 }
 
 function resetFinanceiroLaunchForm() {
@@ -593,6 +727,76 @@ function bindFinanceiroMoneyMask(inputId) {
     });
 }
 
+function getFinanceiroPageItems(items, paginacao) {
+    const totalPaginas = Math.max(Math.ceil(items.length / paginacao.porPagina), 1);
+    if (paginacao.paginaAtual > totalPaginas) {
+        paginacao.paginaAtual = totalPaginas;
+    }
+
+    const inicio = (paginacao.paginaAtual - 1) * paginacao.porPagina;
+    return items.slice(inicio, inicio + paginacao.porPagina);
+}
+
+function renderFinanceiroPagination(containerId, paginacao, totalItens, onChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const totalPaginas = Math.max(Math.ceil(totalItens / paginacao.porPagina), 1);
+
+    if (!totalItens) {
+        container.innerHTML = "";
+        return;
+    }
+
+    if (totalPaginas <= 1) {
+        container.innerHTML = `<div class="pagination-summary px-1 py-4">Exibindo ${totalItens} registro(s).</div>`;
+        return;
+    }
+
+    const inicio = ((paginacao.paginaAtual - 1) * paginacao.porPagina) + 1;
+    const fim = Math.min(paginacao.paginaAtual * paginacao.porPagina, totalItens);
+    const paginas = buildFinanceiroPageNumbers(paginacao.paginaAtual, totalPaginas);
+
+    container.innerHTML = `
+        <div class="pagination-shell">
+            <div class="pagination-summary">Exibindo ${inicio}-${fim} de ${totalItens} registros</div>
+            <div class="pagination-controls">
+                <button type="button" class="pagination-btn" data-page="${paginacao.paginaAtual - 1}" ${paginacao.paginaAtual === 1 ? "disabled" : ""}>Anterior</button>
+                ${paginas.map((pagina) => pagina === "..."
+                    ? `<span class="pagination-ellipsis">...</span>`
+                    : `<button type="button" class="pagination-btn ${pagina === paginacao.paginaAtual ? "pagination-btn-active" : ""}" data-page="${pagina}">${pagina}</button>`
+                ).join("")}
+                <button type="button" class="pagination-btn" data-page="${paginacao.paginaAtual + 1}" ${paginacao.paginaAtual === totalPaginas ? "disabled" : ""}>Proxima</button>
+            </div>
+        </div>
+    `;
+
+    container.querySelectorAll("[data-page]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const pagina = Number(button.getAttribute("data-page"));
+            if (!Number.isInteger(pagina)) return;
+            paginacao.paginaAtual = Math.min(Math.max(pagina, 1), totalPaginas);
+            onChange();
+        });
+    });
+}
+
+function buildFinanceiroPageNumbers(paginaAtual, totalPaginas) {
+    if (totalPaginas <= 7) {
+        return Array.from({ length: totalPaginas }, (_, index) => index + 1);
+    }
+
+    if (paginaAtual <= 4) {
+        return [1, 2, 3, 4, 5, "...", totalPaginas];
+    }
+
+    if (paginaAtual >= totalPaginas - 3) {
+        return [1, "...", totalPaginas - 4, totalPaginas - 3, totalPaginas - 2, totalPaginas - 1, totalPaginas];
+    }
+
+    return [1, "...", paginaAtual - 1, paginaAtual, paginaAtual + 1, "...", totalPaginas];
+}
+
 function parseFinanceiroMoney(value) {
     return window.DecimalInput?.parse(value) ?? 0;
 }
@@ -615,6 +819,14 @@ function formatFinanceiroCurrency(value) {
     }).format(parseFinanceiroMoney(value));
 }
 
+function formatFinanceiroPercent(value) {
+    const parsed = parseFinanceiroMoney(value);
+    return new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(parsed) + "%";
+}
+
 function formatFinanceiroDate(value) {
     if (!value) return "-";
     const date = new Date(`${value}T00:00:00`);
@@ -629,6 +841,20 @@ function formatFinanceiroDateTime(value) {
     return new Intl.DateTimeFormat("pt-BR", {
         dateStyle: "short",
         timeStyle: "short"
+    }).format(date);
+}
+
+function formatCompetencia(value) {
+    if (!value) return "-";
+    const [ano, mes] = String(value).split("-");
+    if (!ano || !mes) return value;
+
+    const date = new Date(`${ano}-${mes}-01T00:00:00`);
+    if (Number.isNaN(date.getTime())) return value;
+
+    return new Intl.DateTimeFormat("pt-BR", {
+        month: "long",
+        year: "numeric"
     }).format(date);
 }
 

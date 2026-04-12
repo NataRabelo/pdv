@@ -1,4 +1,4 @@
-from app.models.db import Empresa, Funcionario, FuncionarioEmpresa, Tenant, TipoEmpresa
+from app.models.db import Empresa, Funcionario, FuncionarioEmpresa, ModoVisualEmpresa, Tenant, TipoEmpresa
 from app.repositorys.platform_repository import PlatformRepository
 from app.security.password import hash_password
 from app.security.permissions import ADMIN_ROLE_CODE
@@ -79,14 +79,26 @@ class PlatformService:
             PlatformRepository.flush()
             PlatformService._sincronizar_admins_do_tenant(tenant.id)
             PlatformRepository.salvar()
-            return {
-                "id": empresa.id,
-                "nome_fantasia": empresa.nome_fantasia,
-                "razao_social": empresa.razao_social,
-                "cnpj": empresa.cnpj,
-                "tipo_empresa": empresa.tipo_empresa.value,
-                "ativo": empresa.ativo,
-            }
+            return PlatformService._serializar_empresa(empresa)
+        except Exception:
+            PlatformRepository.rollback()
+            raise
+
+    @staticmethod
+    def atualizar_visual_empresa(tenant_id, empresa_id, data):
+        tenant = PlatformRepository.buscar_tenant_por_id(tenant_id)
+        if not tenant:
+            raise ValueError("Tenant nao encontrado.")
+
+        empresa = PlatformRepository.buscar_empresa_por_id(empresa_id, tenant.id)
+        if not empresa:
+            raise ValueError("Empresa nao encontrada para esse tenant.")
+
+        try:
+            empresa.visual_modo = PlatformService._to_visual_mode(data.get("visual_modo"))
+            PlatformRepository.adicionar(empresa)
+            PlatformRepository.salvar()
+            return PlatformService._serializar_empresa(empresa)
         except Exception:
             PlatformRepository.rollback()
             raise
@@ -155,6 +167,7 @@ class PlatformService:
             razao_social=razao_social,
             nome_fantasia=nome_fantasia,
             tipo_empresa=tipo_empresa,
+            visual_modo=PlatformService._to_visual_mode(data.get("visual_modo"), required=False),
             ativo=True,
         )
 
@@ -209,17 +222,7 @@ class PlatformService:
             "criado_em": TimeService.serialize_utc_iso(tenant.criado_em),
             "quantidade_empresas": len(empresas),
             "quantidade_admins": len(admins),
-            "empresas": [
-                {
-                    "id": empresa.id,
-                    "nome_fantasia": empresa.nome_fantasia,
-                    "razao_social": empresa.razao_social,
-                    "cnpj": empresa.cnpj,
-                    "tipo_empresa": empresa.tipo_empresa.value,
-                    "ativo": empresa.ativo,
-                }
-                for empresa in empresas
-            ],
+            "empresas": [PlatformService._serializar_empresa(empresa) for empresa in empresas],
             "admins": [
                 {
                     "id": admin.id,
@@ -230,6 +233,18 @@ class PlatformService:
                 }
                 for admin in admins
             ],
+        }
+
+    @staticmethod
+    def _serializar_empresa(empresa):
+        return {
+            "id": empresa.id,
+            "nome_fantasia": empresa.nome_fantasia,
+            "razao_social": empresa.razao_social,
+            "cnpj": empresa.cnpj,
+            "tipo_empresa": empresa.tipo_empresa.value,
+            "visual_modo": (empresa.visual_modo or ModoVisualEmpresa.MODERNO).value,
+            "ativo": empresa.ativo,
         }
 
     @staticmethod
@@ -281,6 +296,19 @@ class PlatformService:
             return TipoEmpresa[(value or "").strip().upper()]
         except KeyError:
             raise ValueError("Tipo de empresa invalido.")
+
+    @staticmethod
+    def _to_visual_mode(value, required=True):
+        raw_value = (value or "").strip().upper()
+        if not raw_value:
+            if required:
+                raise ValueError("Modo visual e obrigatorio.")
+            return ModoVisualEmpresa.MODERNO
+
+        try:
+            return ModoVisualEmpresa[raw_value]
+        except KeyError:
+            raise ValueError("Modo visual invalido.")
 
     @staticmethod
     def _to_int(value, field_name):

@@ -1,4 +1,6 @@
 window.categoriaPage = null;
+const categoriaCanEdit = () => window.userHasPermission?.("editar_categoria");
+const categoriaCanDelete = () => window.userHasPermission?.("excluir_categoria");
 
 document.addEventListener("DOMContentLoaded", () => {
     window.categoriaPage = new CrudPage({
@@ -31,6 +33,34 @@ document.addEventListener("DOMContentLoaded", () => {
         }),
 
         renderRow: (item) => {
+            const actions = [];
+
+            if (categoriaCanEdit()) {
+                actions.push(`
+                    <button
+                        type="button"
+                        onclick="categoriaPage.openEditModal(${item.id})"
+                        class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
+                        title="Editar categoria"
+                    >
+                        <i data-lucide="square-pen" class="w-4 h-4"></i>
+                    </button>
+                `);
+            }
+
+            if (categoriaCanDelete()) {
+                actions.push(`
+                    <button
+                        type="button"
+                        onclick="categoriaPage.openDeleteModal(${item.id})"
+                        class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
+                        title="Excluir categoria"
+                    >
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                `);
+            }
+
             return `
                 <tr class="hover:bg-slate-800/40 transition">
                     <td class="px-5 py-4 align-middle">
@@ -53,23 +83,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
                     <td class="px-5 py-4 align-middle">
                         <div class="flex items-center justify-center gap-2">
-                            <button
-                                type="button"
-                                onclick="categoriaPage.openEditModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
-                                title="Editar categoria"
-                            >
-                                <i data-lucide="square-pen" class="w-4 h-4"></i>
-                            </button>
-
-                            <button
-                                type="button"
-                                onclick="categoriaPage.openDeleteModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
-                                title="Excluir categoria"
-                            >
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+                            ${actions.length
+                                ? actions.join("")
+                                : '<span class="text-xs font-medium text-slate-500">Somente leitura</span>'}
                         </div>
                     </td>
                 </tr>

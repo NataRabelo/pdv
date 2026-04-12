@@ -1,6 +1,8 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
+import sqlalchemy as sa
+
 from app.extensions import db
 from app.models.db import (
     CategoriaFinanceira,
@@ -9,6 +11,7 @@ from app.models.db import (
     ItemVenda,
     LancamentoFinanceiro,
     Produto,
+    ProdutoEmpresa,
     StatusVenda,
     TipoCategoriaFinanceira,
     TipoFinanceiro,
@@ -162,6 +165,53 @@ class FinanceiroService:
         )
         saldo = (total_entradas - total_saidas).quantize(Decimal("0.01"))
 
+        valor_estoque = FinanceiroService._to_decimal_value(
+            db.session.query(
+                db.func.coalesce(
+                    db.func.sum(ProdutoEmpresa.estoque_atual * ProdutoEmpresa.valor_compra),
+                    0,
+                )
+            )
+            .filter(
+                ProdutoEmpresa.tenant_id == tenant_id,
+                ProdutoEmpresa.ativo.is_(True),
+                ProdutoEmpresa.estoque_atual > 0,
+                ProdutoEmpresa.empresa_id == empresa_id if empresa_id is not None else sa.true(),
+                ProdutoEmpresa.empresa_id.in_(empresa_ids) if empresa_ids is not None else sa.true(),
+            )
+            .scalar()
+        )
+
+        custo_produtos_vendidos = FinanceiroService._to_decimal_value(
+            db.session.query(
+                db.func.coalesce(db.func.sum(ItemVenda.quantidade * ProdutoEmpresa.valor_compra), 0)
+            )
+            .join(Venda, Venda.id == ItemVenda.venda_id)
+            .join(
+                ProdutoEmpresa,
+                db.and_(
+                    ProdutoEmpresa.produto_id == ItemVenda.produto_id,
+                    ProdutoEmpresa.empresa_id == Venda.empresa_id,
+                    ProdutoEmpresa.tenant_id == tenant_id,
+                ),
+            )
+            .filter(
+                Venda.tenant_id == tenant_id,
+                Venda.status == StatusVenda.FINALIZADA,
+                db.func.date(Venda.data_venda) >= data_inicio,
+                db.func.date(Venda.data_venda) <= data_fim,
+                Venda.empresa_id == empresa_id if empresa_id is not None else sa.true(),
+                Venda.empresa_id.in_(empresa_ids) if empresa_ids is not None else sa.true(),
+            )
+            .scalar()
+        )
+        lucro_bruto = (total_vendas - custo_produtos_vendidos).quantize(Decimal("0.01"))
+        margem_bruta = (
+            ((lucro_bruto / total_vendas) * Decimal("100")).quantize(Decimal("0.01"))
+            if total_vendas > 0
+            else Decimal("0.00")
+        )
+
         serie_query = (
             base_lancamentos
             .with_entities(
@@ -214,6 +264,130 @@ class FinanceiroService:
             .all()
         )
 
+        mensal_query = (
+            base_lancamentos
+            .with_entities(
+                db.extract("year", LancamentoFinanceiro.data_lancamento).label("ano"),
+                db.extract("month", LancamentoFinanceiro.data_lancamento).label("mes"),
+                LancamentoFinanceiro.tipo.label("tipo"),
+                db.func.coalesce(db.func.sum(LancamentoFinanceiro.valor), 0).label("valor"),
+            )
+            .group_by(
+                db.extract("year", LancamentoFinanceiro.data_lancamento),
+                db.extract("month", LancamentoFinanceiro.data_lancamento),
+                LancamentoFinanceiro.tipo,
+            )
+            .all()
+        )
+        mensal_map = {}
+        for item in mensal_query:
+            chave = f"{int(item.ano):04d}-{int(item.mes):02d}"
+            if chave not in mensal_map:
+                mensal_map[chave] = {
+                    "competencia": chave,
+                    "entradas": Decimal("0.00"),
+                    "saidas": Decimal("0.00"),
+                }
+            if item.tipo == TipoFinanceiro.ENTRADA:
+                mensal_map[chave]["entradas"] = FinanceiroService._to_decimal_value(item.valor)
+            else:
+                mensal_map[chave]["saidas"] = FinanceiroService._to_decimal_value(item.valor)
+
+        mensal_resumo = []
+        for chave in sorted(mensal_map.keys(), reverse=True)[:6]:
+            entradas = mensal_map[chave]["entradas"]
+            saidas = mensal_map[chave]["saidas"]
+            mensal_resumo.append(
+                {
+                    "competencia": chave,
+                    "entradas": str(entradas),
+                    "saidas": str(saidas),
+                    "saldo": str((entradas - saidas).quantize(Decimal("0.01"))),
+                }
+            )
+
+        saldo_medio_diario = (saldo / Decimal(periodo)).quantize(Decimal("0.01")) if periodo else Decimal("0.00")
+        projecoes = []
+        for dias in (30, 60, 90):
+            variacao = (saldo_medio_diario * Decimal(dias)).quantize(Decimal("0.01"))
+            projecoes.append(
+                {
+                    "dias": dias,
+                    "saldo_medio_diario": str(saldo_medio_diario),
+                    "variacao_prevista": str(variacao),
+                    "saldo_projetado": str((saldo + variacao).quantize(Decimal("0.01"))),
+                }
+            )
+
+        vendas_30_dias = (
+            db.session.query(
+                Produto.id.label("produto_id"),
+                Produto.nome.label("produto_nome"),
+                db.func.coalesce(db.func.sum(ItemVenda.quantidade), 0).label("quantidade"),
+                ProdutoEmpresa.estoque_atual.label("estoque_atual"),
+                ProdutoEmpresa.estoque_minimo.label("estoque_minimo"),
+                ProdutoEmpresa.valor_compra.label("valor_compra"),
+                ProdutoEmpresa.valor_venda.label("valor_venda"),
+            )
+            .join(ItemVenda, ItemVenda.produto_id == Produto.id)
+            .join(Venda, Venda.id == ItemVenda.venda_id)
+            .join(
+                ProdutoEmpresa,
+                db.and_(
+                    ProdutoEmpresa.produto_id == Produto.id,
+                    ProdutoEmpresa.empresa_id == Venda.empresa_id,
+                    ProdutoEmpresa.tenant_id == tenant_id,
+                ),
+            )
+            .filter(
+                Venda.tenant_id == tenant_id,
+                Venda.status == StatusVenda.FINALIZADA,
+                db.func.date(Venda.data_venda) >= (data_fim - timedelta(days=29)),
+                db.func.date(Venda.data_venda) <= data_fim,
+                Venda.empresa_id == empresa_id if empresa_id is not None else sa.true(),
+                Venda.empresa_id.in_(empresa_ids) if empresa_ids is not None else sa.true(),
+            )
+            .group_by(
+                Produto.id,
+                Produto.nome,
+                ProdutoEmpresa.estoque_atual,
+                ProdutoEmpresa.estoque_minimo,
+                ProdutoEmpresa.valor_compra,
+                ProdutoEmpresa.valor_venda,
+            )
+            .order_by(db.desc("quantidade"))
+            .limit(8)
+            .all()
+        )
+        recomendacoes_compra = []
+        necessidade_compra = Decimal("0.00")
+        for item in vendas_30_dias:
+            quantidade_vendida = int(item.quantidade or 0)
+            media_diaria = Decimal(quantidade_vendida) / Decimal("30")
+            estoque_atual = int(item.estoque_atual or 0)
+            estoque_minimo = int(item.estoque_minimo or 0)
+            estoque_ideal = max(int((media_diaria * Decimal("30")).quantize(Decimal("1"))), estoque_minimo)
+            quantidade_sugerida = max(estoque_ideal - estoque_atual, 0)
+            cobertura_dias = (
+                Decimal(estoque_atual) / media_diaria
+                if media_diaria > 0
+                else Decimal("0.00")
+            ).quantize(Decimal("0.01"))
+            valor_compra_sugerido = (Decimal(quantidade_sugerida) * FinanceiroService._to_decimal_value(item.valor_compra)).quantize(Decimal("0.01"))
+            necessidade_compra += valor_compra_sugerido
+            recomendacoes_compra.append(
+                {
+                    "produto_id": item.produto_id,
+                    "produto_nome": item.produto_nome,
+                    "quantidade_vendida": quantidade_vendida,
+                    "media_diaria": str(media_diaria.quantize(Decimal("0.01"))),
+                    "estoque_atual": estoque_atual,
+                    "cobertura_dias": str(cobertura_dias),
+                    "quantidade_sugerida": quantidade_sugerida,
+                    "valor_compra_sugerido": str(valor_compra_sugerido),
+                }
+            )
+
         caixa_hoje = FinanceiroService.calcular_resumo_caixa(
             tenant_id=tenant_id,
             escopo=escopo,
@@ -235,6 +409,10 @@ class FinanceiroService:
                 "vendas": quantidade_vendas,
                 "faturamento": str(total_vendas),
                 "ticket_medio": str(ticket_medio),
+                "valor_estoque": str(valor_estoque),
+                "lucro_bruto": str(lucro_bruto),
+                "margem_bruta": str(margem_bruta),
+                "necessidade_compra": str(necessidade_compra.quantize(Decimal("0.01"))),
             },
             "serie_diaria": [
                 {
@@ -259,6 +437,9 @@ class FinanceiroService:
                 }
                 for item in formas_pagamento
             ],
+            "mensal_resumo": mensal_resumo,
+            "projecoes": projecoes,
+            "recomendacoes_compra": recomendacoes_compra,
             "caixa_hoje": {
                 "data": data_fim.isoformat(),
                 "entradas_dinheiro": str(caixa_hoje["entradas_dinheiro"]),

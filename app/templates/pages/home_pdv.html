@@ -19,7 +19,7 @@ min-h-screen flex flex-col
         <h2 class="text-4xl font-light text-white mb-2">
             Operacao de <span class="font-bold">Caixa</span>
         </h2>
-        <p class="text-slate-400">Venda rapida para pequenas lojas, com estoque e financeiro integrados.</p>
+        <p class="text-slate-400">Acesso direto ao que o caixa precisa no dia a dia.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -29,59 +29,69 @@ min-h-screen flex flex-col
             </div>
             <div>
                 <h4 class="text-white font-bold">Abrir PDV</h4>
-                <p class="text-slate-400 text-sm">Atender clientes, fechar vendas e receber pagamentos</p>
+                <p class="text-slate-400 text-sm">Atender clientes, montar carrinho e concluir vendas</p>
             </div>
         </a>
 
+        {% if ui_flags.can_view_stock %}
         <a href="/api/estoque/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="boxes"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Conferir estoque</h4>
-                <p class="text-slate-400 text-sm">Acompanhar saldo e evitar ruptura no caixa</p>
+                <p class="text-slate-400 text-sm">Consultar saldo, alertas e reposicoes</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_finance %}
         <a href="/api/financeiro/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="landmark"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Financeiro</h4>
-                <p class="text-slate-400 text-sm">Fluxo de caixa e conferencias das vendas</p>
+                <p class="text-slate-400 text-sm">Fluxo de caixa, conferencias e indicadores</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_stock %}
         <a href="/api/produtos/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="package-plus"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Produtos</h4>
-                <p class="text-slate-400 text-sm">Cadastrar e atualizar os itens disponiveis no caixa</p>
+                <p class="text-slate-400 text-sm">Cadastrar itens e revisar codigos de barras</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_coupons %}
         <a href="/api/cupons/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="ticket-percent"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Cupons</h4>
-                <p class="text-slate-400 text-sm">Criar campanhas e descontos para aplicar direto na venda</p>
+                <p class="text-slate-400 text-sm">Regras de desconto e campanhas para o caixa</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_advance %}
         <a href="/api/adiantamentos/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="wallet-cards"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Vales</h4>
-                <p class="text-slate-400 text-sm">Registrar retiradas de funcionario em dinheiro ou produto</p>
+                <p class="text-slate-400 text-sm">Retiradas em dinheiro ou produto</p>
             </div>
         </a>
+        {% endif %}
     </div>
 </main>
 {% endblock %}

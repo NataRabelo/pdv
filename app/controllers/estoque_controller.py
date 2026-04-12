@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from app.security.decorators import permission_required
+from app.security.decorators import permission_required, ui_permission_required
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.estoque_service import EstoqueService
 from app.services.time_service import TimeService
@@ -11,8 +11,23 @@ estoque_bp = Blueprint("estoque", __name__)
 
 @estoque_bp.route("/view", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_produto")
 def pagina():
     return render_template("modulos/estoque/estoque.html")
+
+
+@estoque_bp.route("/alertas/view", methods=["GET"])
+@jwt_required()
+@ui_permission_required("visualizar_notificacao")
+def pagina_alertas():
+    return render_template("modulos/estoque/estoque_alertas.html")
+
+
+@estoque_bp.route("/indicadores/view", methods=["GET"])
+@jwt_required()
+@ui_permission_required("visualizar_produto")
+def pagina_indicadores():
+    return render_template("modulos/estoque/estoque_indicadores.html")
 
 
 @estoque_bp.route("/", methods=["GET"])
@@ -130,6 +145,89 @@ def listar_notificacoes():
         })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@estoque_bp.route("/notificacoes/popup", methods=["GET"])
+@permission_required("visualizar_notificacao")
+def popup_notificacoes():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        dados = EstoqueService.obter_popup_alertas(tenant_id, escopo)
+
+        return jsonify({
+            "success": True,
+            "data": dados
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@estoque_bp.route("/notificacoes/configuracao", methods=["GET"])
+@permission_required("gerenciar_alerta_estoque")
+def obter_configuracao_alerta():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        dados = EstoqueService.obter_configuracao_alerta(tenant_id, escopo)
+
+        return jsonify({
+            "success": True,
+            "data": dados
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+
+@estoque_bp.route("/notificacoes/configuracao", methods=["PUT"])
+@permission_required("gerenciar_alerta_estoque")
+def atualizar_configuracao_alerta():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        data = request.get_json(silent=True) or {}
+        dados = EstoqueService.atualizar_configuracao_alerta(data, tenant_id, escopo)
+
+        return jsonify({
+            "success": True,
+            "message": "Configuracoes de alerta atualizadas com sucesso.",
+            "data": dados
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+
+@estoque_bp.route("/indicadores/produtos-mais-vendidos", methods=["GET"])
+@permission_required("visualizar_produto")
+def listar_produtos_mais_vendidos():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        empresa_id = request.args.get("empresa_id", type=int)
+        periodo = request.args.get("periodo", default="mes", type=str)
+        data_inicio = request.args.get("data_inicio", type=str)
+        data_fim = request.args.get("data_fim", type=str)
+        limite = request.args.get("limite", default=12, type=int)
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        dados = EstoqueService.listar_produtos_mais_vendidos(
+            tenant_id=tenant_id,
+            escopo=escopo,
+            empresa_id=empresa_id,
+            periodo=periodo,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            limite=limite,
+        )
+
+        return jsonify({
+            "success": True,
+            "data": dados
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
 
 
 @estoque_bp.route("/movimentos/manual", methods=["POST"])

@@ -1,9 +1,11 @@
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
+from app.models.db import ConfiguracaoNotificacaoEstoque
 from app.models.db import MotivoMovimentoEstoque, MovimentoEstoque, TipoMovimentoEstoque
 from app.repositorys.estoque_repository import EstoqueRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.tenant_bootstrap_service import TenantBootstrapService
 from app.services.time_service import TimeService
 
 
@@ -51,6 +53,7 @@ class EstoqueService:
 
     @staticmethod
     def listar_auxiliares(tenant_id, escopo):
+        EstoqueService._garantir_base_operacional(tenant_id)
         empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
         empresas = EstoqueRepository.listar_empresas(tenant_id, empresa_ids=empresa_ids)
         produtos_empresa = EstoqueRepository.listar_produtos_empresa_disponiveis(tenant_id, empresa_ids=empresa_ids)
@@ -85,9 +88,13 @@ class EstoqueService:
 
     @staticmethod
     def listar_notificacoes(tenant_id, escopo, empresa_id=None, dias_vencimento=30):
+        configuracao = EstoqueService._obter_ou_criar_configuracao(tenant_id)
         registros = EstoqueService.listar_saldos(tenant_id, escopo, empresa_id=empresa_id)
         hoje = date.today()
-        dias_alerta = max(int(dias_vencimento or 30), 1)
+        dias_alerta = max(
+            int(dias_vencimento or configuracao.dias_vencimento_alerta or 30),
+            1,
+        )
 
         estoque_baixo = []
         sem_estoque = []
@@ -108,12 +115,12 @@ class EstoqueService:
                 "data_validade": item.data_validade.isoformat() if item.data_validade else None,
             }
 
-            if int(item.estoque_atual) <= 0:
+            if configuracao.alertar_sem_estoque and int(item.estoque_atual) <= 0:
                 sem_estoque.append(dados)
-            elif int(item.estoque_atual) <= int(item.estoque_minimo):
+            elif configuracao.alertar_estoque_baixo and int(item.estoque_atual) <= int(item.estoque_minimo):
                 estoque_baixo.append(dados)
 
-            if item.data_validade:
+            if configuracao.alertar_validade and item.data_validade:
                 dias_restantes = (item.data_validade - hoje).days
                 dados["dias_para_vencimento"] = dias_restantes
 
@@ -134,6 +141,147 @@ class EstoqueService:
             "sem_estoque": sem_estoque[:12],
             "vencidos": sorted(vencidos, key=lambda item: item["dias_para_vencimento"])[:12],
             "proximos_vencimento": sorted(proximos_vencimento, key=lambda item: item["dias_para_vencimento"])[:12],
+        }
+
+    @staticmethod
+    def obter_configuracao_alerta(tenant_id, escopo):
+        if not AcessoEmpresaService.possui_permissao(escopo, "gerenciar_alerta_estoque"):
+            raise PermissionError("Voce nao tem permissao para gerenciar as configuracoes de alertas.")
+
+        configuracao = EstoqueService._obter_ou_criar_configuracao(tenant_id)
+        return EstoqueService.serializar_configuracao_alerta(configuracao)
+
+    @staticmethod
+    def atualizar_configuracao_alerta(data, tenant_id, escopo):
+        if not AcessoEmpresaService.possui_permissao(escopo, "gerenciar_alerta_estoque"):
+            raise PermissionError("Voce nao tem permissao para gerenciar as configuracoes de alertas.")
+
+        try:
+            configuracao = EstoqueService._obter_ou_criar_configuracao(tenant_id)
+            configuracao.popup_ao_entrar = EstoqueService._to_bool(data.get("popup_ao_entrar", True))
+            configuracao.alertar_estoque_baixo = EstoqueService._to_bool(data.get("alertar_estoque_baixo", True))
+            configuracao.alertar_sem_estoque = EstoqueService._to_bool(data.get("alertar_sem_estoque", True))
+            configuracao.alertar_validade = EstoqueService._to_bool(data.get("alertar_validade", True))
+            configuracao.dias_vencimento_alerta = EstoqueService._to_positive_int(
+                data.get("dias_vencimento_alerta", 30),
+                "dias de vencimento",
+            )
+            configuracao.email_habilitado = EstoqueService._to_bool(data.get("email_habilitado", False))
+            configuracao.email_destinatarios = EstoqueService._normalizar_destinatarios(data.get("email_destinatarios"))
+            configuracao.whatsapp_habilitado = EstoqueService._to_bool(data.get("whatsapp_habilitado", False))
+            configuracao.whatsapp_destinatarios = EstoqueService._normalizar_destinatarios(data.get("whatsapp_destinatarios"))
+            configuracao.resumo_diario = EstoqueService._to_bool(data.get("resumo_diario", False))
+
+            EstoqueRepository.adicionar(configuracao)
+            EstoqueRepository.salvar()
+            return EstoqueService.serializar_configuracao_alerta(configuracao)
+        except Exception:
+            EstoqueRepository.rollback()
+            raise
+
+    @staticmethod
+    def obter_popup_alertas(tenant_id, escopo):
+        if not AcessoEmpresaService.possui_permissao(escopo, "visualizar_notificacao"):
+            raise PermissionError("Voce nao tem permissao para visualizar alertas de estoque.")
+
+        configuracao = EstoqueService._obter_ou_criar_configuracao(tenant_id)
+        dados = EstoqueService.listar_notificacoes(
+            tenant_id=tenant_id,
+            escopo=escopo,
+            dias_vencimento=configuracao.dias_vencimento_alerta,
+        )
+
+        itens = (
+            [
+                {**item, "tipo": "Sem estoque"}
+                for item in dados["sem_estoque"][:4]
+            ] +
+            [
+                {**item, "tipo": "Baixo estoque"}
+                for item in dados["estoque_baixo"][:4]
+            ] +
+            [
+                {**item, "tipo": "Validade"}
+                for item in (dados["vencidos"][:2] + dados["proximos_vencimento"][:2])
+            ]
+        )[:8]
+
+        return {
+            "deve_exibir": bool(configuracao.popup_ao_entrar and itens),
+            "configuracao": EstoqueService.serializar_configuracao_alerta(configuracao),
+            "resumo": dados["resumo"],
+            "itens": itens,
+        }
+
+    @staticmethod
+    def listar_produtos_mais_vendidos(tenant_id, escopo, empresa_id=None, periodo="mes", data_inicio=None, data_fim=None, limite=12):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+
+        if empresa_id:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        periodo_normalizado = str(periodo or "mes").strip().lower()
+        hoje = date.today()
+
+        if periodo_normalizado == "semana":
+            data_inicio_obj = hoje - timedelta(days=6)
+            data_fim_obj = hoje
+        elif periodo_normalizado == "mes":
+            data_inicio_obj = date(hoje.year, hoje.month, 1)
+            data_fim_obj = hoje
+        elif periodo_normalizado == "periodo":
+            data_inicio_obj = EstoqueService._to_optional_date(data_inicio) or date(hoje.year, hoje.month, 1)
+            data_fim_obj = EstoqueService._to_optional_date(data_fim) or hoje
+        else:
+            raise ValueError("Periodo invalido. Use semana, mes ou periodo.")
+
+        if data_fim_obj < data_inicio_obj:
+            raise ValueError("A data final nao pode ser menor que a data inicial.")
+
+        itens = EstoqueRepository.listar_produtos_mais_vendidos(
+            tenant_id=tenant_id,
+            empresa_ids=empresa_ids,
+            empresa_id=empresa_id,
+            data_inicio=data_inicio_obj,
+            data_fim=data_fim_obj,
+            limite=limite,
+        )
+
+        return {
+            "periodo": {
+                "tipo": periodo_normalizado,
+                "data_inicio": data_inicio_obj.isoformat(),
+                "data_fim": data_fim_obj.isoformat(),
+            },
+            "itens": [
+                {
+                    "produto_id": item.produto_id,
+                    "produto_nome": item.produto_nome,
+                    "empresa_id": item.empresa_id,
+                    "empresa_nome": item.empresa_nome,
+                    "quantidade": int(item.quantidade or 0),
+                    "faturamento": str(Decimal(str(item.faturamento or 0)).quantize(Decimal("0.01"))),
+                }
+                for item in itens
+            ],
+        }
+
+    @staticmethod
+    def serializar_configuracao_alerta(configuracao):
+        return {
+            "id": configuracao.id,
+            "popup_ao_entrar": bool(configuracao.popup_ao_entrar),
+            "alertar_estoque_baixo": bool(configuracao.alertar_estoque_baixo),
+            "alertar_sem_estoque": bool(configuracao.alertar_sem_estoque),
+            "alertar_validade": bool(configuracao.alertar_validade),
+            "dias_vencimento_alerta": int(configuracao.dias_vencimento_alerta or 30),
+            "email_habilitado": bool(configuracao.email_habilitado),
+            "email_destinatarios": configuracao.email_destinatarios or "",
+            "whatsapp_habilitado": bool(configuracao.whatsapp_habilitado),
+            "whatsapp_destinatarios": configuracao.whatsapp_destinatarios or "",
+            "resumo_diario": bool(configuracao.resumo_diario),
+            "possui_dispatch_email": True,
+            "possui_dispatch_whatsapp": True,
         }
 
     @staticmethod
@@ -440,3 +588,59 @@ class EstoqueService:
             return int(value)
         except (TypeError, ValueError):
             raise ValueError(f"{field_name} invalido.")
+
+    @staticmethod
+    def _to_optional_date(value):
+        if value in (None, ""):
+            return None
+
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").date()
+        except ValueError:
+            raise ValueError("Data invalida. Use o formato YYYY-MM-DD.")
+
+    @staticmethod
+    def _to_bool(value, default=False):
+        if value is None:
+            return default
+
+        if isinstance(value, bool):
+            return value
+
+        return str(value).strip().lower() in {"1", "true", "on", "sim", "yes"}
+
+    @staticmethod
+    def _normalizar_destinatarios(value):
+        linhas = [parte.strip() for parte in str(value or "").replace(";", "\n").splitlines()]
+        return "\n".join([parte for parte in linhas if parte]) or None
+
+    @staticmethod
+    def _obter_ou_criar_configuracao(tenant_id):
+        EstoqueService._garantir_base_operacional(tenant_id)
+        configuracao = EstoqueRepository.obter_configuracao_notificacao(tenant_id)
+        if configuracao:
+            return configuracao
+
+        configuracao = ConfiguracaoNotificacaoEstoque(
+            tenant_id=tenant_id,
+            popup_ao_entrar=True,
+            alertar_estoque_baixo=True,
+            alertar_sem_estoque=True,
+            alertar_validade=True,
+            dias_vencimento_alerta=30,
+            email_habilitado=False,
+            whatsapp_habilitado=False,
+            resumo_diario=False,
+        )
+        EstoqueRepository.adicionar(configuracao)
+        EstoqueRepository.salvar()
+        return configuracao
+
+    @staticmethod
+    def _garantir_base_operacional(tenant_id):
+        try:
+            TenantBootstrapService.garantir_cadastros_operacionais(tenant_id)
+            EstoqueRepository.salvar()
+        except Exception:
+            EstoqueRepository.rollback()
+            raise

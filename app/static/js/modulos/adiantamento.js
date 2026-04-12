@@ -9,7 +9,11 @@ window.adiantamentoPage = {
     resumo: null,
     empresaId: "",
     funcionarioId: "",
-    competencia: ""
+    competencia: "",
+    paginacao: {
+        resumo: { paginaAtual: 1, porPagina: 10 },
+        registros: { paginaAtual: 1, porPagina: 10 }
+    }
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -68,7 +72,7 @@ async function carregarResumoAdiantamento() {
 
 async function carregarListaAdiantamento() {
     const url = new URL("/api/adiantamentos/", window.location.origin);
-    url.searchParams.set("limite", "120");
+    url.searchParams.set("limite", "500");
     if (adiantamentoPage.empresaId) {
         url.searchParams.set("empresa_id", adiantamentoPage.empresaId);
     }
@@ -96,6 +100,8 @@ function bindAdiantamentoFilters() {
         empresaSelect.addEventListener("change", async () => {
             adiantamentoPage.empresaId = empresaSelect.value || "";
             adiantamentoPage.funcionarioId = "";
+            adiantamentoPage.paginacao.resumo.paginaAtual = 1;
+            adiantamentoPage.paginacao.registros.paginaAtual = 1;
             popularEmpresasAdiantamento();
             popularFuncionariosAdiantamento();
             resetAdiantamentoForm();
@@ -106,6 +112,7 @@ function bindAdiantamentoFilters() {
     if (funcionarioSelect) {
         funcionarioSelect.addEventListener("change", async () => {
             adiantamentoPage.funcionarioId = funcionarioSelect.value || "";
+            adiantamentoPage.paginacao.registros.paginaAtual = 1;
             await carregarListaAdiantamento();
         });
     }
@@ -114,6 +121,8 @@ function bindAdiantamentoFilters() {
         competenciaInput.value = adiantamentoPage.competencia;
         competenciaInput.addEventListener("change", async () => {
             adiantamentoPage.competencia = competenciaInput.value || getCurrentMonthValue();
+            adiantamentoPage.paginacao.resumo.paginaAtual = 1;
+            adiantamentoPage.paginacao.registros.paginaAtual = 1;
             resetAdiantamentoForm();
             await carregarAdiantamentoTudo();
         });
@@ -338,14 +347,18 @@ function atualizarPreviewProdutoAdiantamento() {
 function renderResumoAdiantamento() {
     const container = document.getElementById("adiantamento-resumo-list");
     if (!container) return;
+    const paginacao = adiantamentoPage.paginacao.resumo;
 
     const resumo = adiantamentoPage.resumo;
     if (!resumo || !Array.isArray(resumo.funcionarios) || !resumo.funcionarios.length) {
         container.innerHTML = `<p class="text-slate-400">Nenhum funcionario encontrado para a competencia selecionada.</p>`;
+        renderAdiantamentoPagination("adiantamento-resumo-pagination", paginacao, 0, () => renderResumoAdiantamento());
         return;
     }
 
-    container.innerHTML = resumo.funcionarios.map((item) => `
+    const itensPagina = getAdiantamentoPageItems(resumo.funcionarios, paginacao);
+
+    container.innerHTML = itensPagina.map((item) => `
         <article class="adiantamento-summary-card">
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -382,11 +395,19 @@ function renderResumoAdiantamento() {
             </div>
         </article>
     `).join("");
+
+    renderAdiantamentoPagination(
+        "adiantamento-resumo-pagination",
+        paginacao,
+        resumo.funcionarios.length,
+        () => renderResumoAdiantamento()
+    );
 }
 
 function renderListaAdiantamento() {
     const body = document.getElementById("adiantamento-table-body");
     if (!body) return;
+    const paginacao = adiantamentoPage.paginacao.registros;
 
     if (!adiantamentoPage.registros.length) {
         body.innerHTML = `
@@ -394,10 +415,13 @@ function renderListaAdiantamento() {
                 <td colspan="6" class="px-5 py-8 text-center text-slate-400">Nenhum vale encontrado para o filtro atual.</td>
             </tr>
         `;
+        renderAdiantamentoPagination("adiantamento-list-pagination", paginacao, 0, () => renderListaAdiantamento());
         return;
     }
 
-    body.innerHTML = adiantamentoPage.registros.map((item) => {
+    const itensPagina = getAdiantamentoPageItems(adiantamentoPage.registros, paginacao);
+
+    body.innerHTML = itensPagina.map((item) => {
         const badge = item.tipo_adiantamento === "PRODUTO"
             ? `<span class="adiantamento-badge adiantamento-badge-product">Produto</span>`
             : `<span class="adiantamento-badge adiantamento-badge-money">Dinheiro</span>`;
@@ -423,6 +447,13 @@ function renderListaAdiantamento() {
             </tr>
         `;
     }).join("");
+
+    renderAdiantamentoPagination(
+        "adiantamento-list-pagination",
+        paginacao,
+        adiantamentoPage.registros.length,
+        () => renderListaAdiantamento()
+    );
 }
 
 function atualizarKpisAdiantamento() {
@@ -668,4 +699,74 @@ function escapeAdiantamentoHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function getAdiantamentoPageItems(items, paginacao) {
+    const totalPaginas = Math.max(Math.ceil(items.length / paginacao.porPagina), 1);
+    if (paginacao.paginaAtual > totalPaginas) {
+        paginacao.paginaAtual = totalPaginas;
+    }
+
+    const inicio = (paginacao.paginaAtual - 1) * paginacao.porPagina;
+    return items.slice(inicio, inicio + paginacao.porPagina);
+}
+
+function renderAdiantamentoPagination(containerId, paginacao, totalItens, onChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const totalPaginas = Math.max(Math.ceil(totalItens / paginacao.porPagina), 1);
+
+    if (!totalItens) {
+        container.innerHTML = "";
+        return;
+    }
+
+    if (totalPaginas <= 1) {
+        container.innerHTML = `<div class="pagination-summary px-1 py-4">Exibindo ${totalItens} registro(s).</div>`;
+        return;
+    }
+
+    const inicio = ((paginacao.paginaAtual - 1) * paginacao.porPagina) + 1;
+    const fim = Math.min(paginacao.paginaAtual * paginacao.porPagina, totalItens);
+    const paginas = buildAdiantamentoPageNumbers(paginacao.paginaAtual, totalPaginas);
+
+    container.innerHTML = `
+        <div class="pagination-shell">
+            <div class="pagination-summary">Exibindo ${inicio}-${fim} de ${totalItens} registros</div>
+            <div class="pagination-controls">
+                <button type="button" class="pagination-btn" data-page="${paginacao.paginaAtual - 1}" ${paginacao.paginaAtual === 1 ? "disabled" : ""}>Anterior</button>
+                ${paginas.map((pagina) => pagina === "..."
+                    ? `<span class="pagination-ellipsis">...</span>`
+                    : `<button type="button" class="pagination-btn ${pagina === paginacao.paginaAtual ? "pagination-btn-active" : ""}" data-page="${pagina}">${pagina}</button>`
+                ).join("")}
+                <button type="button" class="pagination-btn" data-page="${paginacao.paginaAtual + 1}" ${paginacao.paginaAtual === totalPaginas ? "disabled" : ""}>Proxima</button>
+            </div>
+        </div>
+    `;
+
+    container.querySelectorAll("[data-page]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const pagina = Number(button.getAttribute("data-page"));
+            if (!Number.isInteger(pagina)) return;
+            paginacao.paginaAtual = Math.min(Math.max(pagina, 1), totalPaginas);
+            onChange();
+        });
+    });
+}
+
+function buildAdiantamentoPageNumbers(paginaAtual, totalPaginas) {
+    if (totalPaginas <= 7) {
+        return Array.from({ length: totalPaginas }, (_, index) => index + 1);
+    }
+
+    if (paginaAtual <= 4) {
+        return [1, 2, 3, 4, 5, "...", totalPaginas];
+    }
+
+    if (paginaAtual >= totalPaginas - 3) {
+        return [1, "...", totalPaginas - 4, totalPaginas - 3, totalPaginas - 2, totalPaginas - 1, totalPaginas];
+    }
+
+    return [1, "...", paginaAtual - 1, paginaAtual, paginaAtual + 1, "...", totalPaginas];
 }

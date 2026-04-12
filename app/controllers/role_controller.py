@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_jwt_extended import get_jwt, jwt_required
 
-from app.security.decorators import permission_required
+from app.security.decorators import permission_required, ui_permission_required
 from app.services.permission_service import PermissionService
 from app.services.role_service import RoleService
 
@@ -10,6 +10,7 @@ role_bp = Blueprint("role", __name__)
 
 @role_bp.route("/view", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_role")
 def pagina():
     return render_template("modulos/role/role.html")
 

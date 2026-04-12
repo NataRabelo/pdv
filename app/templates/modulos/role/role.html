@@ -19,21 +19,25 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Roles</h1>
-                <p class="text-slate-400 mt-2">Gerencie perfis de acesso e relacione cada role com suas permissions.</p>
+                <p class="text-slate-400 mt-2">Defina perfis de acesso e o que cada equipe pode visualizar ou executar.</p>
             </div>
 
             <div class="flex items-center gap-3">
+                {% if has_permission("visualizar_permission") %}
                 <a href="/api/permissions/view"
                     class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium px-4 py-3 transition-all duration-200 border border-slate-700">
                     <i data-lucide="key-round" class="w-4 h-4"></i>
                     Permissions
                 </a>
+                {% endif %}
 
+                {% if has_permission("criar_role") %}
                 <button type="button" onclick="rolePage.openCreateModal()"
                     class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                     Nova Role
                 </button>
+                {% endif %}
             </div>
         </div>
     </section>

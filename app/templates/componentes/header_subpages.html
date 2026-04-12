@@ -44,37 +44,11 @@
                 <i data-lucide="building-2" class="w-4 h-4"></i> Painel da Plataforma
             </a>
             {% else %}
-            <a href="{{ url_for('main.home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="layout-grid" class="w-4 h-4"></i> Home Operacional
+            {% for item in tenant_navigation_items %}
+            <a href="{{ url_for(item.endpoint) if item.endpoint is defined else item.href }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="{{ item.icon }}" class="w-4 h-4"></i> {{ item.label }}
             </a>
-
-            <a href="{{ url_for('main.pdv_home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="shopping-cart" class="w-4 h-4"></i> PDV
-            </a>
-
-            <a href="{{ url_for('main.estoque_home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="boxes" class="w-4 h-4"></i> Estoque
-            </a>
-
-            <a href="{{ url_for('main.financeiro_home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="landmark" class="w-4 h-4"></i> Financeiro
-            </a>
-
-            <a href="/api/funcionarios/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="users" class="w-4 h-4"></i> Funcionarios
-            </a>
-
-            <a href="/api/cupons/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="ticket-percent" class="w-4 h-4"></i> Cupons
-            </a>
-
-            <a href="/api/adiantamentos/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="wallet-cards" class="w-4 h-4"></i> Vales
-            </a>
-
-            <a href="/api/importacao-exportacao/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="sheet" class="w-4 h-4"></i> Importacao em Lote
-            </a>
+            {% endfor %}
 
             <div class="h-[1px] bg-white/5 my-2"></div>
 

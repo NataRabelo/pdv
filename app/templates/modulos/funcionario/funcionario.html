@@ -20,27 +20,33 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Funcionarios</h1>
-                <p class="text-slate-400 mt-2">Gerencie os funcionarios, roles e vinculos com empresa.</p>
+                <p class="text-slate-400 mt-2">Cadastre funcionarios e defina as permissoes de cada perfil.</p>
             </div>
 
             <div class="flex items-center gap-3">
+                {% if has_permission("visualizar_role") %}
                 <a href="/api/roles/view"
                     class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium px-4 py-3 transition-all duration-200 border border-slate-700">
                     <i data-lucide="shield-check" class="w-4 h-4"></i>
                     Roles
                 </a>
+                {% endif %}
 
+                {% if has_permission("visualizar_permission") %}
                 <a href="/api/permissions/view"
                     class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-medium px-4 py-3 transition-all duration-200 border border-slate-700">
                     <i data-lucide="key-round" class="w-4 h-4"></i>
                     Permissions
                 </a>
+                {% endif %}
 
+                {% if has_permission("criar_funcionario") %}
                 <button type="button" onclick="funcionarioPage.openCreateModal()"
                     class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                     Novo Funcionario
                 </button>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -50,7 +56,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h2 class="text-lg font-semibold text-white">Listagem</h2>
-                    <p class="text-sm text-slate-400">Consulte e pesquise os funcionarios cadastrados.</p>
+                    <p class="text-sm text-slate-400">Consulte por nome, usuario, empresa ou role.</p>
                 </div>
 
                 <div class="w-full md:w-80 relative">
@@ -156,6 +162,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <div>
                 <label for="cadastro-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
                 <select id="cadastro-empresa_id" name="empresa_id" required
+                    data-theme-company-select
                     class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                     <option value="">Selecione uma empresa</option>
                 </select>
@@ -250,6 +257,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <div>
                 <label for="edicao-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
                 <select id="edicao-empresa_id" name="empresa_id" required
+                    data-theme-company-select
                     class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                     <option value="">Selecione uma empresa</option>
                 </select>

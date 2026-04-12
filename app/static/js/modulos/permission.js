@@ -1,4 +1,6 @@
 window.permissionPage = null;
+const permissionCanEdit = () => window.userHasPermission?.("editar_permission");
+const permissionCanDelete = () => window.userHasPermission?.("excluir_permission");
 
 document.addEventListener("DOMContentLoaded", () => {
     window.permissionPage = new CrudPage({
@@ -63,23 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 <td class="px-5 py-4 align-middle">
                     <div class="flex items-center justify-center gap-2">
-                        <button
-                            type="button"
-                            onclick="permissionPage.openEditModal(${item.id})"
-                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
-                            title="Editar permission"
-                        >
-                            <i data-lucide="square-pen" class="w-4 h-4"></i>
-                        </button>
-
-                        <button
-                            type="button"
-                            onclick="permissionPage.openDeleteModal(${item.id})"
-                            class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
-                            title="Excluir permission"
-                        >
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                        </button>
+                        ${renderPermissionActions(item)}
                     </div>
                 </td>
             </tr>
@@ -124,4 +110,38 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function renderPermissionActions(item) {
+    const actions = [];
+
+    if (permissionCanEdit()) {
+        actions.push(`
+            <button
+                type="button"
+                onclick="permissionPage.openEditModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
+                title="Editar permission"
+            >
+                <i data-lucide="square-pen" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    if (permissionCanDelete()) {
+        actions.push(`
+            <button
+                type="button"
+                onclick="permissionPage.openDeleteModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
+                title="Excluir permission"
+            >
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    return actions.length
+        ? actions.join("")
+        : '<span class="text-xs font-medium text-slate-500">Somente leitura</span>';
 }

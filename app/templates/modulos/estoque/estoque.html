@@ -1,6 +1,6 @@
 {% extends "bases/base.html" %}
 
-{% block title %}OceanBlue • Movimentação de Estoque{% endblock %}
+{% block title %}OceanBlue - Estoque Operacional{% endblock %}
 
 {% block body_class %}
 min-h-screen flex flex-col bg-slate-950 text-white
@@ -12,7 +12,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
 {% endblock %}
 
 {% block content %}
-{% set modulo_name = "Movimentação de Estoque" %}
+{% set modulo_name = "Estoque Operacional" %}
 {% include "componentes/header_subpages.html" %}
 
 <main class="flex-1 page-shell">
@@ -20,28 +20,46 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Estoque operacional</h1>
-                <p class="text-slate-400 mt-2">
-                    Faça entradas e saídas manuais, acompanhe saldos e mantenha a base pronta para baixas automáticas do PDV.
-                </p>
+                <p class="text-slate-400 mt-2">Posicao atual e movimentacoes recentes em uma tela mais objetiva.</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
+                {% if ui_flags.can_view_notifications %}
+                <a href="{{ url_for('estoque.pagina_alertas') }}"
+                    class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+                    <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                    Alertas
+                </a>
+                {% endif %}
+
+                {% if ui_flags.can_view_stock %}
+                <a href="{{ url_for('estoque.pagina_indicadores') }}"
+                    class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    Giro de produtos
+                </a>
+                {% endif %}
+
+                {% if ui_flags.can_view_stock %}
                 <a href="/api/produtos/view"
                     class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
                     <i data-lucide="package-plus" class="w-4 h-4"></i>
                     Produtos
                 </a>
+                {% endif %}
 
+                {% if has_permission("editar_produto") %}
                 <button type="button" id="btn-nova-movimentacao"
                     class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
                     <i data-lucide="arrow-right-left" class="w-4 h-4"></i>
-                    Nova movimentação
+                    Nova movimentacao
                 </button>
+                {% endif %}
             </div>
         </div>
     </section>
 
-    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         <article class="estoque-kpi-card">
             <span class="estoque-kpi-label">Produtos monitorados</span>
             <strong id="kpi-total-produtos" class="estoque-kpi-value">0</strong>
@@ -49,49 +67,21 @@ min-h-screen flex flex-col bg-slate-950 text-white
         </article>
 
         <article class="estoque-kpi-card">
-            <span class="estoque-kpi-label">Itens abaixo do mínimo</span>
+            <span class="estoque-kpi-label">Itens abaixo do minimo</span>
             <strong id="kpi-abaixo-minimo" class="estoque-kpi-value text-amber-300">0</strong>
-            <p class="estoque-kpi-help">Produtos que precisam de reposição.</p>
+            <p class="estoque-kpi-help">Reposicao prioritaria.</p>
         </article>
 
         <article class="estoque-kpi-card">
-            <span class="estoque-kpi-label">Quantidade total em estoque</span>
+            <span class="estoque-kpi-label">Quantidade total</span>
             <strong id="kpi-quantidade-total" class="estoque-kpi-value">0</strong>
-            <p class="estoque-kpi-help">Soma das quantidades atuais.</p>
+            <p class="estoque-kpi-help">Soma dos saldos atuais.</p>
         </article>
 
         <article class="estoque-kpi-card">
-            <span class="estoque-kpi-label">Perto do vencimento</span>
-            <strong id="kpi-proximo-vencimento" class="estoque-kpi-value text-sky-300">0</strong>
-            <p class="estoque-kpi-help">Produtos que exigem giro ou acao imediata.</p>
-        </article>
-
-        <article class="estoque-kpi-card">
-            <span class="estoque-kpi-label">Ja vencidos</span>
-            <strong id="kpi-vencidos" class="estoque-kpi-value text-rose-300">0</strong>
-            <p class="estoque-kpi-help">Itens que pedem tratativa imediata.</p>
-        </article>
-    </section>
-
-    <section class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-        <article class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
-            <div class="border-b border-slate-800 px-5 py-4">
-                <h2 class="text-lg font-semibold text-white">Alertas de estoque</h2>
-                <p class="text-sm text-slate-400">Produtos sem saldo ou abaixo do minimo configurado.</p>
-            </div>
-            <div id="estoque-alertas-lista" class="p-5 space-y-3">
-                <p class="text-slate-400">Carregando alertas...</p>
-            </div>
-        </article>
-
-        <article class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
-            <div class="border-b border-slate-800 px-5 py-4">
-                <h2 class="text-lg font-semibold text-white">Alertas de validade</h2>
-                <p class="text-sm text-slate-400">Produtos vencidos ou proximos do vencimento.</p>
-            </div>
-            <div id="estoque-validade-lista" class="p-5 space-y-3">
-                <p class="text-slate-400">Carregando alertas...</p>
-            </div>
+            <span class="estoque-kpi-label">Movimentacoes recentes</span>
+            <strong id="kpi-movimentos" class="estoque-kpi-value">0</strong>
+            <p class="estoque-kpi-help">Historico visivel na tela operacional.</p>
         </article>
     </section>
 
@@ -99,14 +89,13 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="border-b border-slate-800 px-5 py-4">
             <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
                 <div>
-                    <h2 class="text-lg font-semibold text-white">Posição de estoque</h2>
-                    <p class="text-sm text-slate-400">
-                        Saldo atual por produto e empresa.
-                    </p>
+                    <h2 class="text-lg font-semibold text-white">Posicao de estoque</h2>
+                    <p class="text-sm text-slate-400">Saldo atual por produto e empresa.</p>
                 </div>
 
                 <div class="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
                     <select id="filtro-empresa"
+                        data-theme-company-select
                         class="w-full sm:w-64 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
                         <option value="">Todas as empresas</option>
                     </select>
@@ -116,7 +105,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                             <i data-lucide="search" class="w-4 h-4"></i>
                         </span>
                         <input id="input-busca-estoque" type="text"
-                            placeholder="Buscar por produto, empresa, categoria ou código..."
+                            placeholder="Buscar por produto, empresa, categoria ou codigo..."
                             class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition">
                     </div>
                 </div>
@@ -131,7 +120,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         <th class="estoque-th">Categoria</th>
                         <th class="estoque-th">Empresa</th>
                         <th class="estoque-th text-right">Estoque atual</th>
-                        <th class="estoque-th text-right">Estoque mínimo</th>
+                        <th class="estoque-th text-right">Estoque minimo</th>
                         <th class="estoque-th">Validade</th>
                         <th class="estoque-th text-right">Compra</th>
                         <th class="estoque-th text-right">Venda</th>
@@ -142,7 +131,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <tbody id="estoque-table-body" class="divide-y divide-slate-800">
                     <tr>
                         <td colspan="9" class="px-5 py-8 text-center text-slate-400">
-                            Carregando posição de estoque...
+                            Carregando posicao de estoque...
                         </td>
                     </tr>
                 </tbody>
@@ -156,13 +145,11 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="border-b border-slate-800 px-5 py-4">
             <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                    <h2 class="text-lg font-semibold text-white">Últimas movimentações</h2>
-                    <p class="text-sm text-slate-400">
-                        Histórico recente para auditoria e conferência.
-                    </p>
+                    <h2 class="text-lg font-semibold text-white">Ultimas movimentacoes</h2>
+                    <p class="text-sm text-slate-400">Entradas, saidas e ajustes com rastreabilidade.</p>
                 </div>
 
-                <span class="text-xs uppercase tracking-[0.18em] text-slate-500">Manual hoje, PDV em preparação</span>
+                <span class="text-xs uppercase tracking-[0.18em] text-slate-500">Manual, PDV e vales</span>
             </div>
         </div>
 
@@ -184,7 +171,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <tbody id="movimento-table-body" class="divide-y divide-slate-800">
                     <tr>
                         <td colspan="8" class="px-5 py-8 text-center text-slate-400">
-                            Carregando movimentações...
+                            Carregando movimentacoes...
                         </td>
                     </tr>
                 </tbody>
@@ -195,13 +182,14 @@ min-h-screen flex flex-col bg-slate-950 text-white
     </section>
 </main>
 
+{% if has_permission("editar_produto") %}
 <div id="modal-movimentacao"
     class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
             <div>
-                <h3 class="text-xl font-bold text-white">Nova movimentação manual</h3>
-                <p class="text-sm text-slate-400 mt-1">Registre entradas e saídas mantendo rastreabilidade por empresa.</p>
+                <h3 class="text-xl font-bold text-white">Nova movimentacao manual</h3>
+                <p class="text-sm text-slate-400 mt-1">Registre entradas e saidas mantendo rastreabilidade por empresa.</p>
             </div>
             <button type="button" data-close-modal="modal-movimentacao"
                 class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
@@ -216,7 +204,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     <select id="movimento-tipo_movimento" name="tipo_movimento" required
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                         <option value="ENTRADA">Entrada</option>
-                        <option value="SAIDA">Saída</option>
+                        <option value="SAIDA">Saida</option>
                     </select>
                 </div>
 
@@ -230,6 +218,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <div>
                     <label for="movimento-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
                     <select id="movimento-empresa_id" name="empresa_id" required
+                        data-theme-company-select
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                         <option value="">Selecione</option>
                     </select>
@@ -250,17 +239,17 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 </div>
 
                 <div>
-                    <label for="movimento-valor_unitario" class="block text-sm font-medium text-slate-300 mb-2">Valor unitário</label>
+                    <label for="movimento-valor_unitario" class="block text-sm font-medium text-slate-300 mb-2">Valor unitario</label>
                     <input id="movimento-valor_unitario" name="valor_unitario" type="text" inputmode="decimal" value=""
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"
                         placeholder="Opcional">
                 </div>
 
                 <div class="md:col-span-2">
-                    <label for="movimento-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observação</label>
+                    <label for="movimento-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observacao</label>
                     <textarea id="movimento-observacao" name="observacao" rows="4" maxlength="255"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
-                        placeholder="Detalhe a compra, ajuste, perda ou contexto da movimentação"></textarea>
+                        placeholder="Detalhe a compra, ajuste, perda ou contexto da movimentacao"></textarea>
                 </div>
             </div>
 
@@ -274,7 +263,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     <p id="hint-estoque" class="movimento-hint-value">0</p>
                 </div>
                 <div>
-                    <p class="movimento-hint-label">Mínimo</p>
+                    <p class="movimento-hint-label">Minimo</p>
                     <p id="hint-minimo" class="movimento-hint-value">0</p>
                 </div>
             </div>
@@ -288,12 +277,13 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <button type="submit"
                     class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
                     <i data-lucide="save" class="w-4 h-4"></i>
-                    Registrar movimentação
+                    Registrar movimentacao
                 </button>
             </div>
         </form>
     </div>
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

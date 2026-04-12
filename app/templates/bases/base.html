@@ -9,22 +9,164 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+  <script>
+    window.__tenantThemeConfig = {{ tenant_theme_config|tojson }};
+    window.__uiFlags = {{ ui_flags|tojson }};
+    window.__permissionCodes = {{ current_permission_codes|tojson }};
+    window.userHasPermission = function (code) {
+      return Array.isArray(window.__permissionCodes) && window.__permissionCodes.includes(code);
+    };
+  </script>
 
   {% block styles %}{% endblock %}
 </head>
 
-<body class="{% block body_class %}min-h-screen{% endblock %}">
+<body data-theme-mode="{{ current_visual_mode }}" class="{% block body_class %}min-h-screen{% endblock %}">
 
   {% include "componentes/flash_mensagem.html" %}
 
+  <div id="screen-size-lock" class="hidden fixed inset-0 z-[10000] items-center justify-center p-6 bg-slate-950/95">
+    <div class="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-2xl">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 mb-4">
+        <i data-lucide="monitor-smartphone" class="w-7 h-7"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white">Tela nao suportada</h2>
+      <p class="text-slate-400 mt-3">
+        Este sistema foi otimizado para notebooks e monitores. Use uma largura minima de 768px para continuar.
+      </p>
+    </div>
+  </div>
+
   {% block content %}{% endblock %}
+
+  <div id="global-stock-alert-modal" class="modal-overlay hidden fixed inset-0 z-[9998] bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+      <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+        <div>
+          <h3 class="text-xl font-bold text-white">Alertas operacionais</h3>
+          <p class="text-sm text-slate-400 mt-1">Resumo automatico de estoque baixo, ruptura e validade.</p>
+        </div>
+        <button type="button" id="global-stock-alert-close"
+          class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="px-6 py-6 space-y-5">
+        <div id="global-stock-alert-summary" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+        <div id="global-stock-alert-items" class="space-y-3"></div>
+      </div>
+    </div>
+  </div>
 
   <script>
     lucide.createIcons();
   </script>
 
   <script src="{{ url_for('static', filename='js/core/decimal-input.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/core/theme.js') }}"></script>
   <script src="{{ url_for('static', filename='js/header/header.js') }}"></script>
+  <script>
+    (function () {
+      function toggleScreenLock() {
+        const lock = document.getElementById("screen-size-lock");
+        if (!lock) return;
+        lock.classList.toggle("hidden", window.innerWidth >= 768);
+        lock.classList.toggle("flex", window.innerWidth < 768);
+      }
+
+      function formatInteger(value) {
+        return new Intl.NumberFormat("pt-BR", {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
+        }).format(Number.parseInt(String(value || 0), 10) || 0);
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      function closeStockAlertModal() {
+        document.getElementById("global-stock-alert-modal")?.classList.add("hidden");
+      }
+
+      function renderStockAlertPopup(payload) {
+        const summary = document.getElementById("global-stock-alert-summary");
+        const items = document.getElementById("global-stock-alert-items");
+        if (!summary || !items) return;
+
+        const resumo = payload.resumo || {};
+        const cards = [
+          { label: "Baixo estoque", value: resumo.estoque_baixo || 0 },
+          { label: "Sem estoque", value: resumo.sem_estoque || 0 },
+          { label: "Vencidos", value: resumo.vencidos || 0 },
+          { label: "A vencer", value: resumo.proximos_vencimento || 0 }
+        ];
+
+        summary.innerHTML = cards.map((card) => `
+          <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+            <p class="text-xs uppercase tracking-[0.14em] text-slate-500">${card.label}</p>
+            <strong class="block text-2xl text-white mt-2">${formatInteger(card.value)}</strong>
+          </article>
+        `).join("");
+
+        const alertItems = Array.isArray(payload.itens) ? payload.itens : [];
+        items.innerHTML = alertItems.length
+          ? alertItems.map((item) => `
+            <article class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+              <div class="flex items-start justify-between gap-4">
+                <div>
+                  <p class="font-semibold text-white">${escapeHtml(item.nome || "-")}</p>
+                  <p class="text-sm text-slate-400">${escapeHtml(item.empresa_nome || "-")}</p>
+                </div>
+                <span class="text-xs uppercase tracking-[0.14em] text-sky-300">${escapeHtml(item.tipo || "Alerta")}</span>
+              </div>
+              <div class="mt-3 text-sm text-slate-300">
+                Estoque atual ${formatInteger(item.estoque_atual || 0)} / minimo ${formatInteger(item.estoque_minimo || 0)}
+              </div>
+            </article>
+          `).join("")
+          : `<p class="text-slate-400">Nenhum alerta prioritario encontrado.</p>`;
+
+        document.getElementById("global-stock-alert-modal")?.classList.remove("hidden");
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      }
+
+      async function loadStockAlertPopup() {
+        if (!window.__uiFlags?.can_view_notifications) return;
+        if (window.sessionStorage.getItem("oceanblue:stock-popup-shown") === "1") return;
+
+        try {
+          const response = await fetch("/api/estoque/notificacoes/popup", {
+            credentials: "same-origin"
+          });
+          if (!response.ok) return;
+          const result = await response.json();
+          if (!result.success || !result.data?.deve_exibir) return;
+
+          renderStockAlertPopup(result.data);
+          window.sessionStorage.setItem("oceanblue:stock-popup-shown", "1");
+        } catch (_error) {
+          return;
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        toggleScreenLock();
+        loadStockAlertPopup();
+
+        document.getElementById("global-stock-alert-close")?.addEventListener("click", closeStockAlertModal);
+        window.addEventListener("resize", toggleScreenLock);
+      });
+    })();
+  </script>
 
   {% block scripts %}{% endblock %}
 </body>

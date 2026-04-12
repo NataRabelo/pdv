@@ -21,17 +21,17 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Produtos</h1>
-                <p class="text-slate-400 mt-2">
-                    Gerencie os produtos do seu estoque com cadastro, edição e exclusão.
-                </p>
+                <p class="text-slate-400 mt-2">Cadastro e consulta de produtos por empresa.</p>
             </div>
 
             <div class="flex items-center gap-3">
+                {% if has_permission("criar_produto") %}
                 <button type="button" onclick="produtoPage.openCreateModal()"
                     class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                     Novo produto
                 </button>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -41,9 +41,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h2 class="text-lg font-semibold text-white">Listagem</h2>
-                    <p class="text-sm text-slate-400">
-                        Consulte e pesquise os produtos cadastrados.
-                    </p>
+                    <p class="text-sm text-slate-400">Consulte por nome, categoria, empresa ou codigo de barras.</p>
                 </div>
 
                 <div class="w-full md:w-80 relative">
@@ -151,6 +149,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     <label for="cadastro-empresa_id"
                         class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
                     <select id="cadastro-empresa_id" name="empresa_id" required
+                        data-theme-company-select
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                         <option value="">Selecione</option>
                     </select>
@@ -161,7 +160,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         barras</label>
                     <input id="cadastro-codigo_barras" name="codigo_barras" type="text" maxlength="50" inputmode="numeric"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
-                        placeholder="Ex.: 7890000000000">
+                        placeholder="Deixe em branco para gerar automaticamente">
                 </div>
 
                 <div>
@@ -274,6 +273,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <div>
                     <label for="edicao-empresa_id" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
                     <select id="edicao-empresa_id" name="empresa_id" required
+                        data-theme-company-select
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                         <option value="">Selecione</option>
                     </select>
@@ -283,7 +283,8 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     <label for="edicao-codigo_barras" class="block text-sm font-medium text-slate-300 mb-2">Código de
                         barras</label>
                     <input id="edicao-codigo_barras" name="codigo_barras" type="text" maxlength="50" inputmode="numeric"
-                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition">
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+                        placeholder="Deixe em branco para gerar automaticamente">
                 </div>
 
                 <div>

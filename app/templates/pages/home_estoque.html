@@ -1,6 +1,6 @@
 {% extends "bases/base.html" %}
 
-{% block title %}OceanBlue • Estoque{% endblock %}
+{% block title %}OceanBlue - Estoque{% endblock %}
 
 {% block body_class %}
 min-h-screen flex flex-col
@@ -15,59 +15,83 @@ min-h-screen flex flex-col
 {% include "componentes/header_subpages.html"%}
 
 <main class="flex-1 page-shell-home">
+    <div class="mb-8">
+        <h2 class="text-4xl font-light text-white mb-2">
+            Controle de <span class="font-bold">Estoque</span>
+        </h2>
+        <p class="text-slate-400">Operacao enxuta para cadastro, conferencia e reposicao.</p>
+    </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-
         <a href="/api/estoque/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="arrow-right-left"></i>
             </div>
             <div>
-                <h4 class="text-white font-bold">Movimentações</h4>
-                <p class="text-slate-400 text-sm">Entradas, saídas e histórico</p>
+                <h4 class="text-white font-bold">Movimentacoes</h4>
+                <p class="text-slate-400 text-sm">Entradas, saidas, alertas e historico</p>
             </div>
         </a>
 
+        {% if ui_flags.can_manage_products %}
         <a href="/api/produtos/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="plus-circle"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Novo Produto</h4>
-                <p class="text-slate-400 text-sm">Cadastrar produto</p>
+                <p class="text-slate-400 text-sm">Cadastro, codigo de barras e precificacao</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_categories %}
         <a href="/api/categorias/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="layers"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Categorias</h4>
-                <p class="text-slate-400 text-sm">Gerenciar categorias</p>
+                <p class="text-slate-400 text-sm">Organizacao do catalogo</p>
             </div>
         </a>
+        {% endif %}
 
-        <a href="/api/estoque/view" class="action-card">
+        {% if ui_flags.can_view_notifications %}
+        <a href="{{ url_for('estoque.pagina_alertas') }}" class="action-card">
             <div class="action-icon">
                 <i data-lucide="shield-alert"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Alertas</h4>
-                <p class="text-slate-400 text-sm">Acompanhar baixo estoque e produtos proximos do vencimento</p>
+                <p class="text-slate-400 text-sm">Baixo estoque, vencimento e itens sem saldo</p>
             </div>
         </a>
+        {% endif %}
 
+        {% if ui_flags.can_view_stock %}
+        <a href="{{ url_for('estoque.pagina_indicadores') }}" class="action-card">
+            <div class="action-icon">
+                <i data-lucide="bar-chart-3"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold">Giro de produtos</h4>
+                <p class="text-slate-400 text-sm">Mais vendidos por semana, mes ou periodo</p>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if ui_flags.can_view_import_export %}
         <a href="/api/importacao-exportacao/view" class="action-card">
             <div class="action-icon">
                 <i data-lucide="sheet"></i>
             </div>
             <div>
                 <h4 class="text-white font-bold">Importacao em lote</h4>
-                <p class="text-slate-400 text-sm">Cadastrar produtos, categorias e demais cadastros por Excel</p>
+                <p class="text-slate-400 text-sm">Carga de produtos, categorias e cadastros por Excel</p>
             </div>
         </a>
-
+        {% endif %}
     </div>
 
 </main>

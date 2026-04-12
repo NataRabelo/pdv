@@ -330,4 +330,283 @@ textarea.input-field {
   }
 }
 
+/* =========================
+   MODAIS RESPONSIVOS
+========================= */
+
+.modal-overlay {
+  align-items: flex-start;
+  justify-content: center;
+  overflow-y: auto;
+  padding: clamp(0.75rem, 2vw, 1.25rem);
+}
+
+.modal-overlay > div {
+  max-height: calc(100vh - 1.5rem);
+  overflow-y: auto;
+  margin-block: auto;
+  scrollbar-width: thin;
+}
+
+@media (min-width: 768px) {
+  .modal-overlay {
+    align-items: center;
+  }
+
+  .modal-overlay > div {
+    max-height: calc(100vh - 2rem);
+  }
+}
+
+/* =========================
+   TEMA LEGADO
+========================= */
+
+body[data-theme-mode="classic"] {
+  background: #dfe6ea;
+  color: #111111;
+  font-family: Tahoma, Verdana, Arial, sans-serif;
+  font-size: 14px;
+}
+
+body[data-theme-mode="classic"] .glass,
+body[data-theme-mode="classic"] .module-card,
+body[data-theme-mode="classic"] .action-card,
+body[data-theme-mode="classic"] .platform-panel,
+body[data-theme-mode="classic"] .platform-tenant-card,
+body[data-theme-mode="classic"] .platform-empty-state,
+body[data-theme-mode="classic"] .platform-stat-card,
+body[data-theme-mode="classic"] .pdv-panel,
+body[data-theme-mode="classic"] .pdv-kpi-card,
+body[data-theme-mode="classic"] .financeiro-panel,
+body[data-theme-mode="classic"] .financeiro-kpi-card,
+body[data-theme-mode="classic"] .adiantamento-panel,
+body[data-theme-mode="classic"] .adiantamento-kpi-card,
+body[data-theme-mode="classic"] .estoque-kpi-card,
+body[data-theme-mode="classic"] [class*="bg-slate-900"],
+body[data-theme-mode="classic"] [class*="bg-slate-950"] {
+  background: #f5f5f0 !important;
+  border-color: #96a7b3 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  color: #111111 !important;
+}
+
+body[data-theme-mode="classic"] header,
+body[data-theme-mode="classic"] #userDropdown,
+body[data-theme-mode="classic"] .platform-hero,
+body[data-theme-mode="classic"] .platform-list-item,
+body[data-theme-mode="classic"] .pdv-empty-state,
+body[data-theme-mode="classic"] .pdv-cart-item,
+body[data-theme-mode="classic"] .pdv-summary-box,
+body[data-theme-mode="classic"] .financeiro-caixa-box,
+body[data-theme-mode="classic"] .financeiro-stack-item,
+body[data-theme-mode="classic"] .adiantamento-summary-card,
+body[data-theme-mode="classic"] .adiantamento-preview-box,
+body[data-theme-mode="classic"] .movimento-hint-box {
+  background: #e7edf0 !important;
+  border-color: #93a4af !important;
+  box-shadow: none !important;
+  color: #111111 !important;
+}
+
+body[data-theme-mode="classic"] .icon-wrapper,
+body[data-theme-mode="classic"] .action-icon,
+body[data-theme-mode="classic"] .platform-badge,
+body[data-theme-mode="classic"] .platform-chip,
+body[data-theme-mode="classic"] .pdv-tag,
+body[data-theme-mode="classic"] [class*="bg-sky-500/10"],
+body[data-theme-mode="classic"] [class*="bg-emerald-500/10"],
+body[data-theme-mode="classic"] [class*="bg-amber-500/10"],
+body[data-theme-mode="classic"] [class*="bg-rose-500/10"] {
+  background: #d8e4ea !important;
+  border-color: #7e97a8 !important;
+  color: #1b4f72 !important;
+}
+
+body[data-theme-mode="classic"] .platform-primary-btn,
+body[data-theme-mode="classic"] .platform-secondary-btn,
+body[data-theme-mode="classic"] .platform-ghost-btn,
+body[data-theme-mode="classic"] .platform-inline-btn,
+body[data-theme-mode="classic"] .platform-close-btn,
+body[data-theme-mode="classic"] .pagination-btn,
+body[data-theme-mode="classic"] button,
+body[data-theme-mode="classic"] .pdv-product-action {
+  background: #d7e3ea !important;
+  border: 1px solid #7b95a8 !important;
+  color: #111111 !important;
+  box-shadow: none !important;
+  border-radius: 0.3rem !important;
+  text-shadow: none !important;
+}
+
+body[data-theme-mode="classic"] .pagination-btn-active {
+  background: #bdd0dc !important;
+  border-color: #5f8198 !important;
+  color: #0f0f0f !important;
+}
+
+body[data-theme-mode="classic"] input:not([type="checkbox"]):not([type="radio"]),
+body[data-theme-mode="classic"] select,
+body[data-theme-mode="classic"] textarea {
+  background: #fffef8 !important;
+  border: 1px solid #98aab5 !important;
+  color: #111111 !important;
+  border-radius: 0.2rem !important;
+  box-shadow: none !important;
+}
+
+body[data-theme-mode="classic"] input::placeholder,
+body[data-theme-mode="classic"] textarea::placeholder {
+  color: #666666 !important;
+}
+
+body[data-theme-mode="classic"] table,
+body[data-theme-mode="classic"] thead,
+body[data-theme-mode="classic"] tbody,
+body[data-theme-mode="classic"] tr,
+body[data-theme-mode="classic"] td,
+body[data-theme-mode="classic"] th {
+  border-color: #b9c5cd !important;
+}
+
+body[data-theme-mode="classic"] thead,
+body[data-theme-mode="classic"] [class*="bg-slate-950/70"] {
+  background: #d4dde2 !important;
+}
+
+body[data-theme-mode="classic"] a {
+  color: #0f5f96 !important;
+}
+
+body[data-theme-mode="classic"] [class*="text-white"],
+body[data-theme-mode="classic"] [class*="text-slate-100"],
+body[data-theme-mode="classic"] [class*="text-slate-200"],
+body[data-theme-mode="classic"] [class*="text-slate-300"] {
+  color: #111111 !important;
+}
+
+body[data-theme-mode="classic"] [class*="text-slate-400"],
+body[data-theme-mode="classic"] [class*="text-slate-500"],
+body[data-theme-mode="classic"] [class*="text-slate-600"] {
+  color: #2f2f2f !important;
+}
+
+body[data-theme-mode="classic"] [class*="text-sky-"],
+body[data-theme-mode="classic"] [class*="text-emerald-"],
+body[data-theme-mode="classic"] [class*="text-amber-"],
+body[data-theme-mode="classic"] [class*="text-rose-"] {
+  color: #0f5f96 !important;
+}
+
+body[data-theme-mode="classic"] .platform-kicker,
+body[data-theme-mode="classic"] .platform-panel-kicker,
+body[data-theme-mode="classic"] .platform-chip,
+body[data-theme-mode="classic"] .pdv-panel-badge,
+body[data-theme-mode="classic"] .pdv-kpi-label,
+body[data-theme-mode="classic"] .financeiro-kpi-label,
+body[data-theme-mode="classic"] .estoque-kpi-label,
+body[data-theme-mode="classic"] .adiantamento-kpi-label,
+body[data-theme-mode="classic"] .pagination-summary {
+  color: #0f5f96 !important;
+}
+
+body[data-theme-mode="classic"] .pdv-kpi-value,
+body[data-theme-mode="classic"] .financeiro-kpi-value,
+body[data-theme-mode="classic"] .estoque-kpi-value,
+body[data-theme-mode="classic"] .adiantamento-kpi-value,
+body[data-theme-mode="classic"] .import-export-kpi-value {
+  color: #111111 !important;
+}
+
+body[data-theme-mode="classic"] .pdv-kpi-help,
+body[data-theme-mode="classic"] .financeiro-kpi-help,
+body[data-theme-mode="classic"] .estoque-kpi-help,
+body[data-theme-mode="classic"] .adiantamento-kpi-help,
+body[data-theme-mode="classic"] .import-export-kpi-help,
+body[data-theme-mode="classic"] .pdv-inline-feedback,
+body[data-theme-mode="classic"] .pdv-product-description,
+body[data-theme-mode="classic"] .pdv-product-code,
+body[data-theme-mode="classic"] .platform-copy,
+body[data-theme-mode="classic"] .platform-tenant-meta,
+body[data-theme-mode="classic"] .platform-inline-meta {
+  color: #303030 !important;
+}
+
+body[data-theme-mode="classic"] .module-card:hover,
+body[data-theme-mode="classic"] .action-card:hover,
+body[data-theme-mode="classic"] .platform-inline-btn:hover,
+body[data-theme-mode="classic"] .platform-secondary-btn:hover,
+body[data-theme-mode="classic"] .platform-primary-btn:hover,
+body[data-theme-mode="classic"] .pagination-btn:hover:not(:disabled),
+body[data-theme-mode="classic"] button:hover:not(:disabled) {
+  background: #cddbe4 !important;
+  border-color: #5f8198 !important;
+  color: #0d0d0d !important;
+  transform: none !important;
+}
+
+body[data-theme-mode="classic"] button:disabled,
+body[data-theme-mode="classic"] .pagination-btn:disabled,
+body[data-theme-mode="classic"] .pdv-product-action:disabled {
+  background: #d9dde0 !important;
+  border-color: #a8b2b9 !important;
+  color: #6d6d6d !important;
+  opacity: 1 !important;
+}
+
+body[data-theme-mode="classic"] header {
+  border-bottom: 1px solid #8fa2ad !important;
+}
+
+body[data-theme-mode="classic"] .page-shell,
+body[data-theme-mode="classic"] .page-shell-home {
+  padding-top: 1.25rem;
+}
+
+body[data-theme-mode="classic"] .screen-size-lock,
+body[data-theme-mode="classic"] #screen-size-lock {
+  background: rgba(223, 230, 234, 0.98) !important;
+}
+
+body[data-theme-mode="classic"] .module-card,
+body[data-theme-mode="classic"] .action-card,
+body[data-theme-mode="classic"] .platform-tenant-card {
+  padding: 1.25rem !important;
+}
+
+body[data-theme-mode="classic"] *:focus-visible {
+  outline: 2px solid #326b91 !important;
+  outline-offset: 1px !important;
+}
+
+body[data-theme-mode="classic"] .text-4xl {
+  font-size: 1.9rem !important;
+}
+
+body[data-theme-mode="classic"] .text-3xl {
+  font-size: 1.55rem !important;
+}
+
+body[data-theme-mode="classic"] .text-2xl {
+  font-size: 1.35rem !important;
+}
+
+body[data-theme-mode="classic"] .text-xl {
+  font-size: 1.15rem !important;
+}
+
+body[data-theme-mode="classic"] .text-lg {
+  font-size: 1rem !important;
+}
+
+body[data-theme-mode="classic"] .rounded-2xl,
+body[data-theme-mode="classic"] .rounded-xl,
+body[data-theme-mode="classic"] .rounded-lg,
+body[data-theme-mode="classic"] .module-card,
+body[data-theme-mode="classic"] .action-card,
+body[data-theme-mode="classic"] .platform-tenant-card {
+  border-radius: 0.45rem !important;
+}
+
 

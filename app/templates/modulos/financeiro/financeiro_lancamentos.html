@@ -1,0 +1,173 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue - Lancamentos Financeiros{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/financeiro.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Lancamentos Financeiros" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 page-shell">
+    <section class="mb-8">
+        <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Lancamentos financeiros</h1>
+                <p class="text-slate-400 mt-2">Tela dedicada para historico e registro manual do financeiro.</p>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
+                <select id="financeiro-empresa"
+                    data-theme-company-select
+                    class="w-full sm:w-64 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
+                    <option value="">Todas as empresas</option>
+                </select>
+
+                <select id="financeiro-tipo"
+                    class="w-full sm:w-44 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
+                    <option value="">Todos</option>
+                    <option value="ENTRADA">Entradas</option>
+                    <option value="SAIDA">Saidas</option>
+                </select>
+
+                {% if ui_flags.can_manage_finance_entries %}
+                <button type="button" id="financeiro-open-launch"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Novo lancamento
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="financeiro-panel">
+        <div class="financeiro-panel-header">
+            <div>
+                <h2 class="text-lg font-semibold text-white">Historico consolidado</h2>
+                <p class="text-sm text-slate-400">Inclui registros manuais e entradas do PDV.</p>
+            </div>
+        </div>
+
+        <div id="financeiro-lancamentos-wrap" class="overflow-x-auto">
+            <table class="w-full min-w-[980px]">
+                <thead class="bg-slate-950/70">
+                    <tr class="border-b border-slate-800">
+                        <th class="financeiro-th">Data</th>
+                        <th class="financeiro-th">Descricao</th>
+                        <th class="financeiro-th">Categoria</th>
+                        <th class="financeiro-th">Forma</th>
+                        <th class="financeiro-th">Origem</th>
+                        <th class="financeiro-th text-right">Valor</th>
+                    </tr>
+                </thead>
+                <tbody id="financeiro-lancamentos-body" class="divide-y divide-slate-800">
+                    <tr>
+                        <td colspan="6" class="px-5 py-8 text-center text-slate-400">Carregando lancamentos...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="financeiro-lancamentos-pagination"></div>
+    </section>
+</main>
+
+{% if ui_flags.can_manage_finance_entries %}
+<div id="financeiro-launch-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Novo lancamento</h3>
+                <p class="text-sm text-slate-400 mt-1">Registre uma entrada ou saida manual do financeiro.</p>
+            </div>
+            <button type="button" data-close-modal="financeiro-launch-modal"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="financeiro-launch-form" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="financeiro-launch-tipo" class="block text-sm font-medium text-slate-300 mb-2">Tipo</label>
+                    <select id="financeiro-launch-tipo" name="tipo" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <option value="ENTRADA">Entrada</option>
+                        <option value="SAIDA">Saida</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label for="financeiro-launch-empresa" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                    <select id="financeiro-launch-empresa" name="empresa_id" required
+                        data-theme-company-select
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+
+                <div>
+                    <label for="financeiro-launch-categoria" class="block text-sm font-medium text-slate-300 mb-2">Categoria</label>
+                    <select id="financeiro-launch-categoria" name="categoria_id" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+
+                <div>
+                    <label for="financeiro-launch-forma" class="block text-sm font-medium text-slate-300 mb-2">Forma de pagamento</label>
+                    <select id="financeiro-launch-forma" name="forma_pagamento_id" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="financeiro-launch-descricao" class="block text-sm font-medium text-slate-300 mb-2">Descricao</label>
+                    <input id="financeiro-launch-descricao" name="descricao" type="text" required
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"
+                        placeholder="Ex.: Pagamento de fornecedor">
+                </div>
+
+                <div>
+                    <label for="financeiro-launch-valor" class="block text-sm font-medium text-slate-300 mb-2">Valor</label>
+                    <input id="financeiro-launch-valor" name="valor" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="financeiro-launch-data" class="block text-sm font-medium text-slate-300 mb-2">Data de competencia</label>
+                    <input id="financeiro-launch-data" name="data_competencia" type="date"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="financeiro-launch-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observacao</label>
+                    <textarea id="financeiro-launch-observacao" name="observacao" rows="3"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="financeiro-launch-modal"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Registrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modulos/financeiro.js') }}"></script>
+{% endblock %}

@@ -29,8 +29,8 @@ class ProdutoService:
         descricao = (data.get("descricao") or "").strip() or None
         categoria_id = ProdutoService._to_int(data.get("categoria_id"), "Categoria")
         empresa_id = ProdutoService._to_int(data.get("empresa_id"), "Empresa")
-        codigo_barras = (data.get("codigo_barras") or "").strip() or None
-        possui_ncm = bool(data.get("possui_ncm"))
+        codigo_barras = ProdutoService._normalize_barcode(data.get("codigo_barras"))
+        possui_ncm = ProdutoService._to_bool(data.get("possui_ncm", False))
         ncm = (data.get("ncm") or "").strip() or None
         estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
         valor_compra = ProdutoService._to_decimal(data.get("valor_compra", 0), "valor de compra", 2)
@@ -58,6 +58,9 @@ class ProdutoService:
 
         if ProdutoRepository.buscar_produto_por_nome(nome, tenant_id):
             raise ValueError("Ja existe um produto com esse nome.")
+
+        if not codigo_barras:
+            codigo_barras = ProdutoService._gerar_codigo_barras(tenant_id)
 
         if codigo_barras and ProdutoRepository.buscar_produto_por_codigo_barras(codigo_barras, tenant_id):
             raise ValueError("Ja existe um produto com esse codigo de barras.")
@@ -109,7 +112,7 @@ class ProdutoService:
         descricao = (data.get("descricao") or "").strip() or None
         categoria_id = ProdutoService._to_int(data.get("categoria_id"), "Categoria")
         empresa_id = ProdutoService._to_int(data.get("empresa_id"), "Empresa")
-        codigo_barras = (data.get("codigo_barras") or "").strip() or None
+        codigo_barras = ProdutoService._normalize_barcode(data.get("codigo_barras"))
         possui_ncm = ProdutoService._to_bool(data.get("possui_ncm", False))
         ncm = (data.get("ncm") or "").strip() or None
         estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
@@ -143,6 +146,9 @@ class ProdutoService:
         )
         if produto_existente:
             raise ValueError("Ja existe um produto com esse nome.")
+
+        if not codigo_barras:
+            codigo_barras = ProdutoService._gerar_codigo_barras(tenant_id, ignorar_produto_id=produto.id)
 
         codigo_existente = ProdutoRepository.buscar_produto_por_codigo_barras(
             codigo_barras,
@@ -260,3 +266,34 @@ class ProdutoService:
             return datetime.strptime(str(value), "%Y-%m-%d").date()
         except ValueError:
             raise ValueError("Data de validade invalida. Use o formato YYYY-MM-DD.")
+
+    @staticmethod
+    def _normalize_barcode(value):
+        digits = "".join(char for char in str(value or "") if char.isdigit())
+        return digits or None
+
+    @staticmethod
+    def _gerar_codigo_barras(tenant_id, ignorar_produto_id=None):
+        tenant_fragment = int(tenant_id or 0) % 10000
+        sequencia = max(ProdutoRepository.contar_produtos(tenant_id) + 1, 1)
+
+        while True:
+            base = f"20{tenant_fragment:04d}{sequencia:06d}"
+            codigo = f"{base}{ProdutoService._calcular_digito_ean13(base)}"
+            if not ProdutoRepository.buscar_produto_por_codigo_barras(
+                codigo,
+                tenant_id,
+                ignorar_produto_id=ignorar_produto_id,
+            ):
+                return codigo
+            sequencia += 1
+
+    @staticmethod
+    def _calcular_digito_ean13(base):
+        if len(base) != 12 or not base.isdigit():
+            raise ValueError("Base invalida para gerar codigo EAN-13.")
+
+        soma_impares = sum(int(digito) for digito in base[::2])
+        soma_pares = sum(int(digito) for digito in base[1::2])
+        resto = (soma_impares + (soma_pares * 3)) % 10
+        return (10 - resto) % 10

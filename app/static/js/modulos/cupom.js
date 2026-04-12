@@ -1,4 +1,6 @@
 window.cupomPage = null;
+const cupomCanEdit = () => window.userHasPermission?.("editar_cupom");
+const cupomCanDelete = () => window.userHasPermission?.("excluir_cupom");
 
 document.addEventListener("DOMContentLoaded", () => {
     window.cupomPage = new CrudPage({
@@ -66,18 +68,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <td class="px-5 py-4 align-middle text-center">${badge}</td>
                     <td class="px-5 py-4 align-middle">
                         <div class="flex items-center justify-center gap-2">
-                            <button type="button"
-                                onclick="cupomPage.openEditModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
-                                title="Editar cupom">
-                                <i data-lucide="square-pen" class="w-4 h-4"></i>
-                            </button>
-                            <button type="button"
-                                onclick="cupomPage.openDeleteModal(${item.id})"
-                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
-                                title="Excluir cupom">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </button>
+                            ${renderCupomActions(item)}
                         </div>
                     </td>
                 </tr>
@@ -199,4 +190,34 @@ function escapeHtml(value) {
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+}
+
+function renderCupomActions(item) {
+    const actions = [];
+
+    if (cupomCanEdit()) {
+        actions.push(`
+            <button type="button"
+                onclick="cupomPage.openEditModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 transition"
+                title="Editar cupom">
+                <i data-lucide="square-pen" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    if (cupomCanDelete()) {
+        actions.push(`
+            <button type="button"
+                onclick="cupomPage.openDeleteModal(${item.id})"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition"
+                title="Excluir cupom">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        `);
+    }
+
+    return actions.length
+        ? actions.join("")
+        : '<span class="text-xs font-medium text-slate-500">Somente leitura</span>';
 }

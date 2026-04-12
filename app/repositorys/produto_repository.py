@@ -74,19 +74,6 @@ class ProdutoRepository:
             CategoriaProduto.ativo.is_(True)
         )
 
-        if empresa_ids is not None:
-            query = (
-                query
-                .join(Produto, Produto.categoria_id == CategoriaProduto.id)
-                .join(ProdutoEmpresa, ProdutoEmpresa.produto_id == Produto.id)
-                .filter(
-                    Produto.tenant_id == tenant_id,
-                    ProdutoEmpresa.tenant_id == tenant_id,
-                    ProdutoEmpresa.empresa_id.in_(empresa_ids)
-                )
-                .distinct()
-            )
-
         return query.order_by(CategoriaProduto.nome.asc()).all()
 
     @staticmethod
@@ -165,5 +152,13 @@ class ProdutoRepository:
                 ProdutoEmpresa.produto_id == produto_id,
                 ProdutoEmpresa.tenant_id == tenant_id
             )
+            .count()
+        )
+
+    @staticmethod
+    def contar_produtos(tenant_id):
+        return (
+            Produto.query
+            .filter(Produto.tenant_id == tenant_id)
             .count()
         )

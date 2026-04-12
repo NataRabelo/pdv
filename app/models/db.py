@@ -13,6 +13,11 @@ class TipoEmpresa(enum.Enum):
     FILIAL = "FILIAL"
 
 
+class ModoVisualEmpresa(enum.Enum):
+    MODERNO = "MODERNO"
+    LEGADO = "LEGADO"
+
+
 class TipoFinanceiro(enum.Enum):
     ENTRADA = "ENTRADA"
     SAIDA = "SAIDA"
@@ -103,6 +108,7 @@ class Empresa(ModeloBase):
     razao_social = db.Column(db.String(180), nullable=False)
     nome_fantasia = db.Column(db.String(180), nullable=False)
     tipo_empresa = db.Column(db.Enum(TipoEmpresa), nullable=False)
+    visual_modo = db.Column(db.Enum(ModoVisualEmpresa), nullable=False, default=ModoVisualEmpresa.MODERNO)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
     __table_args__ = (
@@ -491,4 +497,24 @@ class FechamentoCaixa(ModeloBase):
             "data_fechamento",
             name="uq_fechamento_caixa_tenant_empresa_funcionario_data"
         ),
+    )
+
+
+class ConfiguracaoNotificacaoEstoque(ModeloBase):
+    __tablename__ = "configuracoes_notificacao_estoque"
+
+    popup_ao_entrar = db.Column(db.Boolean, nullable=False, default=True)
+    alertar_estoque_baixo = db.Column(db.Boolean, nullable=False, default=True)
+    alertar_sem_estoque = db.Column(db.Boolean, nullable=False, default=True)
+    alertar_validade = db.Column(db.Boolean, nullable=False, default=True)
+    dias_vencimento_alerta = db.Column(db.Integer, nullable=False, default=30)
+    email_habilitado = db.Column(db.Boolean, nullable=False, default=False)
+    email_destinatarios = db.Column(db.Text, nullable=True)
+    whatsapp_habilitado = db.Column(db.Boolean, nullable=False, default=False)
+    whatsapp_destinatarios = db.Column(db.Text, nullable=True)
+    resumo_diario = db.Column(db.Boolean, nullable=False, default=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_config_notificacao_estoque_tenant"),
+        CheckConstraint("dias_vencimento_alerta >= 1", name="ck_config_notificacao_dias_positive"),
     )

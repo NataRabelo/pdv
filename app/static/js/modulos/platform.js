@@ -1,5 +1,9 @@
 const platformState = {
   tenants: [],
+  pagination: {
+    currentPage: 1,
+    pageSize: 10,
+  },
 };
 
 const platformElements = {
@@ -9,6 +13,7 @@ const platformElements = {
   totalEmpresas: document.getElementById("platformTotalEmpresas"),
   totalAdmins: document.getElementById("platformTotalAdmins"),
   refreshButton: document.getElementById("refreshPlatformBtn"),
+  pagination: document.getElementById("platformTenantPagination"),
   overlay: document.getElementById("platformModalOverlay"),
   tenantModal: document.getElementById("tenantModal"),
   companyModal: document.getElementById("companyModal"),
@@ -119,17 +124,36 @@ function renderTenantGrid() {
         <p>Use o botao "Novo tenant" para iniciar a estrutura multi-tenant da plataforma.</p>
       </article>
     `;
+    renderTenantPagination();
     lucide.createIcons();
     return;
   }
 
-  platformElements.tenantGrid.innerHTML = platformState.tenants.map((tenant) => {
+  const tenants = getPaginatedTenants();
+
+  platformElements.tenantGrid.innerHTML = tenants.map((tenant) => {
     const empresasHtml = tenant.empresas.length
       ? tenant.empresas.map((empresa) => `
           <li class="platform-list-item">
             <div>
               <strong class="platform-list-title">${escapeHtml(empresa.nome_fantasia)}</strong>
               <span class="platform-list-subtitle">${escapeHtml(empresa.razao_social)}</span>
+              <div class="platform-company-visual-row">
+                <span class="platform-company-visual-badge ${empresa.visual_modo === "LEGADO" ? "is-classic" : "is-modern"}">
+                  ${empresa.visual_modo === "LEGADO" ? "Visual legado" : "Visual atual"}
+                </span>
+                <button
+                  type="button"
+                  class="platform-inline-btn platform-inline-btn-compact"
+                  data-action="toggle-visual-mode"
+                  data-tenant-id="${tenant.id}"
+                  data-empresa-id="${empresa.id}"
+                  data-next-mode="${empresa.visual_modo === "LEGADO" ? "MODERNO" : "LEGADO"}"
+                >
+                  <i data-lucide="${empresa.visual_modo === "LEGADO" ? "sparkles" : "clock-3"}"></i>
+                  ${empresa.visual_modo === "LEGADO" ? "Usar visual atual" : "Usar visual legado"}
+                </button>
+              </div>
             </div>
             <div class="text-right">
               <strong class="platform-list-title">${escapeHtml(empresa.tipo_empresa)}</strong>
@@ -214,7 +238,100 @@ function renderTenantGrid() {
     `;
   }).join("");
 
+  renderTenantPagination();
   lucide.createIcons();
+}
+
+function getTotalTenantPages() {
+  const pageSize = Math.max(Number(platformState.pagination.pageSize) || 10, 1);
+  return Math.max(Math.ceil(platformState.tenants.length / pageSize), 1);
+}
+
+function getPaginatedTenants() {
+  const pageSize = Math.max(Number(platformState.pagination.pageSize) || 10, 1);
+  const totalPages = getTotalTenantPages();
+
+  if (platformState.pagination.currentPage > totalPages) {
+    platformState.pagination.currentPage = totalPages;
+  }
+
+  const start = (platformState.pagination.currentPage - 1) * pageSize;
+  return platformState.tenants.slice(start, start + pageSize);
+}
+
+function buildPageNumbers(currentPage, totalPages) {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  if (currentPage <= 4) {
+    return [1, 2, 3, 4, 5, "...", totalPages];
+  }
+
+  if (currentPage >= totalPages - 3) {
+    return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+  }
+
+  return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+}
+
+function renderTenantPagination() {
+  if (!platformElements.pagination) {
+    return;
+  }
+
+  const totalItems = platformState.tenants.length;
+  const totalPages = getTotalTenantPages();
+  const currentPage = platformState.pagination.currentPage;
+  const pageSize = Math.max(Number(platformState.pagination.pageSize) || 10, 1);
+
+  if (!totalItems) {
+    platformElements.pagination.innerHTML = "";
+    return;
+  }
+
+  if (totalPages <= 1) {
+    platformElements.pagination.innerHTML = `
+      <div class="pagination-shell pagination-shell-single">
+        <div class="pagination-summary">Exibindo ${totalItems} tenant(s).</div>
+      </div>
+    `;
+    return;
+  }
+
+  const start = ((currentPage - 1) * pageSize) + 1;
+  const end = Math.min(currentPage * pageSize, totalItems);
+  const pages = buildPageNumbers(currentPage, totalPages);
+
+  platformElements.pagination.innerHTML = `
+    <div class="pagination-shell">
+      <div class="pagination-summary">Exibindo ${start}-${end} de ${totalItems} tenants</div>
+      <div class="pagination-controls">
+        <button type="button" class="pagination-btn" data-platform-page="${currentPage - 1}" ${currentPage === 1 ? "disabled" : ""}>
+          Anterior
+        </button>
+        ${pages.map((page) => page === "..."
+          ? `<span class="pagination-ellipsis">...</span>`
+          : `<button type="button" class="pagination-btn ${page === currentPage ? "pagination-btn-active" : ""}" data-platform-page="${page}">${page}</button>`
+        ).join("")}
+        <button type="button" class="pagination-btn" data-platform-page="${currentPage + 1}" ${currentPage === totalPages ? "disabled" : ""}>
+          Proxima
+        </button>
+      </div>
+    </div>
+  `;
+
+  platformElements.pagination.querySelectorAll("[data-platform-page]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const page = Number(button.getAttribute("data-platform-page"));
+      if (!Number.isInteger(page)) {
+        return;
+      }
+
+      platformState.pagination.currentPage = Math.min(Math.max(page, 1), totalPages);
+      renderTenantGrid();
+    });
+  });
 }
 
 function getTenantById(tenantId) {
@@ -310,6 +427,7 @@ async function loadTenants({ silent = false } = {}) {
 
     const response = await requestJson("/api/platform/tenants");
     platformState.tenants = response.data || [];
+    platformState.pagination.currentPage = Math.min(platformState.pagination.currentPage, getTotalTenantPages());
     countTotals();
     renderTenantGrid();
 
@@ -317,6 +435,20 @@ async function loadTenants({ silent = false } = {}) {
       showFeedback("Painel atualizado com sucesso.", "success");
       window.setTimeout(() => clearFeedback(), 1800);
     }
+  } catch (error) {
+    showFeedback(error.message, "error");
+  }
+}
+
+async function handleVisualModeToggle(tenantId, empresaId, visualMode) {
+  try {
+    showFeedback("Atualizando visual da empresa...", "info");
+    await requestJson(`/api/platform/tenants/${tenantId}/empresas/${empresaId}/visual`, {
+      method: "PUT",
+      body: { visual_modo: visualMode },
+    });
+    await loadTenants({ silent: true });
+    showFeedback("Visual da empresa atualizado com sucesso.", "success");
   } catch (error) {
     showFeedback(error.message, "error");
   }
@@ -421,6 +553,12 @@ function bindEvents() {
 
     if (action === "open-admin-modal") {
       prepareAdminModal(tenantId);
+    }
+
+    if (action === "toggle-visual-mode") {
+      const empresaId = Number(actionElement.dataset.empresaId);
+      const nextMode = actionElement.dataset.nextMode || "MODERNO";
+      handleVisualModeToggle(tenantId, empresaId, nextMode);
     }
   });
 }

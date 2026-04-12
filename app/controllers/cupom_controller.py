@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from app.security.decorators import permission_required
+from app.security.decorators import permission_required, ui_permission_required
 from app.services.cupom_service import CupomService
 
 cupom_bp = Blueprint("cupom", __name__)
@@ -9,6 +9,7 @@ cupom_bp = Blueprint("cupom", __name__)
 
 @cupom_bp.route("/view", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_cupom")
 def pagina():
     return render_template("modulos/cupom/cupom.html")
 

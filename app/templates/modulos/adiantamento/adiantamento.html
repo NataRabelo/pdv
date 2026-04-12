@@ -27,6 +27,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
             <div class="flex flex-col sm:flex-row gap-3 w-full xl:w-auto">
                 <select id="adiantamento-empresa"
+                    data-theme-company-select
                     class="w-full sm:w-64 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
                     <option value="">Todas as empresas</option>
                 </select>
@@ -34,11 +35,13 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <input id="adiantamento-competencia" type="month"
                     class="w-full sm:w-48 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
 
+                {% if has_permission("criar_adiantamento") %}
                 <button type="button" id="adiantamento-open-create"
                     class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
                     <i data-lucide="plus" class="w-4 h-4"></i>
                     Novo vale
                 </button>
+                {% endif %}
             </div>
         </div>
     </section>
@@ -86,6 +89,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <div id="adiantamento-resumo-list" class="adiantamento-summary-list">
                 <p class="text-slate-400">Carregando resumo...</p>
             </div>
+            <div id="adiantamento-resumo-pagination"></div>
         </section>
 
         <section class="xl:col-span-7 adiantamento-panel">
@@ -120,6 +124,8 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     </tbody>
                 </table>
             </div>
+
+            <div id="adiantamento-list-pagination"></div>
         </section>
     </section>
 </main>
@@ -158,6 +164,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 <div>
                     <label for="adiantamento-empresa-form" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
                     <select id="adiantamento-empresa-form" name="empresa_id" required
+                        data-theme-company-select
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
                 </div>
 

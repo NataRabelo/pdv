@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, render_template, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from app.security.decorators import permission_required
+from app.security.decorators import permission_required, ui_permission_required
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.adiantamento_service import AdiantamentoService
 from app.services.financeiro_service import FinanceiroService
@@ -11,8 +11,23 @@ financeiro_bp = Blueprint("financeiro", __name__)
 
 @financeiro_bp.route("/view", methods=["GET"])
 @jwt_required()
+@ui_permission_required("visualizar_financeiro")
 def pagina():
     return render_template("modulos/financeiro/financeiro.html")
+
+
+@financeiro_bp.route("/lancamentos/view", methods=["GET"])
+@jwt_required()
+@ui_permission_required("visualizar_financeiro")
+def pagina_lancamentos():
+    return render_template("modulos/financeiro/financeiro_lancamentos.html")
+
+
+@financeiro_bp.route("/relatorios/view", methods=["GET"])
+@jwt_required()
+@ui_permission_required("visualizar_relatorio_financeiro")
+def pagina_relatorios():
+    return render_template("modulos/financeiro/financeiro_relatorios.html")
 
 
 @financeiro_bp.route("/auxiliares", methods=["GET"])

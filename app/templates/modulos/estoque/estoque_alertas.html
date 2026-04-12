@@ -1,0 +1,177 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue - Alertas de Estoque{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/estoque.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Alertas de Estoque" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 page-shell">
+    <section class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Alertas operacionais</h1>
+                <p class="text-slate-400 mt-2">Estoque baixo, ruptura e validade em uma tela dedicada.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <select id="filtro-empresa"
+                    data-theme-company-select
+                    class="w-full sm:w-64 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
+                    <option value="">Todas as empresas</option>
+                </select>
+
+                {% if ui_flags.can_manage_stock_alerts %}
+                <button type="button" id="btn-config-alertas"
+                    class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
+                    <i data-lucide="bell-ring" class="w-4 h-4"></i>
+                    Configurar alertas
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden mb-8">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Resumo de alertas</h2>
+                    <p class="text-sm text-slate-400">Visao inicial do que precisa de acao.</p>
+                </div>
+                <div id="estoque-alerta-resumo" class="grid grid-cols-2 md:grid-cols-4 gap-3 w-full lg:w-auto"></div>
+            </div>
+        </div>
+        <div class="p-5">
+            <div id="estoque-alerta-destaques" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <p class="text-slate-400">Carregando alertas...</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+            <div class="border-b border-slate-800 px-5 py-4">
+                <h2 class="text-lg font-semibold text-white">Alertas de estoque</h2>
+                <p class="text-sm text-slate-400">Itens sem saldo ou abaixo do minimo.</p>
+            </div>
+            <div id="estoque-alertas-lista" class="p-5 space-y-3">
+                <p class="text-slate-400">Carregando alertas...</p>
+            </div>
+        </section>
+
+        <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+            <div class="border-b border-slate-800 px-5 py-4">
+                <h2 class="text-lg font-semibold text-white">Alertas de validade</h2>
+                <p class="text-sm text-slate-400">Produtos vencidos ou proximos do vencimento.</p>
+            </div>
+            <div id="estoque-validade-lista" class="p-5 space-y-3">
+                <p class="text-slate-400">Carregando alertas...</p>
+            </div>
+        </section>
+    </section>
+</main>
+
+{% if ui_flags.can_manage_stock_alerts %}
+<div id="estoque-alert-settings-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Configuracao de alertas</h3>
+                <p class="text-sm text-slate-400 mt-1">Permita que o administrador organize popup e canais de aviso.</p>
+            </div>
+            <button type="button" data-close-modal="estoque-alert-settings-modal"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="estoque-alert-settings-form" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+                    <input id="alert-popup-ao-entrar" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                    <span class="text-sm text-slate-200">Exibir popup ao entrar</span>
+                </label>
+
+                <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+                    <input id="alert-resumo-diario" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                    <span class="text-sm text-slate-200">Preparar rotina de resumo diario</span>
+                </label>
+
+                <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+                    <input id="alert-estoque-baixo" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                    <span class="text-sm text-slate-200">Alertar baixo estoque</span>
+                </label>
+
+                <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+                    <input id="alert-sem-estoque" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                    <span class="text-sm text-slate-200">Alertar item sem estoque</span>
+                </label>
+
+                <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+                    <input id="alert-validade" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                    <span class="text-sm text-slate-200">Alertar vencimento e proximidade</span>
+                </label>
+
+                <div>
+                    <label for="alert-dias-vencimento" class="block text-sm font-medium text-slate-300 mb-2">Dias para aviso de validade</label>
+                    <input id="alert-dias-vencimento" type="number" min="1" step="1"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 md:col-span-2">
+                    <input id="alert-email-habilitado" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                    <span class="text-sm text-slate-200">Habilitar preparo de disparo por email</span>
+                </label>
+
+                <div class="md:col-span-2">
+                    <label for="alert-email-destinatarios" class="block text-sm font-medium text-slate-300 mb-2">Destinatarios por email</label>
+                    <textarea id="alert-email-destinatarios" rows="3"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+                        placeholder="Um email por linha"></textarea>
+                </div>
+
+                <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 md:col-span-2">
+                    <input id="alert-whatsapp-habilitado" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-sky-500 focus:ring-sky-500">
+                    <span class="text-sm text-slate-200">Habilitar preparo de disparo por WhatsApp</span>
+                </label>
+
+                <div class="md:col-span-2">
+                    <label for="alert-whatsapp-destinatarios" class="block text-sm font-medium text-slate-300 mb-2">Destinatarios por WhatsApp</label>
+                    <textarea id="alert-whatsapp-destinatarios" rows="3"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+                        placeholder="Um numero por linha, com DDD"></textarea>
+                </div>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="estoque-alert-settings-modal"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Salvar configuracoes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/modulos/estoque.js') }}"></script>
+{% endblock %}

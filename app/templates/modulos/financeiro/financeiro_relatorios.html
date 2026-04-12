@@ -1,6 +1,6 @@
 {% extends "bases/base.html" %}
 
-{% block title %}OceanBlue - Painel Financeiro{% endblock %}
+{% block title %}OceanBlue - Relatorios Financeiros{% endblock %}
 
 {% block body_class %}
 min-h-screen flex flex-col bg-slate-950 text-white
@@ -12,15 +12,15 @@ min-h-screen flex flex-col bg-slate-950 text-white
 {% endblock %}
 
 {% block content %}
-{% set modulo_name = "Painel Financeiro" %}
+{% set modulo_name = "Relatorios Financeiros" %}
 {% include "componentes/header_subpages.html" %}
 
 <main class="flex-1 page-shell">
     <section class="mb-8">
         <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4">
             <div>
-                <h1 class="text-3xl font-bold tracking-tight text-white">Painel financeiro</h1>
-                <p class="text-slate-400 mt-2">Resumo operacional do caixa e dos principais indicadores.</p>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Relatorios e previsoes</h1>
+                <p class="text-slate-400 mt-2">Mensal, projecoes, recomendacoes e impressao em uma tela separada.</p>
             </div>
 
             <div class="flex flex-col sm:flex-row gap-3 w-full xl:w-auto xl:min-w-[30rem]">
@@ -43,38 +43,20 @@ min-h-screen flex flex-col bg-slate-950 text-white
     </section>
 
     <section class="flex flex-wrap gap-3 mb-8">
-        <a href="{{ url_for('financeiro.pagina_lancamentos') }}"
+        <button type="button" id="financeiro-print-flow"
             class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
-            <i data-lucide="receipt" class="w-4 h-4"></i>
-            Lancamentos
-        </a>
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            Fluxo de caixa
+        </button>
 
-        {% if ui_flags.can_view_finance_reports %}
-        <a href="{{ url_for('financeiro.pagina_relatorios') }}"
+        <button type="button" id="financeiro-print-sales"
             class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
             <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
-            Relatorios
-        </a>
-        {% endif %}
-
-        {% if ui_flags.can_view_advance %}
-        <a href="/api/adiantamentos/view"
-            class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
-            <i data-lucide="wallet-cards" class="w-4 h-4"></i>
-            Vales e adiantamentos
-        </a>
-        {% endif %}
+            Produtos vendidos
+        </button>
     </section>
 
     <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <article class="financeiro-kpi-card">
-            <span class="financeiro-kpi-label">Entradas</span>
-            <strong id="financeiro-kpi-entradas" class="financeiro-kpi-value">R$ 0,00</strong>
-        </article>
-        <article class="financeiro-kpi-card">
-            <span class="financeiro-kpi-label">Saidas</span>
-            <strong id="financeiro-kpi-saidas" class="financeiro-kpi-value text-rose-300">R$ 0,00</strong>
-        </article>
         <article class="financeiro-kpi-card">
             <span class="financeiro-kpi-label">Saldo</span>
             <strong id="financeiro-kpi-saldo" class="financeiro-kpi-value">R$ 0,00</strong>
@@ -84,17 +66,8 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <strong id="financeiro-kpi-faturamento" class="financeiro-kpi-value">R$ 0,00</strong>
         </article>
         <article class="financeiro-kpi-card">
-            <span class="financeiro-kpi-label">Ticket medio</span>
-            <strong id="financeiro-kpi-ticket" class="financeiro-kpi-value">R$ 0,00</strong>
-        </article>
-        <article class="financeiro-kpi-card">
             <span class="financeiro-kpi-label">Valor em estoque</span>
             <strong id="financeiro-kpi-valor-estoque" class="financeiro-kpi-value">R$ 0,00</strong>
-        </article>
-        <article class="financeiro-kpi-card">
-            <span class="financeiro-kpi-label">Lucro bruto</span>
-            <strong id="financeiro-kpi-lucro-bruto" class="financeiro-kpi-value">R$ 0,00</strong>
-            <p id="financeiro-kpi-margem-bruta" class="financeiro-kpi-help">0,00% no periodo</p>
         </article>
         <article class="financeiro-kpi-card">
             <span class="financeiro-kpi-label">Compra sugerida</span>
@@ -102,35 +75,35 @@ min-h-screen flex flex-col bg-slate-950 text-white
         </article>
     </section>
 
-    <section class="grid grid-cols-1 xl:grid-cols-12 gap-6 financeiro-overview-grid">
-        <section class="xl:col-span-6 financeiro-panel">
+    <section class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <section class="xl:col-span-4 financeiro-panel">
             <div class="financeiro-panel-header">
                 <div>
-                    <h2 class="text-lg font-semibold text-white">Serie diaria</h2>
-                    <p class="text-sm text-slate-400">Entradas e saidas registradas no periodo selecionado.</p>
+                    <h2 class="text-lg font-semibold text-white">Relatorio mensal</h2>
+                    <p class="text-sm text-slate-400">Consolidado recente por competencia.</p>
                 </div>
             </div>
-            <div id="financeiro-serie-list" class="financeiro-series-list"></div>
+            <div id="financeiro-mensal-list" class="financeiro-stack-list"></div>
         </section>
 
-        <section class="xl:col-span-3 financeiro-panel">
+        <section class="xl:col-span-4 financeiro-panel">
             <div class="financeiro-panel-header">
                 <div>
-                    <h2 class="text-lg font-semibold text-white">Formas de recebimento</h2>
-                    <p class="text-sm text-slate-400">Como o dinheiro entrou no periodo.</p>
+                    <h2 class="text-lg font-semibold text-white">Projecoes futuras</h2>
+                    <p class="text-sm text-slate-400">Ritmo medio do periodo projetado para 30, 60 e 90 dias.</p>
                 </div>
             </div>
-            <div id="financeiro-formas-list" class="financeiro-stack-list"></div>
+            <div id="financeiro-projecoes-list" class="financeiro-stack-list"></div>
         </section>
 
-        <section class="xl:col-span-3 financeiro-panel">
+        <section class="xl:col-span-4 financeiro-panel">
             <div class="financeiro-panel-header">
                 <div>
-                    <h2 class="text-lg font-semibold text-white">Top categorias</h2>
-                    <p class="text-sm text-slate-400">Principais impactos no caixa.</p>
+                    <h2 class="text-lg font-semibold text-white">Recomendacoes de compra</h2>
+                    <p class="text-sm text-slate-400">Reposicao sugerida com base na saida recente.</p>
                 </div>
             </div>
-            <div id="financeiro-categorias-list" class="financeiro-stack-list"></div>
+            <div id="financeiro-recomendacoes-list" class="financeiro-stack-list"></div>
         </section>
     </section>
 </main>

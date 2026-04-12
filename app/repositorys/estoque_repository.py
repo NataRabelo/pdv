@@ -1,7 +1,16 @@
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
-from app.models.db import Empresa, MovimentoEstoque, Produto, ProdutoEmpresa
+from app.models.db import (
+    ConfiguracaoNotificacaoEstoque,
+    Empresa,
+    ItemVenda,
+    MovimentoEstoque,
+    Produto,
+    ProdutoEmpresa,
+    StatusVenda,
+    Venda,
+)
 
 
 class EstoqueRepository:
@@ -123,6 +132,59 @@ class EstoqueRepository:
             )
             .first()
         )
+
+    @staticmethod
+    def obter_configuracao_notificacao(tenant_id):
+        return (
+            ConfiguracaoNotificacaoEstoque.query
+            .filter(ConfiguracaoNotificacaoEstoque.tenant_id == tenant_id)
+            .first()
+        )
+
+    @staticmethod
+    def listar_produtos_mais_vendidos(tenant_id, empresa_ids=None, empresa_id=None, data_inicio=None, data_fim=None, limite=20):
+        query = (
+            db.session.query(
+                Produto.id.label("produto_id"),
+                Produto.nome.label("produto_nome"),
+                ProdutoEmpresa.empresa_id.label("empresa_id"),
+                Empresa.nome_fantasia.label("empresa_nome"),
+                db.func.coalesce(db.func.sum(ItemVenda.quantidade), 0).label("quantidade"),
+                db.func.coalesce(db.func.sum(ItemVenda.valor_total), 0).label("faturamento"),
+            )
+            .join(ItemVenda, ItemVenda.produto_id == Produto.id)
+            .join(Venda, Venda.id == ItemVenda.venda_id)
+            .join(Empresa, Empresa.id == Venda.empresa_id)
+            .join(
+                ProdutoEmpresa,
+                db.and_(
+                    ProdutoEmpresa.produto_id == Produto.id,
+                    ProdutoEmpresa.empresa_id == Venda.empresa_id,
+                    ProdutoEmpresa.tenant_id == tenant_id,
+                ),
+            )
+            .filter(
+                Venda.tenant_id == tenant_id,
+                Venda.status == StatusVenda.FINALIZADA,
+                Produto.tenant_id == tenant_id,
+            )
+            .group_by(Produto.id, Produto.nome, ProdutoEmpresa.empresa_id, Empresa.nome_fantasia)
+            .order_by(db.desc("quantidade"), db.desc("faturamento"))
+        )
+
+        if empresa_ids is not None:
+            query = query.filter(Venda.empresa_id.in_(empresa_ids))
+
+        if empresa_id is not None:
+            query = query.filter(Venda.empresa_id == empresa_id)
+
+        if data_inicio is not None:
+            query = query.filter(db.func.date(Venda.data_venda) >= data_inicio)
+
+        if data_fim is not None:
+            query = query.filter(db.func.date(Venda.data_venda) <= data_fim)
+
+        return query.limit(max(limite, 1)).all()
 
     @staticmethod
     def adicionar(obj):

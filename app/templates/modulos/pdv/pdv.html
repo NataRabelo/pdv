@@ -20,13 +20,12 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="pdv-topbar">
             <div class="pdv-topbar-copy">
                 <h1 class="text-3xl font-bold tracking-tight text-white">Frente de caixa</h1>
-                <p class="text-slate-400 mt-2">
-                    Venda rapida, baixa automatica no estoque e integracao imediata com o financeiro.
-                </p>
+                <p class="text-slate-400 mt-2">Catalogo, leitura por codigo e fechamento de venda em uma tela mais limpa.</p>
             </div>
 
             <div class="pdv-topbar-filters">
                 <select id="pdv-empresa"
+                    data-theme-company-select
                     class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
                     <option value="">Selecione a empresa</option>
                 </select>
@@ -59,30 +58,45 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 </div>
             </div>
         </div>
+
+        <div class="flex flex-wrap items-center gap-3 mt-5">
+            <button type="button" id="pdv-open-sales-modal"
+                class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+                <i data-lucide="receipt-text" class="w-4 h-4"></i>
+                Ultimas vendas
+            </button>
+
+            {% if ui_flags.can_close_cashier %}
+            <button type="button" id="pdv-open-closeout-modal"
+                class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                Fechamento de caixa
+            </button>
+            {% endif %}
+        </div>
     </section>
 
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <article class="pdv-kpi-card">
+    <section class="pdv-summary-strip mb-8">
+        <article class="pdv-summary-item">
             <span class="pdv-kpi-label">Produtos disponiveis</span>
-            <strong id="pdv-kpi-produtos" class="pdv-kpi-value">0</strong>
-            <p class="pdv-kpi-help">Catalogo da empresa selecionada.</p>
+            <strong id="pdv-kpi-produtos" class="pdv-summary-number">0</strong>
         </article>
-
-        <article class="pdv-kpi-card">
+        <article class="pdv-summary-item">
             <span class="pdv-kpi-label">Baixo estoque</span>
-            <strong id="pdv-kpi-baixo-estoque" class="pdv-kpi-value text-amber-300">0</strong>
-            <p class="pdv-kpi-help">Itens que merecem reposicao imediata.</p>
+            <strong id="pdv-kpi-baixo-estoque" class="pdv-summary-number text-amber-300">0</strong>
         </article>
-
-        <article class="pdv-kpi-card">
+        <article class="pdv-summary-item">
             <span class="pdv-kpi-label">Vendas hoje</span>
-            <strong id="pdv-kpi-vendas-hoje" class="pdv-kpi-value">0</strong>
-            <p id="pdv-kpi-faturamento" class="pdv-kpi-help">R$ 0,00 faturados hoje.</p>
+            <strong id="pdv-kpi-vendas-hoje" class="pdv-summary-number">0</strong>
+        </article>
+        <article class="pdv-summary-item">
+            <span class="pdv-kpi-label">Faturamento</span>
+            <strong id="pdv-kpi-faturamento" class="pdv-summary-number text-base md:text-lg">R$ 0,00 faturados hoje.</strong>
         </article>
     </section>
 
     <section class="grid grid-cols-1 xl:grid-cols-12 gap-6 pdv-main-layout">
-        <section class="xl:col-span-7 pdv-panel pdv-catalog-panel">
+        <section class="xl:col-span-8 pdv-panel pdv-catalog-panel">
             <div class="pdv-panel-header">
                 <div>
                     <h2 class="text-lg font-semibold text-white">Catalogo para venda</h2>
@@ -90,7 +104,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         Escolha a empresa para liberar os produtos no caixa.
                     </p>
                 </div>
-                <span class="pdv-panel-badge">Venda integrada</span>
+                <span class="pdv-panel-badge">Catalogo ativo</span>
             </div>
 
             <div id="pdv-produtos-grid" class="pdv-products-grid">
@@ -99,13 +113,15 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     <p>Selecione uma empresa para iniciar o PDV.</p>
                 </article>
             </div>
+
+            <div id="pdv-produtos-pagination"></div>
         </section>
 
-        <aside class="xl:col-span-5 pdv-panel pdv-cart-panel">
+        <aside class="xl:col-span-4 pdv-panel pdv-cart-panel">
             <div class="pdv-panel-header">
                 <div>
                     <h2 class="text-lg font-semibold text-white">Carrinho</h2>
-                    <p class="text-sm text-slate-400">Monte a venda e finalize o recebimento.</p>
+                    <p class="text-sm text-slate-400">1. Adicione os itens. 2. Confirme o pagamento. 3. Finalize a venda.</p>
                 </div>
                 <button type="button" id="pdv-clear-cart"
                     class="inline-flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium px-4 py-2 transition">
@@ -122,7 +138,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <div id="pdv-cart-items" class="space-y-3 hidden"></div>
 
             <div class="pdv-form-stack">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="grid grid-cols-1 gap-4">
                     <div>
                         <label for="pdv-cupom-codigo" class="block text-sm font-medium text-slate-300 mb-2">Cupom</label>
                         <input id="pdv-cupom-codigo" type="text"
@@ -134,89 +150,235 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         <input id="pdv-desconto-manual" type="text" inputmode="decimal" value="0,00"
                             class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                     </div>
-                </div>
-
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-medium text-slate-300">Pagamentos</label>
-                        <button type="button" id="pdv-add-payment"
-                            class="inline-flex items-center gap-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-sm font-medium px-3 py-2 transition hover:bg-sky-500/20">
-                            <i data-lucide="plus" class="w-4 h-4"></i>
-                            Adicionar
-                        </button>
+                    <div>
+                        <label for="pdv-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observacao</label>
+                        <textarea id="pdv-observacao" rows="3"
+                            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+                            placeholder="Informacoes extras da venda"></textarea>
                     </div>
-                    <div id="pdv-payment-rows" class="space-y-3"></div>
-                </div>
-
-                <div>
-                    <label for="pdv-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observacao</label>
-                    <textarea id="pdv-observacao" rows="3"
-                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
-                        placeholder="Informacoes extras da venda"></textarea>
                 </div>
             </div>
 
-            <div class="pdv-summary-box">
-                <div class="pdv-summary-row">
-                    <span>Subtotal</span>
-                    <strong id="pdv-total-subtotal">R$ 0,00</strong>
+            <div class="pdv-checkout-panel">
+                <div class="pdv-totals-grid">
+                    <article class="pdv-total-card">
+                        <span class="pdv-total-label">Subtotal</span>
+                        <strong id="pdv-total-subtotal" class="pdv-total-value">R$ 0,00</strong>
+                    </article>
+                    <article class="pdv-total-card">
+                        <span class="pdv-total-label">Desconto</span>
+                        <strong id="pdv-total-desconto" class="pdv-total-value">R$ 0,00</strong>
+                    </article>
+                    <article class="pdv-total-card pdv-total-card-highlight">
+                        <span class="pdv-total-label">Total da venda</span>
+                        <strong id="pdv-total-geral" class="pdv-total-value">R$ 0,00</strong>
+                    </article>
                 </div>
-                <div class="pdv-summary-row">
-                    <span>Desconto</span>
-                    <strong id="pdv-total-desconto">R$ 0,00</strong>
+
+                {% if ui_flags.can_manage_sales %}
+                <div class="pdv-flow-step">
+                    <div>
+                        <p class="pdv-flow-step-label">2. Confirmar pagamento</p>
+                        <p id="pdv-payment-status" class="pdv-flow-step-copy">Pagamento ainda nao confirmado.</p>
+                    </div>
+                    <button type="button" id="pdv-open-payment-modal"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 font-semibold px-4 py-3 transition hover:bg-sky-500/20">
+                        <i data-lucide="wallet" class="w-4 h-4"></i>
+                        Abrir pagamento
+                    </button>
                 </div>
-                <div class="pdv-summary-row total">
-                    <span>Total da venda</span>
-                    <strong id="pdv-total-geral">R$ 0,00</strong>
-                </div>
+                {% endif %}
             </div>
 
+            {% if ui_flags.can_manage_sales %}
             <button type="button" id="pdv-finalizar-venda"
-                class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-4 transition shadow-lg shadow-emerald-500/20">
-                <i data-lucide="wallet" class="w-4 h-4"></i>
-                Finalizar venda
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-4 transition shadow-lg shadow-emerald-500/20 disabled:cursor-not-allowed disabled:bg-slate-800 disabled:text-slate-500 disabled:shadow-none"
+                disabled>
+                <i data-lucide="badge-check" class="w-4 h-4"></i>
+                3. Finalizar venda
             </button>
+            {% endif %}
         </aside>
     </section>
+</main>
 
-    <section class="pdv-panel mt-8">
-        <div class="pdv-panel-header">
+<div id="pdv-payments-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
             <div>
-                <h2 class="text-lg font-semibold text-white">Ultimas vendas</h2>
-                <p class="text-sm text-slate-400">Acompanhe o que entrou no caixa e cancele com rastreabilidade quando preciso.</p>
+                <h3 class="text-xl font-bold text-white">2. Pagamentos da venda</h3>
+                <p class="text-sm text-slate-400 mt-1">Confirme uma ou mais formas de recebimento sem tomar a area do carrinho.</p>
+            </div>
+            <button type="button" data-close-modal="pdv-payments-modal"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="px-6 py-6 space-y-5">
+            <div class="pdv-payment-summary-box">
+                <div class="pdv-payment-summary-row">
+                    <span>Total da venda</span>
+                    <strong id="pdv-payment-total-due">R$ 0,00</strong>
+                </div>
+                <div class="pdv-payment-summary-row">
+                    <span>Total informado</span>
+                    <strong id="pdv-payment-total-informed">R$ 0,00</strong>
+                </div>
+                <div class="pdv-payment-summary-row total">
+                    <span>Diferenca</span>
+                    <strong id="pdv-payment-total-diff">R$ 0,00</strong>
+                </div>
             </div>
 
-            <select id="pdv-status-venda"
-                class="w-full sm:w-48 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
-                <option value="">Todas</option>
-                <option value="FINALIZADA">Finalizadas</option>
-                <option value="CANCELADA">Canceladas</option>
-            </select>
+            <div class="flex items-center justify-between mb-2">
+                <label class="block text-sm font-medium text-slate-300">Pagamentos</label>
+                {% if ui_flags.can_manage_sales %}
+                <button type="button" id="pdv-add-payment"
+                    class="inline-flex items-center gap-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-sm font-medium px-3 py-2 transition hover:bg-sky-500/20">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    Adicionar
+                </button>
+                {% endif %}
+            </div>
+            <div id="pdv-payment-rows" class="space-y-3"></div>
         </div>
 
-        <div id="pdv-sales-table-wrap" class="overflow-x-auto">
-            <table class="w-full min-w-[960px]">
-                <thead class="bg-slate-950/70">
-                    <tr class="border-b border-slate-800">
-                        <th class="pdv-th">Venda</th>
-                        <th class="pdv-th">Data</th>
-                        <th class="pdv-th">Empresa</th>
-                        <th class="pdv-th">Itens</th>
-                        <th class="pdv-th">Pagamento</th>
-                        <th class="pdv-th text-right">Total</th>
-                        <th class="pdv-th text-center">Status</th>
-                        <th class="pdv-th text-center">Acoes</th>
-                    </tr>
-                </thead>
-                <tbody id="pdv-vendas-body" class="divide-y divide-slate-800">
-                    <tr>
-                        <td colspan="8" class="px-5 py-8 text-center text-slate-400">Carregando vendas...</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="px-6 pb-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+            <button type="button" data-close-modal="pdv-payments-modal"
+                class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                Voltar
+            </button>
+            <button type="button" id="pdv-confirm-payment-modal"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                <i data-lucide="wallet" class="w-4 h-4"></i>
+                Confirmar pagamento
+            </button>
         </div>
-    </section>
-</main>
+    </div>
+</div>
+
+{% if ui_flags.can_close_cashier %}
+<div id="pdv-closeout-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Fechamento de caixa</h3>
+                <p class="text-sm text-slate-400 mt-1">Registre o saldo contado ao final do turno direto no PDV.</p>
+            </div>
+            <button type="button" data-close-modal="pdv-closeout-modal"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="pdv-closeout-form" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="pdv-closeout-empresa" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                    <select id="pdv-closeout-empresa" name="empresa_id" required
+                        data-theme-company-select
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+
+                <div>
+                    <label for="pdv-closeout-data" class="block text-sm font-medium text-slate-300 mb-2">Data do fechamento</label>
+                    <input id="pdv-closeout-data" name="data_fechamento" type="date"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="pdv-closeout-inicial" class="block text-sm font-medium text-slate-300 mb-2">Valor inicial</label>
+                    <input id="pdv-closeout-inicial" name="valor_inicial" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="pdv-closeout-final" class="block text-sm font-medium text-slate-300 mb-2">Valor final contado</label>
+                    <input id="pdv-closeout-final" name="valor_final" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label for="pdv-closeout-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observacao</label>
+                    <textarea id="pdv-closeout-observacao" name="observacao" rows="3"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"></textarea>
+                </div>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="pdv-closeout-modal"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    Registrar fechamento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div id="pdv-sales-history-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-6xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Ultimas vendas</h3>
+                <p class="text-sm text-slate-400 mt-1">Historico do caixa com detalhe, cancelamento e comprovante.</p>
+            </div>
+            <button type="button" data-close-modal="pdv-sales-history-modal"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="px-6 py-5">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                <div>
+                    <h4 class="text-lg font-semibold text-white">Historico recente</h4>
+                    <p class="text-sm text-slate-400">Filtre por status para encontrar cancelamentos ou vendas concluidas.</p>
+                </div>
+
+                <select id="pdv-status-venda"
+                    class="w-full sm:w-48 bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-sm text-white outline-none transition">
+                    <option value="">Todas</option>
+                    <option value="FINALIZADA">Finalizadas</option>
+                    <option value="CANCELADA">Canceladas</option>
+                </select>
+            </div>
+
+            <div id="pdv-sales-table-wrap" class="overflow-x-auto">
+                <table class="w-full min-w-[960px]">
+                    <thead class="bg-slate-950/70">
+                        <tr class="border-b border-slate-800">
+                            <th class="pdv-th">Venda</th>
+                            <th class="pdv-th">Data</th>
+                            <th class="pdv-th">Empresa</th>
+                            <th class="pdv-th">Itens</th>
+                            <th class="pdv-th">Pagamento</th>
+                            <th class="pdv-th text-right">Total</th>
+                            <th class="pdv-th text-center">Status</th>
+                            <th class="pdv-th text-center">Acoes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pdv-vendas-body" class="divide-y divide-slate-800">
+                        <tr>
+                            <td colspan="8" class="px-5 py-8 text-center text-slate-400">Carregando vendas...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="pdv-vendas-pagination"></div>
+        </div>
+    </div>
+</div>
 
 <div id="pdv-sale-modal"
     class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
