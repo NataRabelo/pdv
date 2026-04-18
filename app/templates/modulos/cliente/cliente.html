@@ -20,7 +20,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
                 <h1 class="text-3xl font-bold tracking-tight text-white">Clientes e cashback</h1>
-                <p class="text-slate-400 mt-2">Cadastre clientes, acompanhe a carteira e configure a comunicacao por empresa.</p>
+                <p class="text-slate-400 mt-2">Cadastre clientes, acompanhe a carteira e mantenha as regras de relacionamento por empresa.</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
@@ -251,7 +251,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
             <div>
                 <h3 class="text-xl font-bold text-white">Configuracoes por empresa</h3>
-                <p class="text-sm text-slate-400 mt-1">Cashback, janela de cancelamento e servidores de comunicacao.</p>
+                <p class="text-sm text-slate-400 mt-1">Cashback, janela de cancelamento e canais de relacionamento do cliente.</p>
             </div>
             <button type="button" data-close-modal="cliente-modal-configuracoes" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
                 <i data-lucide="x" class="w-5 h-5"></i>
@@ -305,29 +305,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     </section>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    <section class="cliente-config-card">
-                        <h4 class="cliente-config-title">Email SMTP</h4>
-                        <div class="space-y-4">
-                            <label class="cliente-checkline"><input id="config-email-habilitado" type="checkbox"> <span>Habilitar email</span></label>
-                            <input id="config-email-remetente-nome" type="text" placeholder="Nome do remetente" class="cliente-input">
-                            <input id="config-email-remetente" type="email" placeholder="email@empresa.com" class="cliente-input">
-                            <input id="config-smtp-host" type="text" placeholder="smtp.seuprovedor.com" class="cliente-input">
-                            <div class="grid grid-cols-2 gap-4">
-                                <input id="config-smtp-port" type="number" min="1" placeholder="587" class="cliente-input">
-                                <input id="config-smtp-usuario" type="text" placeholder="Usuario SMTP" class="cliente-input">
-                            </div>
-                            <input id="config-smtp-senha" type="password" placeholder="Senha SMTP" class="cliente-input">
-                            <p id="config-smtp-senha-status" class="text-xs text-slate-500">
-                                Se estiver usando Gmail, utilize senha de app. Se ela vier com espacos, o sistema normaliza automaticamente.
-                            </p>
-                            <div class="flex flex-wrap gap-4">
-                                <label class="cliente-checkline"><input id="config-smtp-tls" type="checkbox"> <span>Usar TLS</span></label>
-                                <label class="cliente-checkline"><input id="config-smtp-ssl" type="checkbox"> <span>Usar SSL</span></label>
-                            </div>
-                        </div>
-                    </section>
-
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <section class="cliente-config-card">
                         <h4 class="cliente-config-title">WhatsApp</h4>
                         <div class="space-y-4">
@@ -352,6 +330,26 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         </div>
                     </section>
                 </div>
+
+                <section class="cliente-config-card">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                        <div>
+                            <h4 class="cliente-config-title mb-2">Email operacional</h4>
+                            <p class="text-sm text-slate-400">
+                                As credenciais SMTP e o ajuste do email automatico agora ficam em
+                                <span class="text-sky-300">Estoque &gt; Alertas &gt; Email operacional</span>.
+                                Os envios de clientes continuam usando essa mesma configuracao da empresa.
+                            </p>
+                        </div>
+                        {% if ui_flags.can_view_notifications %}
+                        <a href="{{ url_for('estoque.pagina_alertas') }}"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20 text-sky-100 font-medium px-4 py-3 transition">
+                            <i data-lucide="shield-alert" class="w-4 h-4"></i>
+                            Abrir alertas
+                        </a>
+                        {% endif %}
+                    </div>
+                </section>
 
                 <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                     <button type="button" data-close-modal="cliente-modal-configuracoes" class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">

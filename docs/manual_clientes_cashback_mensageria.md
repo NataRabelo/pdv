@@ -66,7 +66,6 @@ Cada empresa tem sua propria configuracao operacional para:
 - limite de horas para cancelamento de venda completa
 - limite de horas para cancelamento de item da venda
 - limite de horas para cancelamento de movimentacao de estoque
-- envio por email
 - envio por WhatsApp
 - envio por SMS
 - timeout das integracoes externas
@@ -160,6 +159,12 @@ Esse fluxo vale para:
 
 ## 8. Configuracao de email SMTP
 
+As credenciais de email deixaram de ficar no modal de configuracoes de `Clientes`.
+
+Agora o caminho recomendado e:
+
+`Estoque > Alertas > Email operacional`
+
 Preencha os campos da empresa com os dados do servidor de email:
 
 - `Habilitar email`
@@ -171,6 +176,12 @@ Preencha os campos da empresa com os dados do servidor de email:
 - `Senha SMTP`
 - `Usar TLS`
 - `Usar SSL`
+
+Esse cadastro e compartilhado por:
+
+- alerta de estoque por email
+- comprovante automatico da venda
+- comunicacao por email com clientes
 
 ### Regras
 

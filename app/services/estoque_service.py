@@ -1,16 +1,23 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
-from app.models.db import ConfiguracaoNotificacaoEstoque
+from flask import current_app, render_template
+
+from app.models.db import CanalMensagemCliente, ConfiguracaoNotificacaoEstoque
 from app.models.db import MotivoMovimentoEstoque, MovimentoEstoque, TipoMovimentoEstoque
 from app.repositorys.estoque_repository import EstoqueRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.cliente_service import ClienteService
+from app.services.comunicacao_service import ComunicacaoService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
 from app.services.time_service import TimeService
 
 
 class EstoqueService:
+    ALERTA_EMAIL_COOLDOWN_HOURS = 12
+    STATUS_ALERTA_ESTOQUE_BAIXO = "ESTOQUE_BAIXO"
+    STATUS_ALERTA_SEM_ESTOQUE = "SEM_ESTOQUE"
+
     MOTIVOS_MANUAIS = {
         TipoMovimentoEstoque.ENTRADA: (
             MotivoMovimentoEstoque.COMPRA,
@@ -286,6 +293,185 @@ class EstoqueService:
         }
 
     @staticmethod
+    def processar_alertas_por_produtos(tenant_id, empresa_id, produto_ids):
+        ids_unicos = []
+        for produto_id in produto_ids or []:
+            produto_id_int = EstoqueService._to_optional_int(produto_id, "Produto")
+            if produto_id_int and produto_id_int not in ids_unicos:
+                ids_unicos.append(produto_id_int)
+
+        if not ids_unicos:
+            return {"itens_processados": 0, "emails_enviados": 0}
+
+        configuracao_alerta = EstoqueService._obter_ou_criar_configuracao(tenant_id)
+        houve_alteracao = False
+        emails_enviados = 0
+
+        try:
+            for produto_id in ids_unicos:
+                produto_empresa = EstoqueRepository.buscar_produto_empresa(produto_id, empresa_id, tenant_id)
+                if not produto_empresa or not produto_empresa.ativo:
+                    continue
+
+                alterado, email_enviado = EstoqueService._processar_alerta_email_produto(
+                    tenant_id=tenant_id,
+                    configuracao_alerta=configuracao_alerta,
+                    produto_empresa=produto_empresa,
+                )
+                houve_alteracao = houve_alteracao or alterado
+                emails_enviados += int(bool(email_enviado))
+
+            if houve_alteracao:
+                EstoqueRepository.salvar()
+        except Exception as exc:
+            EstoqueRepository.rollback()
+            current_app.logger.warning("Falha ao processar alerta de estoque por email: %s", exc)
+
+        return {
+            "itens_processados": len(ids_unicos),
+            "emails_enviados": emails_enviados,
+        }
+
+    @staticmethod
+    def _processar_alerta_email_produto(tenant_id, configuracao_alerta, produto_empresa):
+        status_alerta = EstoqueService._determinar_status_alerta_email(produto_empresa, configuracao_alerta)
+        agora = TimeService.now_utc_naive()
+
+        if status_alerta is None:
+            if produto_empresa.ultimo_alerta_estoque_status or produto_empresa.ultimo_alerta_estoque_em:
+                produto_empresa.ultimo_alerta_estoque_status = None
+                produto_empresa.ultimo_alerta_estoque_em = None
+                EstoqueRepository.adicionar(produto_empresa)
+                return True, False
+            return False, False
+
+        if not configuracao_alerta.email_habilitado:
+            return False, False
+
+        destinatarios = EstoqueService._listar_destinatarios(configuracao_alerta.email_destinatarios)
+        if not destinatarios:
+            return False, False
+
+        if not EstoqueService._pode_disparar_alerta_email(produto_empresa, status_alerta, agora):
+            return False, False
+
+        configuracao_email = ClienteService.obter_modelo_configuracao_empresa(produto_empresa.empresa_id, tenant_id)
+        if not EstoqueService._configuracao_email_operacional_valida(configuracao_email):
+            return False, False
+
+        assunto, conteudo, html_conteudo = EstoqueService._montar_email_alerta_estoque(
+            produto_empresa,
+            status_alerta,
+            agora,
+        )
+        houve_envio = False
+
+        for destinatario in destinatarios:
+            try:
+                ComunicacaoService.enviar(
+                    configuracao=configuracao_email,
+                    canal=CanalMensagemCliente.EMAIL,
+                    destinatario=destinatario,
+                    assunto=assunto,
+                    conteudo=conteudo,
+                    cliente=None,
+                    html_conteudo=html_conteudo,
+                )
+                houve_envio = True
+            except Exception as exc:
+                current_app.logger.warning(
+                    "Falha ao enviar alerta de estoque para %s (%s / empresa %s): %s",
+                    destinatario,
+                    getattr(produto_empresa.produto, "nome", produto_empresa.produto_id),
+                    produto_empresa.empresa_id,
+                    exc,
+                )
+
+        if not houve_envio:
+            return False, False
+
+        produto_empresa.ultimo_alerta_estoque_status = status_alerta
+        produto_empresa.ultimo_alerta_estoque_em = agora
+        EstoqueRepository.adicionar(produto_empresa)
+        return True, True
+
+    @staticmethod
+    def _determinar_status_alerta_email(produto_empresa, configuracao_alerta):
+        estoque_atual = int(produto_empresa.estoque_atual or 0)
+        estoque_minimo = int(produto_empresa.estoque_minimo or 0)
+
+        if configuracao_alerta.alertar_sem_estoque and estoque_atual <= 0:
+            return EstoqueService.STATUS_ALERTA_SEM_ESTOQUE
+
+        if configuracao_alerta.alertar_estoque_baixo and estoque_atual <= estoque_minimo:
+            return EstoqueService.STATUS_ALERTA_ESTOQUE_BAIXO
+
+        return None
+
+    @staticmethod
+    def _pode_disparar_alerta_email(produto_empresa, status_alerta, agora):
+        ultimo_status = (produto_empresa.ultimo_alerta_estoque_status or "").strip().upper() or None
+        ultimo_alerta_em = getattr(produto_empresa, "ultimo_alerta_estoque_em", None)
+
+        if ultimo_status != status_alerta:
+            return True
+
+        if not ultimo_alerta_em:
+            return True
+
+        return agora >= (ultimo_alerta_em + timedelta(hours=EstoqueService.ALERTA_EMAIL_COOLDOWN_HOURS))
+
+    @staticmethod
+    def _listar_destinatarios(value):
+        linhas = [parte.strip() for parte in str(value or "").replace(";", "\n").replace(",", "\n").splitlines()]
+        return [parte for parte in linhas if parte]
+
+    @staticmethod
+    def _configuracao_email_operacional_valida(configuracao):
+        return bool(
+            getattr(configuracao, "email_habilitado", False)
+            and (getattr(configuracao, "email_remetente", None) or "").strip()
+            and (getattr(configuracao, "smtp_host", None) or "").strip()
+        )
+
+    @staticmethod
+    def _montar_email_alerta_estoque(produto_empresa, status_alerta, data_referencia):
+        produto_nome = produto_empresa.produto.nome if getattr(produto_empresa, "produto", None) else f"Produto #{produto_empresa.produto_id}"
+        empresa_nome = produto_empresa.empresa.nome_fantasia if getattr(produto_empresa, "empresa", None) else f"Empresa #{produto_empresa.empresa_id}"
+        status_legivel = "sem estoque" if status_alerta == EstoqueService.STATUS_ALERTA_SEM_ESTOQUE else "abaixo do minimo"
+
+        assunto = f"Alerta de estoque: {produto_nome} {status_legivel} - {empresa_nome}"
+        conteudo = "\n".join([
+            "Ola,",
+            "",
+            "O sistema OceanBlue identificou um alerta operacional de estoque.",
+            "",
+            f"Empresa: {empresa_nome}",
+            f"Produto: {produto_nome}",
+            f"Status: {status_legivel}",
+            f"Estoque atual: {int(produto_empresa.estoque_atual or 0)}",
+            f"Estoque minimo: {int(produto_empresa.estoque_minimo or 0)}",
+            f"Gerado em: {TimeService.format_br(data_referencia)}",
+        ]).strip()
+
+        html_conteudo = render_template(
+            "emails/alerta_estoque.html",
+            preheader=f"{produto_nome} esta {status_legivel}.",
+            badge="Alerta operacional",
+            email_title="Estoque requer atencao",
+            email_subtitle=f"{empresa_nome} recebeu um alerta automatico de reposicao no OceanBlue.",
+            footer_note=f"Alerta operacional emitido automaticamente para {empresa_nome}.",
+            produto_nome=produto_nome,
+            empresa_nome=empresa_nome,
+            status_alerta=status_legivel,
+            estoque_atual=int(produto_empresa.estoque_atual or 0),
+            estoque_minimo=int(produto_empresa.estoque_minimo or 0),
+            codigo_barras=(getattr(getattr(produto_empresa, "produto", None), "codigo_barras", None) or "").strip() or None,
+            data_alerta=TimeService.format_br(data_referencia),
+        )
+        return assunto, conteudo, html_conteudo
+
+    @staticmethod
     def registrar_movimentacao_manual(data, tenant_id, escopo, funcionario_id):
         empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
         produto_empresa_id = EstoqueService._to_int(data.get("produto_empresa_id"), "Produto")
@@ -318,6 +504,11 @@ class EstoqueService:
                 observacao=observacao,
             )
             EstoqueRepository.salvar()
+            EstoqueService.processar_alertas_por_produtos(
+                tenant_id=tenant_id,
+                empresa_id=produto_empresa.empresa_id,
+                produto_ids=[produto_empresa.produto_id],
+            )
             return movimento
         except Exception:
             EstoqueRepository.rollback()
@@ -474,6 +665,11 @@ class EstoqueService:
 
             if persistir:
                 EstoqueRepository.salvar()
+                EstoqueService.processar_alertas_por_produtos(
+                    tenant_id=tenant_id,
+                    empresa_id=empresa_id,
+                    produto_ids=[produto_id],
+                )
 
             return movimento
         except Exception:
@@ -533,6 +729,11 @@ class EstoqueService:
                 movimento_origem_id=movimento.id,
             )
             EstoqueRepository.salvar()
+            EstoqueService.processar_alertas_por_produtos(
+                tenant_id=tenant_id,
+                empresa_id=movimento.empresa_id,
+                produto_ids=[movimento.produto_id],
+            )
             return reversao
         except Exception:
             EstoqueRepository.rollback()

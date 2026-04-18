@@ -1,0 +1,47 @@
+{% if current_auth_scope != "platform" and tenant_navigation_groups %}
+{% set current_path = request.path %}
+<aside id="tenantSidebar" class="tenant-sidebar">
+    <div class="tenant-sidebar__brand">
+        <div class="tenant-sidebar__brand-mark">
+            <i data-lucide="waves" class="w-5 h-5"></i>
+        </div>
+        <div class="tenant-sidebar__brand-copy">
+            <strong>OceanBlue</strong>
+            <span>Operacao do tenant</span>
+        </div>
+    </div>
+
+    <nav class="tenant-sidebar__nav" aria-label="Navegacao principal">
+        {% for group in tenant_navigation_groups %}
+        <section class="tenant-sidebar__group">
+            <p class="tenant-sidebar__group-label">{{ group["label"] }}</p>
+
+            <div class="tenant-sidebar__links">
+                {% for item in group["items"] %}
+                {% set item_href = url_for(item.endpoint) if item.endpoint is defined else item.href %}
+                {% set nav_state = namespace(active=false) %}
+                {% for prefix in item.active_prefixes or [] %}
+                    {% if current_path.startswith(prefix) %}
+                        {% set nav_state.active = true %}
+                    {% endif %}
+                {% endfor %}
+                {% if current_path == item_href %}
+                    {% set nav_state.active = true %}
+                {% endif %}
+
+                <a href="{{ item_href }}"
+                    class="tenant-sidebar__link {{ 'tenant-sidebar__link--active' if nav_state.active else '' }}"
+                    title="{{ item.label }}"
+                    aria-current="{{ 'page' if nav_state.active else 'false' }}">
+                    <span class="tenant-sidebar__link-icon">
+                        <i data-lucide="{{ item.icon }}" class="w-4 h-4"></i>
+                    </span>
+                    <span class="tenant-sidebar__link-label">{{ item.label }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </section>
+        {% endfor %}
+    </nav>
+</aside>
+{% endif %}

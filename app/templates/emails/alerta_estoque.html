@@ -1,0 +1,112 @@
+{% extends "emails/base_oceanblue.html" %}
+
+{% block content %}
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="50%" style="padding:0 8px 16px 0; vertical-align:top;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#082f49; border:1px solid #0c4a6e; border-radius:20px;">
+                        <tr>
+                            <td style="padding:18px 18px 16px 18px;">
+                                <div style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#bae6fd; margin-bottom:8px;">Estoque atual</div>
+                                <div style="font-size:24px; line-height:28px; font-weight:700; color:#f0f9ff;">{{ estoque_atual }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td width="50%" style="padding:0 0 16px 8px; vertical-align:top;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#3f1d1d; border:1px solid #7f1d1d; border-radius:20px;">
+                        <tr>
+                            <td style="padding:18px 18px 16px 18px;">
+                                <div style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#fecaca; margin-bottom:8px;">Minimo configurado</div>
+                                <div style="font-size:24px; line-height:28px; font-weight:700; color:#fff1f2;">{{ estoque_minimo }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:22px;">
+            <tr>
+                <td style="padding:24px;">
+                    <div style="font-size:16px; line-height:24px; color:#cbd5e1; margin-bottom:12px;">
+                        O sistema identificou um ponto de atencao para reposicao imediata.
+                    </div>
+                    <div style="font-size:15px; line-height:24px; color:#94a3b8;">
+                        Produto <strong style="color:#f8fafc;">{{ produto_nome }}</strong> na empresa
+                        <strong style="color:#f8fafc;">{{ empresa_nome }}</strong> esta <strong style="color:#f8fafc;">{{ status_alerta }}</strong>.
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:22px;">
+            <tr>
+                <td style="padding:22px 24px 10px 24px;">
+                    <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#7dd3fc; font-weight:700;">Resumo do alerta</div>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                            <td style="font-size:14px; line-height:22px; color:#94a3b8;">Produto</td>
+                            <td align="right" style="font-size:14px; line-height:22px; color:#f8fafc; font-weight:700;">{{ produto_nome }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                            <td style="font-size:14px; line-height:22px; color:#94a3b8;">Empresa</td>
+                            <td align="right" style="font-size:14px; line-height:22px; color:#f8fafc; font-weight:700;">{{ empresa_nome }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                            <td style="font-size:14px; line-height:22px; color:#94a3b8;">Status</td>
+                            <td align="right" style="font-size:14px; line-height:22px; color:#f8fafc; font-weight:700;">{{ status_alerta }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                            <td style="font-size:14px; line-height:22px; color:#94a3b8;">Codigo de barras</td>
+                            <td align="right" style="font-size:14px; line-height:22px; color:#f8fafc; font-weight:700;">{{ codigo_barras or "-" }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                            <td style="font-size:14px; line-height:22px; color:#94a3b8;">Gerado em</td>
+                            <td align="right" style="font-size:14px; line-height:22px; color:#f8fafc; font-weight:700;">{{ data_alerta }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+{% endblock %}

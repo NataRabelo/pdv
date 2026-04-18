@@ -489,15 +489,6 @@ function preencherFormularioConfiguracaoCliente(configuracao) {
     setClienteValue("config-cancelamento-venda", configuracao.cancelamento_venda_limite_horas ?? 24);
     setClienteValue("config-cancelamento-item", configuracao.cancelamento_item_limite_horas ?? 24);
     setClienteValue("config-cancelamento-movimento", configuracao.cancelamento_movimento_limite_horas ?? 24);
-    setClienteChecked("config-email-habilitado", configuracao.email_habilitado);
-    setClienteValue("config-email-remetente", configuracao.email_remetente || "");
-    setClienteValue("config-email-remetente-nome", configuracao.email_remetente_nome || "");
-    setClienteValue("config-smtp-host", configuracao.smtp_host || "");
-    setClienteValue("config-smtp-port", configuracao.smtp_port ?? 587);
-    setClienteValue("config-smtp-usuario", configuracao.smtp_usuario || "");
-    setClienteValue("config-smtp-senha", "");
-    setClienteChecked("config-smtp-tls", configuracao.smtp_tls ?? true);
-    setClienteChecked("config-smtp-ssl", configuracao.smtp_ssl);
     setClienteChecked("config-whatsapp-habilitado", configuracao.whatsapp_habilitado);
     setClienteValue("config-whatsapp-api-url", configuracao.whatsapp_api_url || "");
     setClienteValue("config-whatsapp-token", "");
@@ -508,20 +499,8 @@ function preencherFormularioConfiguracaoCliente(configuracao) {
     setClienteValue("config-sms-remetente", configuracao.sms_remetente || "");
     setClienteValue("config-timeout", configuracao.request_timeout_segundos ?? 15);
 
-    const smtpSenha = document.getElementById("config-smtp-senha");
-    const smtpSenhaStatus = document.getElementById("config-smtp-senha-status");
     const whatsappToken = document.getElementById("config-whatsapp-token");
     const smsToken = document.getElementById("config-sms-token");
-    if (smtpSenha) {
-        smtpSenha.placeholder = configuracao.smtp_senha_configurada
-            ? "Senha SMTP cadastrada. Preencha somente para alterar"
-            : "Senha SMTP";
-    }
-    if (smtpSenhaStatus) {
-        smtpSenhaStatus.textContent = configuracao.smtp_senha_configurada
-            ? "Senha SMTP salva com sucesso. Preencha o campo somente se quiser trocar a credencial."
-            : "Se estiver usando Gmail, utilize senha de app. Se ela vier com espacos, o sistema normaliza automaticamente.";
-    }
     if (whatsappToken) {
         whatsappToken.placeholder = configuracao.whatsapp_token_configurado
             ? "Token ja cadastrado. Preencha somente para alterar"
@@ -543,14 +522,6 @@ function coletarPayloadConfiguracaoCliente() {
         cancelamento_venda_limite_horas: document.getElementById("config-cancelamento-venda")?.value || "24",
         cancelamento_item_limite_horas: document.getElementById("config-cancelamento-item")?.value || "24",
         cancelamento_movimento_limite_horas: document.getElementById("config-cancelamento-movimento")?.value || "24",
-        email_habilitado: document.getElementById("config-email-habilitado")?.checked,
-        email_remetente: (document.getElementById("config-email-remetente")?.value || "").trim(),
-        email_remetente_nome: (document.getElementById("config-email-remetente-nome")?.value || "").trim(),
-        smtp_host: (document.getElementById("config-smtp-host")?.value || "").trim(),
-        smtp_port: document.getElementById("config-smtp-port")?.value || "587",
-        smtp_usuario: (document.getElementById("config-smtp-usuario")?.value || "").trim(),
-        smtp_tls: document.getElementById("config-smtp-tls")?.checked,
-        smtp_ssl: document.getElementById("config-smtp-ssl")?.checked,
         whatsapp_habilitado: document.getElementById("config-whatsapp-habilitado")?.checked,
         whatsapp_api_url: (document.getElementById("config-whatsapp-api-url")?.value || "").trim(),
         whatsapp_remetente: (document.getElementById("config-whatsapp-remetente")?.value || "").trim(),
@@ -560,11 +531,9 @@ function coletarPayloadConfiguracaoCliente() {
         request_timeout_segundos: document.getElementById("config-timeout")?.value || "15"
     };
 
-    const smtpSenha = (document.getElementById("config-smtp-senha")?.value || "").trim();
     const whatsappToken = (document.getElementById("config-whatsapp-token")?.value || "").trim();
     const smsToken = (document.getElementById("config-sms-token")?.value || "").trim();
 
-    if (smtpSenha) payload.smtp_senha = smtpSenha;
     if (whatsappToken) payload.whatsapp_token = whatsappToken;
     if (smsToken) payload.sms_token = smsToken;
 

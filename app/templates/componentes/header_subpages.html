@@ -3,18 +3,33 @@
 {% set display_scope = "Dono da Plataforma" if current_auth_scope == "platform" else ((current_user.role.nome) if current_user and current_user.role else "Usuario do Tenant") %}
 {% set display_initials = (display_name[:2]).upper() %}
 
-<header class="p-4 flex justify-between items-center border-b border-white/5 bg-black/10 backdrop-blur-md sticky top-0 z-50">
-    <div class="flex items-center gap-4">
-        <button type="button" data-back-button class="p-2 hover:bg-white/10 rounded-lg transition-all text-slate-400 hover:text-white group" title="Voltar">
-            <i data-lucide="arrow-left" class="w-5 h-5 group-hover:-translate-x-1 transition-transform"></i>
+{% if current_auth_scope != "platform" %}
+{% include "componentes/tenant_sidebar.html" %}
+{% endif %}
+
+<header class="tenant-topbar p-4 md:px-6 md:py-5 flex justify-between items-center border-b border-white/5 bg-black/10 backdrop-blur-md sticky top-0 z-50">
+    <div class="flex items-center gap-3 min-w-0">
+        {% if current_auth_scope != "platform" %}
+        <button type="button"
+            data-sidebar-toggle
+            class="tenant-topbar__toggle"
+            aria-label="Alternar menu lateral">
+            <i data-lucide="panel-left-close" class="w-5 h-5 sidebar-toggle-expanded"></i>
+            <i data-lucide="panel-left-open" class="w-5 h-5 sidebar-toggle-collapsed hidden"></i>
+        </button>
+        {% endif %}
+
+        <button type="button" data-back-button class="tenant-topbar__back" title="Voltar">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i>
         </button>
 
-        <div class="h-6 w-[1px] bg-white/10"></div>
-
-        <h1 class="text-lg font-semibold flex items-center gap-2 text-white">
-            <i data-lucide="package" class="w-5 h-5 text-sky-400"></i>
-            <span class="tracking-tight">{{ modulo_name }}</span>
-        </h1>
+        <div class="min-w-0">
+            <p class="tenant-topbar__eyebrow">Modulo ativo</p>
+            <h1 class="tenant-topbar__title flex items-center gap-2">
+                <i data-lucide="package" class="w-5 h-5 text-sky-400 shrink-0"></i>
+                <span class="tracking-tight truncate">{{ modulo_name }}</span>
+            </h1>
+        </div>
     </div>
 
     <div class="relative inline-block text-left">
@@ -44,16 +59,26 @@
                 <i data-lucide="building-2" class="w-4 h-4"></i> Painel da Plataforma
             </a>
             {% else %}
-            {% for item in tenant_navigation_items %}
-            <a href="{{ url_for(item.endpoint) if item.endpoint is defined else item.href }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="{{ item.icon }}" class="w-4 h-4"></i> {{ item.label }}
+            <a href="{{ url_for('main.home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i> Home operacional
             </a>
-            {% endfor %}
 
             <div class="h-[1px] bg-white/5 my-2"></div>
 
-            <a href="{{ url_for('platform.home') if current_auth_scope == 'platform' else url_for('main.home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 transition-colors">
-                <i data-lucide="layout-grid" class="w-4 h-4"></i> Mudar de Modulo
+            {% if ui_flags.can_view_notifications %}
+            <a href="{{ url_for('estoque.pagina_alertas') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="shield-alert" class="w-4 h-4"></i> Alertas de estoque
+            </a>
+            {% endif %}
+
+            {% if ui_flags.can_manage_customer_settings and ui_flags.can_view_customers %}
+            <a href="/api/clientes/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Regras de clientes
+            </a>
+            {% endif %}
+
+            <a href="{{ url_for('main.home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-white/5 transition-colors">
+                <i data-lucide="panel-left" class="w-4 h-4"></i> Modulos na lateral
             </a>
             {% endif %}
 

@@ -704,6 +704,147 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
         self.assertEqual(MensagemCliente.query.count(), 1)
         self.assertEqual(mocked.call_count, 1)
 
+    def test_alerta_email_estoque_dispara_ao_atingir_minimo(self):
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "email_habilitado": True,
+                "email_remetente": "operacoes@example.com",
+                "email_remetente_nome": "Operacoes Loja",
+                "smtp_host": "smtp.gmail.com",
+                "smtp_port": "587",
+                "smtp_usuario": "operacoes@example.com",
+                "smtp_senha": "senha-app",
+                "smtp_tls": True,
+                "smtp_ssl": False,
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+        EstoqueService.atualizar_configuracao_alerta(
+            {
+                "popup_ao_entrar": True,
+                "alertar_estoque_baixo": True,
+                "alertar_sem_estoque": True,
+                "alertar_validade": True,
+                "dias_vencimento_alerta": "30",
+                "email_habilitado": True,
+                "email_destinatarios": "estoque@example.com",
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        produto_empresa = db.session.get(ProdutoEmpresa, self.produto_empresa.id)
+        produto_empresa.estoque_atual = 3
+        db.session.commit()
+
+        with patch("app.services.estoque_service.ComunicacaoService.enviar") as mocked:
+            mocked.return_value = {"resposta": "ok"}
+
+            EstoqueService.registrar_movimentacao_manual(
+                {
+                    "tipo_movimento": "SAIDA",
+                    "motivo": "AJUSTE",
+                    "empresa_id": self.empresa.id,
+                    "produto_empresa_id": self.produto_empresa.id,
+                    "quantidade": "1",
+                    "observacao": "Consumo interno",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+        produto_empresa = db.session.get(ProdutoEmpresa, self.produto_empresa.id)
+
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(mocked.call_args.kwargs["destinatario"], "estoque@example.com")
+        self.assertEqual(produto_empresa.estoque_atual, 2)
+        self.assertEqual(produto_empresa.ultimo_alerta_estoque_status, EstoqueService.STATUS_ALERTA_ESTOQUE_BAIXO)
+        self.assertIsNotNone(produto_empresa.ultimo_alerta_estoque_em)
+
+    def test_alerta_email_estoque_respeita_cooldown_e_reenvia_em_novo_status(self):
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "email_habilitado": True,
+                "email_remetente": "operacoes@example.com",
+                "email_remetente_nome": "Operacoes Loja",
+                "smtp_host": "smtp.gmail.com",
+                "smtp_port": "587",
+                "smtp_usuario": "operacoes@example.com",
+                "smtp_senha": "senha-app",
+                "smtp_tls": True,
+                "smtp_ssl": False,
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+        EstoqueService.atualizar_configuracao_alerta(
+            {
+                "popup_ao_entrar": True,
+                "alertar_estoque_baixo": True,
+                "alertar_sem_estoque": True,
+                "alertar_validade": True,
+                "dias_vencimento_alerta": "30",
+                "email_habilitado": True,
+                "email_destinatarios": "estoque@example.com",
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        produto_empresa = db.session.get(ProdutoEmpresa, self.produto_empresa.id)
+        produto_empresa.estoque_atual = 3
+        db.session.commit()
+
+        with patch("app.services.estoque_service.ComunicacaoService.enviar") as mocked:
+            mocked.return_value = {"resposta": "ok"}
+
+            EstoqueService.registrar_movimentacao_manual(
+                {
+                    "tipo_movimento": "SAIDA",
+                    "motivo": "AJUSTE",
+                    "empresa_id": self.empresa.id,
+                    "produto_empresa_id": self.produto_empresa.id,
+                    "quantidade": "1",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+            EstoqueService.registrar_movimentacao_manual(
+                {
+                    "tipo_movimento": "SAIDA",
+                    "motivo": "AJUSTE",
+                    "empresa_id": self.empresa.id,
+                    "produto_empresa_id": self.produto_empresa.id,
+                    "quantidade": "1",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+            EstoqueService.registrar_movimentacao_manual(
+                {
+                    "tipo_movimento": "SAIDA",
+                    "motivo": "AJUSTE",
+                    "empresa_id": self.empresa.id,
+                    "produto_empresa_id": self.produto_empresa.id,
+                    "quantidade": "1",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+        produto_empresa = db.session.get(ProdutoEmpresa, self.produto_empresa.id)
+
+        self.assertEqual(mocked.call_count, 2)
+        self.assertEqual(produto_empresa.estoque_atual, 0)
+        self.assertEqual(produto_empresa.ultimo_alerta_estoque_status, EstoqueService.STATUS_ALERTA_SEM_ESTOQUE)
+
     def test_cancelamento_parcial_de_item_reverte_estoque_e_ajusta_cashback(self):
         cliente = ClienteService.criar(
             {

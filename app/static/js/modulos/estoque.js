@@ -28,6 +28,10 @@ window.estoquePage = {
         vencidos: [],
         proximos_vencimento: []
     },
+    emailOperacional: {
+        empresaId: "",
+        configuracao: null
+    },
     filtroEmpresa: "",
     busca: "",
     movimentoSelecionadoId: null,
@@ -117,6 +121,7 @@ async function carregarAuxiliares() {
     estoquePage.auxiliares = result.data || estoquePage.auxiliares;
     popularFiltroEmpresas();
     popularEmpresasModal();
+    popularEmpresasEmailOperacional();
     atualizarMotivos();
     atualizarProdutosModal();
 }
@@ -224,6 +229,10 @@ function bindAlertPanels() {
     const alertCenterBtn = document.getElementById("btn-central-alertas");
     const alertConfigBtn = document.getElementById("btn-config-alertas");
     const alertConfigForm = document.getElementById("estoque-alert-settings-form");
+    const operationalEmailBtn = document.getElementById("btn-config-email-operacional");
+    const operationalEmailCompanySelect = document.getElementById("email-operacional-empresa");
+    const operationalEmailForm = document.getElementById("estoque-email-settings-form");
+    const operationalEmailTestForm = document.getElementById("estoque-email-test-form");
 
     if (alertCenterBtn) {
         alertCenterBtn.addEventListener("click", () => abrirModal("estoque-alert-center-modal"));
@@ -268,6 +277,91 @@ function bindAlertPanels() {
                 await carregarNotificacoes();
             } catch (error) {
                 showMessage(error.message || "Erro ao salvar configuracoes de alerta.", "error");
+            }
+        });
+    }
+
+    if (operationalEmailBtn) {
+        operationalEmailBtn.addEventListener("click", async () => {
+            try {
+                if (!estoquePage.auxiliares.empresas.length) {
+                    await carregarAuxiliares();
+                }
+
+                popularEmpresasEmailOperacional();
+                const empresaPadrao = estoquePage.emailOperacional.empresaId
+                    || estoquePage.filtroEmpresa
+                    || String(estoquePage.auxiliares.empresas[0]?.id || "");
+
+                if (operationalEmailCompanySelect && empresaPadrao) {
+                    operationalEmailCompanySelect.value = empresaPadrao;
+                }
+
+                await carregarConfiguracaoEmailOperacional(operationalEmailCompanySelect?.value || empresaPadrao);
+                abrirModal("estoque-email-settings-modal");
+            } catch (error) {
+                showMessage(error.message || "Erro ao carregar a configuracao de email operacional.", "error");
+            }
+        });
+    }
+
+    if (operationalEmailCompanySelect) {
+        operationalEmailCompanySelect.addEventListener("change", async () => {
+            try {
+                await carregarConfiguracaoEmailOperacional(operationalEmailCompanySelect.value || "");
+            } catch (error) {
+                showMessage(error.message || "Erro ao carregar o email da empresa selecionada.", "error");
+            }
+        });
+    }
+
+    if (operationalEmailForm) {
+        operationalEmailForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const empresaId = document.getElementById("email-operacional-empresa")?.value || "";
+
+            try {
+                const result = await requestJson(`/api/clientes/configuracoes/${empresaId}`, {
+                    method: "PUT",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify(coletarPayloadEmailOperacional())
+                });
+
+                estoquePage.emailOperacional = {
+                    empresaId,
+                    configuracao: result.data || null
+                };
+                preencherFormularioEmailOperacional(result.data || {});
+                showMessage(result.message || "Email operacional salvo com sucesso.", "success");
+            } catch (error) {
+                showMessage(error.message || "Erro ao salvar o email operacional.", "error");
+            }
+        });
+    }
+
+    if (operationalEmailTestForm) {
+        operationalEmailTestForm.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const empresaId = document.getElementById("email-operacional-empresa")?.value || "";
+
+            try {
+                const payload = {
+                    canal: "EMAIL",
+                    destinatario: (document.getElementById("email-operacional-teste-destinatario")?.value || "").trim(),
+                    assunto: (document.getElementById("email-operacional-teste-assunto")?.value || "").trim(),
+                    conteudo: (document.getElementById("email-operacional-teste-conteudo")?.value || "").trim(),
+                    configuracao: coletarPayloadEmailOperacional(),
+                };
+
+                const result = await requestJson(`/api/clientes/configuracoes/${empresaId}/testar`, {
+                    method: "POST",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify(payload)
+                });
+
+                showMessage(result.message || "Teste de email executado com sucesso.", "success");
+            } catch (error) {
+                showMessage(error.message || "Erro ao testar o email operacional.", "error");
             }
         });
     }
@@ -406,6 +500,102 @@ function popularEmpresasModal() {
         }
         select.appendChild(option);
     });
+}
+
+function popularEmpresasEmailOperacional() {
+    const select = document.getElementById("email-operacional-empresa");
+    if (!select) return;
+
+    const empresaAtual = String(
+        select.value
+        || estoquePage.emailOperacional.empresaId
+        || estoquePage.filtroEmpresa
+        || estoquePage.auxiliares.empresas[0]?.id
+        || ""
+    );
+
+    select.innerHTML = (estoquePage.auxiliares.empresas || []).map((empresa) => `
+        <option value="${empresa.id}" ${String(empresa.id) === empresaAtual ? "selected" : ""}>
+            ${escapeHtml(empresa.nome || `Empresa #${empresa.id}`)}
+        </option>
+    `).join("");
+}
+
+async function carregarConfiguracaoEmailOperacional(empresaId) {
+    if (!empresaId) {
+        estoquePage.emailOperacional = { empresaId: "", configuracao: null };
+        preencherFormularioEmailOperacional({});
+        return;
+    }
+
+    const result = await requestJson(`/api/clientes/configuracoes/${empresaId}`, { method: "GET" });
+    estoquePage.emailOperacional = {
+        empresaId: String(empresaId),
+        configuracao: result.data || null
+    };
+    preencherFormularioEmailOperacional(result.data || {});
+    preencherTesteEmailOperacional(result.data || {});
+}
+
+function preencherFormularioEmailOperacional(configuracao) {
+    setChecked("email-operacional-habilitado", configuracao.email_habilitado);
+    setValue("email-operacional-remetente-nome", configuracao.email_remetente_nome || "");
+    setValue("email-operacional-remetente", configuracao.email_remetente || "");
+    setValue("email-operacional-smtp-host", configuracao.smtp_host || "");
+    setValue("email-operacional-smtp-port", configuracao.smtp_port ?? 587);
+    setValue("email-operacional-smtp-usuario", configuracao.smtp_usuario || "");
+    setValue("email-operacional-smtp-senha", "");
+    setChecked("email-operacional-smtp-tls", configuracao.smtp_tls ?? true);
+    setChecked("email-operacional-smtp-ssl", configuracao.smtp_ssl);
+
+    const senhaInput = document.getElementById("email-operacional-smtp-senha");
+    const senhaStatus = document.getElementById("email-operacional-smtp-senha-status");
+    if (senhaInput) {
+        senhaInput.placeholder = configuracao.smtp_senha_configurada
+            ? "Senha SMTP cadastrada. Preencha somente para alterar"
+            : "Senha SMTP";
+    }
+    if (senhaStatus) {
+        senhaStatus.textContent = configuracao.smtp_senha_configurada
+            ? "Senha SMTP salva com sucesso. Preencha o campo somente se quiser trocar a credencial."
+            : "Se estiver usando Gmail, utilize senha de app. O sistema normaliza automaticamente quando ela vier com espacos.";
+    }
+}
+
+function preencherTesteEmailOperacional(configuracao) {
+    const remetente = configuracao.email_remetente || "";
+    if (!document.getElementById("email-operacional-teste-destinatario")?.value) {
+        setValue("email-operacional-teste-destinatario", remetente);
+    }
+    if (!document.getElementById("email-operacional-teste-assunto")?.value) {
+        setValue("email-operacional-teste-assunto", "Teste de email operacional");
+    }
+    if (!document.getElementById("email-operacional-teste-conteudo")?.value) {
+        setValue(
+            "email-operacional-teste-conteudo",
+            "Mensagem de teste enviada pelo modulo operacional de estoque."
+        );
+    }
+}
+
+function coletarPayloadEmailOperacional() {
+    const payload = {
+        email_habilitado: document.getElementById("email-operacional-habilitado")?.checked,
+        email_remetente_nome: (document.getElementById("email-operacional-remetente-nome")?.value || "").trim(),
+        email_remetente: (document.getElementById("email-operacional-remetente")?.value || "").trim(),
+        smtp_host: (document.getElementById("email-operacional-smtp-host")?.value || "").trim(),
+        smtp_port: document.getElementById("email-operacional-smtp-port")?.value || "587",
+        smtp_usuario: (document.getElementById("email-operacional-smtp-usuario")?.value || "").trim(),
+        smtp_tls: document.getElementById("email-operacional-smtp-tls")?.checked,
+        smtp_ssl: document.getElementById("email-operacional-smtp-ssl")?.checked,
+    };
+
+    const smtpSenha = (document.getElementById("email-operacional-smtp-senha")?.value || "").trim();
+    if (smtpSenha) {
+        payload.smtp_senha = smtpSenha;
+    }
+
+    return payload;
 }
 
 function atualizarMotivos() {

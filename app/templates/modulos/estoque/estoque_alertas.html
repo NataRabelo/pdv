@@ -30,6 +30,14 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     <option value="">Todas as empresas</option>
                 </select>
 
+                {% if ui_flags.can_manage_customer_settings %}
+                <button type="button" id="btn-config-email-operacional"
+                    class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-100 font-semibold px-5 py-3 transition">
+                    <i data-lucide="mail-check" class="w-4 h-4"></i>
+                    Email operacional
+                </button>
+                {% endif %}
+
                 {% if ui_flags.can_manage_stock_alerts %}
                 <button type="button" id="btn-config-alertas"
                     class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
@@ -167,6 +175,147 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 </button>
             </div>
         </form>
+    </div>
+</div>
+{% endif %}
+
+{% if ui_flags.can_manage_customer_settings %}
+<div id="estoque-email-settings-modal"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Email operacional</h3>
+                <p class="text-sm text-slate-400 mt-1">Credenciais usadas nos alertas de estoque, no comprovante automatico de venda e nas comunicacoes por email.</p>
+            </div>
+            <button type="button" data-close-modal="estoque-email-settings-modal"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="px-6 py-6 space-y-6">
+            <form id="estoque-email-settings-form" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <section class="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-4">
+                        <div>
+                            <h4 class="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">Identidade</h4>
+                        </div>
+
+                        <div>
+                            <label for="email-operacional-empresa" class="block text-sm font-medium text-slate-300 mb-2">Empresa remetente</label>
+                            <select id="email-operacional-empresa"
+                                class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                        </div>
+
+                        <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3">
+                            <input id="email-operacional-habilitado" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500">
+                            <span class="text-sm text-slate-200">Habilitar disparo por email para esta empresa</span>
+                        </label>
+
+                        <div class="grid grid-cols-1 gap-4">
+                            <div>
+                                <label for="email-operacional-remetente-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome do remetente</label>
+                                <input id="email-operacional-remetente-nome" type="text" placeholder="OceanBlue Operacional"
+                                    class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                            </div>
+                            <div>
+                                <label for="email-operacional-remetente" class="block text-sm font-medium text-slate-300 mb-2">Email remetente</label>
+                                <input id="email-operacional-remetente" type="email" placeholder="operacoes@empresa.com"
+                                    class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="rounded-2xl border border-slate-800 bg-slate-950/60 p-5 space-y-4">
+                        <div>
+                            <h4 class="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">Servidor SMTP</h4>
+                        </div>
+
+                        <div>
+                            <label for="email-operacional-smtp-host" class="block text-sm font-medium text-slate-300 mb-2">Host SMTP</label>
+                            <input id="email-operacional-smtp-host" type="text" placeholder="smtp.seuprovedor.com"
+                                class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="email-operacional-smtp-port" class="block text-sm font-medium text-slate-300 mb-2">Porta</label>
+                                <input id="email-operacional-smtp-port" type="number" min="1" placeholder="587"
+                                    class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                            </div>
+                            <div>
+                                <label for="email-operacional-smtp-usuario" class="block text-sm font-medium text-slate-300 mb-2">Usuario SMTP</label>
+                                <input id="email-operacional-smtp-usuario" type="text" placeholder="operacoes@empresa.com"
+                                    class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="email-operacional-smtp-senha" class="block text-sm font-medium text-slate-300 mb-2">Senha SMTP</label>
+                            <input id="email-operacional-smtp-senha" type="password" placeholder="Senha SMTP"
+                                class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                            <p id="email-operacional-smtp-senha-status" class="text-xs text-slate-500 mt-2">
+                                Se estiver usando Gmail, utilize senha de app. O sistema normaliza automaticamente quando ela vier com espacos.
+                            </p>
+                        </div>
+
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3">
+                                <input id="email-operacional-smtp-tls" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500">
+                                <span class="text-sm text-slate-200">Usar TLS</span>
+                            </label>
+                            <label class="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3">
+                                <input id="email-operacional-smtp-ssl" type="checkbox" class="rounded border-slate-700 bg-slate-900 text-emerald-500 focus:ring-emerald-500">
+                                <span class="text-sm text-slate-200">Usar SSL</span>
+                            </label>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="rounded-2xl border border-slate-800 bg-slate-950/60 px-5 py-4 text-sm text-slate-400">
+                    Este canal e compartilhado com o comprovante automatico da venda e com as mensagens por email dos clientes.
+                </div>
+
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <button type="button" data-close-modal="estoque-email-settings-modal"
+                        class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                        Fechar
+                    </button>
+                    <button type="submit"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        Salvar email
+                    </button>
+                </div>
+            </form>
+
+            <section class="rounded-2xl border border-slate-800 bg-slate-950/60 p-5">
+                <div class="mb-4">
+                    <h4 class="text-sm font-semibold uppercase tracking-[0.14em] text-slate-400">Teste rapido</h4>
+                    <p class="text-sm text-slate-500 mt-2">Executa um teste usando os dados preenchidos no formulario acima, sem depender do modulo de clientes.</p>
+                </div>
+
+                <form id="estoque-email-test-form" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <input id="email-operacional-teste-destinatario" type="text" placeholder="destino@empresa.com"
+                            class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                        <input id="email-operacional-teste-assunto" type="text" placeholder="Teste de email operacional"
+                            class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                    </div>
+                    <textarea id="email-operacional-teste-conteudo" rows="3"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition resize-none"
+                        placeholder="Mensagem de teste enviada pelo modulo operacional de estoque."></textarea>
+                    <div class="flex justify-end">
+                        <button type="submit"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            Executar teste
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
     </div>
 </div>
 {% endif %}

@@ -3,14 +3,28 @@
 {% set display_scope = "Dono da Plataforma" if current_auth_scope == "platform" else ((current_user.role.nome) if current_user and current_user.role else "Usuario do Tenant") %}
 {% set display_initials = (display_name[:2]).upper() %}
 
-<header class="p-6 flex justify-between items-center border-b border-white/5 bg-black/10 backdrop-blur-md sticky top-0 z-50">
-    <div class="flex items-center gap-2">
-        <div class="w-8 h-8 bg-sky-500 rounded-lg flex items-center justify-center">
-            <i data-lucide="waves" class="text-white w-5 h-5"></i>
+{% if current_auth_scope != "platform" %}
+{% include "componentes/tenant_sidebar.html" %}
+{% endif %}
+
+<header class="tenant-topbar p-4 md:px-6 md:py-5 flex justify-between items-center border-b border-white/5 bg-black/10 backdrop-blur-md sticky top-0 z-50">
+    <div class="flex items-center gap-4 min-w-0">
+        {% if current_auth_scope != "platform" %}
+        <button type="button"
+            data-sidebar-toggle
+            class="tenant-topbar__toggle"
+            aria-label="Alternar menu lateral">
+            <i data-lucide="panel-left-close" class="w-5 h-5 sidebar-toggle-expanded"></i>
+            <i data-lucide="panel-left-open" class="w-5 h-5 sidebar-toggle-collapsed hidden"></i>
+        </button>
+        {% endif %}
+
+        <div class="min-w-0">
+            <p class="tenant-topbar__eyebrow">Painel operacional</p>
+            <h1 class="tenant-topbar__title">
+                Ocean<span class="text-sky-400">Blue</span>
+            </h1>
         </div>
-        <h1 class="text-xl font-semibold tracking-tight text-white">
-            Ocean<span class="text-sky-400">Blue</span>
-        </h1>
     </div>
 
     <div class="relative inline-block text-left">
@@ -30,7 +44,7 @@
             <i data-lucide="menu" class="w-5 h-5 text-slate-400 group-hover:text-white transition-colors"></i>
         </button>
 
-        <div id="userDropdown" class="hidden absolute right-0 mt-3 w-56 glass rounded-2xl py-2 shadow-2xl animate-slide-in-top border border-white/10 z-[100]">
+        <div id="userDropdown" class="hidden absolute right-0 mt-3 w-60 glass rounded-2xl py-2 shadow-2xl animate-slide-in-top border border-white/10 z-[100]">
             <div class="px-4 py-3 border-b border-white/5 mb-2">
                 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Acesso Rapido</p>
             </div>
@@ -40,11 +54,25 @@
                 <i data-lucide="building-2" class="w-4 h-4"></i> Painel da Plataforma
             </a>
             {% else %}
-            {% for item in tenant_navigation_items %}
-            <a href="{{ url_for(item.endpoint) if item.endpoint is defined else item.href }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="{{ item.icon }}" class="w-4 h-4"></i> {{ item.label }}
+            <a href="{{ url_for('main.home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i> Visao geral
             </a>
-            {% endfor %}
+
+            {% if ui_flags.can_view_notifications %}
+            <a href="{{ url_for('estoque.pagina_alertas') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="shield-alert" class="w-4 h-4"></i> Alertas de estoque
+            </a>
+            {% endif %}
+
+            {% if ui_flags.can_manage_customer_settings and ui_flags.can_view_customers %}
+            <a href="/api/clientes/view" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Regras de clientes
+            </a>
+            {% endif %}
+
+            <a href="{{ url_for('main.home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-white/5 transition-colors">
+                <i data-lucide="panel-left" class="w-4 h-4"></i> Modulos na lateral
+            </a>
             {% endif %}
 
             <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-sm text-rose-400 hover:bg-rose-500/10 transition-colors mt-1">

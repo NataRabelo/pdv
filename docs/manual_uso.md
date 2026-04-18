@@ -182,12 +182,13 @@ O card mostra:
 - ver historico de compras
 - enviar email, SMS e WhatsApp
 - configurar cashback e janelas de cancelamento por empresa
+- usar o modulo de alertas para configurar o email operacional compartilhado
 
 ### Onde encontrar o detalhamento completo
 
 Use o guia dedicado em [manual_clientes_cashback_mensageria.md](./manual_clientes_cashback_mensageria.md) para:
 
-- configuracao de SMTP
+- configuracao de SMTP em `Estoque > Alertas > Email operacional`
 - configuracao de webhook para WhatsApp e SMS
 - regras de uso do cashback
 - cancelamento parcial de itens

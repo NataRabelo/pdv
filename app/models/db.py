@@ -372,6 +372,8 @@ class ProdutoEmpresa(ModeloBase):
     valor_compra = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     valor_venda = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     data_validade = db.Column(db.Date, nullable=True)
+    ultimo_alerta_estoque_status = db.Column(db.String(30), nullable=True)
+    ultimo_alerta_estoque_em = db.Column(db.DateTime, nullable=True)
     ativo = db.Column(db.Boolean, nullable=False, default=True)
 
     produto = db.relationship("Produto", backref=db.backref("dados_por_empresa", lazy=True, cascade="all, delete-orphan"))

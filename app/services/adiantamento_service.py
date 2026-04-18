@@ -286,6 +286,13 @@ class AdiantamentoService:
             AdiantamentoRepository.flush()
             AdiantamentoRepository.salvar()
 
+            if movimento and produto:
+                EstoqueService.processar_alertas_por_produtos(
+                    tenant_id=tenant_id,
+                    empresa_id=empresa_id,
+                    produto_ids=[produto.id],
+                )
+
             return AdiantamentoRepository.buscar_por_id(
                 registro.id,
                 tenant_id=tenant_id,

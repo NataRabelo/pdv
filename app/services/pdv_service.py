@@ -277,6 +277,11 @@ class PdvService:
             )
 
             PdvRepository.salvar()
+            EstoqueService.processar_alertas_por_produtos(
+                tenant_id=tenant_id,
+                empresa_id=empresa_id,
+                produto_ids=[item["produto_id"] for item in itens_compilados],
+            )
 
             empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
             venda = PdvRepository.buscar_venda_por_id(venda.id, tenant_id, empresa_ids=empresa_ids)
@@ -349,6 +354,11 @@ class PdvService:
             ClienteService.reverter_cashback_venda(venda, tenant_id, funcionario_id)
 
             PdvRepository.salvar()
+            EstoqueService.processar_alertas_por_produtos(
+                tenant_id=tenant_id,
+                empresa_id=venda.empresa_id,
+                produto_ids=[item.produto_id for item in venda.itens],
+            )
 
             venda = PdvRepository.buscar_venda_por_id(venda.id, tenant_id, empresa_ids=empresa_ids)
             return PdvService.serializar_venda(venda)
@@ -460,6 +470,11 @@ class PdvService:
                 venda.cancelado_por_funcionario_id = funcionario_id
 
             PdvRepository.salvar()
+            EstoqueService.processar_alertas_por_produtos(
+                tenant_id=tenant_id,
+                empresa_id=venda.empresa_id,
+                produto_ids=[item.produto_id],
+            )
             venda = PdvRepository.buscar_venda_por_id(venda.id, tenant_id, empresa_ids=empresa_ids)
             return PdvService.serializar_venda(venda)
         except Exception:
