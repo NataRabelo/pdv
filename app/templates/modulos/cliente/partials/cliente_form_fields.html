@@ -1,0 +1,78 @@
+<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div class="md:col-span-2">
+        <label for="{{ field_prefix }}-nome" class="block text-sm font-medium text-slate-300 mb-2">Nome</label>
+        <input id="{{ field_prefix }}-nome" name="nome" type="text" required maxlength="150"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+            placeholder="Ex.: Maria Oliveira">
+    </div>
+
+    <div>
+        <label for="{{ field_prefix }}-tipo-pessoa" class="block text-sm font-medium text-slate-300 mb-2">Tipo de pessoa</label>
+        <select id="{{ field_prefix }}-tipo-pessoa" name="tipo_pessoa"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+    </div>
+
+    <div>
+        <label for="{{ field_prefix }}-documento" class="block text-sm font-medium text-slate-300 mb-2">Documento</label>
+        <input id="{{ field_prefix }}-documento" name="documento" type="text" maxlength="18" inputmode="numeric" data-mask="document"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+            placeholder="CPF ou CNPJ">
+    </div>
+
+    <div>
+        <label for="{{ field_prefix }}-email" class="block text-sm font-medium text-slate-300 mb-2">Email</label>
+        <input id="{{ field_prefix }}-email" name="email" type="email" maxlength="150"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+            placeholder="cliente@exemplo.com">
+    </div>
+
+    <div>
+        <label for="{{ field_prefix }}-telefone" class="block text-sm font-medium text-slate-300 mb-2">Telefone</label>
+        <input id="{{ field_prefix }}-telefone" name="telefone" type="text" maxlength="20" inputmode="tel" data-mask="phone"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+            placeholder="+55 11 99999-9999">
+    </div>
+
+    <div>
+        <label for="{{ field_prefix }}-whatsapp" class="block text-sm font-medium text-slate-300 mb-2">WhatsApp</label>
+        <input id="{{ field_prefix }}-whatsapp" name="whatsapp" type="text" maxlength="20" inputmode="tel" data-mask="phone"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition"
+            placeholder="+55 11 99999-9999">
+    </div>
+
+    <div>
+        <label for="{{ field_prefix }}-data-nascimento" class="block text-sm font-medium text-slate-300 mb-2">Data de nascimento</label>
+        <input id="{{ field_prefix }}-data-nascimento" name="data_nascimento" type="date"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+    </div>
+
+    <div class="md:col-span-2">
+        <label for="{{ field_prefix }}-observacao" class="block text-sm font-medium text-slate-300 mb-2">Observacao</label>
+        <textarea id="{{ field_prefix }}-observacao" name="observacao" rows="4"
+            class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+            placeholder="Preferencias, aniversario, observacoes de atendimento, etc."></textarea>
+    </div>
+</div>
+
+<section class="cliente-config-card">
+    <h4 class="cliente-config-title">Preferencias de contato</h4>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <label class="cliente-checkline">
+            <input id="{{ field_prefix }}-aceita-email" name="aceita_email" type="checkbox">
+            <span>Email autorizado</span>
+        </label>
+        <label class="cliente-checkline">
+            <input id="{{ field_prefix }}-aceita-sms" name="aceita_sms" type="checkbox">
+            <span>SMS autorizado</span>
+        </label>
+        <label class="cliente-checkline">
+            <input id="{{ field_prefix }}-aceita-whatsapp" name="aceita_whatsapp" type="checkbox" checked>
+            <span>WhatsApp autorizado</span>
+        </label>
+    </div>
+</section>
+
+<label class="cliente-checkline">
+    <input id="{{ field_prefix }}-ativo" name="ativo" type="checkbox" checked>
+    <span>Cliente ativo</span>
+</label>

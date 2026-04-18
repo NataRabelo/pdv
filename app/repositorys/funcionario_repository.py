@@ -4,6 +4,13 @@ from app.extensions import db
 from app.models.db import Empresa, Funcionario, FuncionarioEmpresa, Permission, Role, RolePermission
 
 
+def _digits_only_expression(column):
+    expression = column
+    for token in (".", "-", "/", "(", ")", " ", "+"):
+        expression = db.func.replace(expression, token, "")
+    return expression
+
+
 class FuncionarioRepository:
 
     @staticmethod
@@ -128,8 +135,9 @@ class FuncionarioRepository:
 
     @staticmethod
     def buscar_cpf_duplicado(cpf, tenant_id, ignorar_funcionario_id=None):
+        cpf_normalizado = "".join(char for char in str(cpf) if char.isdigit())
         query = Funcionario.query.filter(
-            Funcionario.cpf == cpf,
+            _digits_only_expression(Funcionario.cpf) == cpf_normalizado,
             Funcionario.tenant_id == tenant_id
         )
 

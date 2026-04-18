@@ -1,0 +1,23 @@
+{% extends "emails/base_oceanblue.html" %}
+
+{% block content %}
+<tr>
+    <td style="padding:0 32px 32px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:22px;">
+            <tr>
+                <td style="padding:26px 24px;">
+                    {% if saudacao %}
+                    <div style="font-size:16px; line-height:24px; color:#cbd5e1; margin-bottom:14px;">
+                        {{ saudacao }}
+                    </div>
+                    {% endif %}
+
+                    <div style="font-size:15px; line-height:25px; color:#e2e8f0; white-space:pre-line;">
+                        {{ conteudo }}
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+{% endblock %}

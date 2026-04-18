@@ -8,6 +8,7 @@ from app.models.db import (
     Funcionario,
     FuncionarioEmpresa,
     Permission,
+    Role,
     RolePermission,
     Tenant,
     TipoEmpresa,
@@ -79,6 +80,7 @@ class PermissionsSecurityTestCase(unittest.TestCase):
         self.tenant = tenant
         self.empresa = empresa
         self.operador = operador
+        self.roles = roles
         self.operator_role_id = roles["operador"].id
 
         self._remover_permissoes_financeiras_do_operador()
@@ -143,6 +145,28 @@ class PermissionsSecurityTestCase(unittest.TestCase):
         blocked_response = self.client.get("/financeiro/home", follow_redirects=False)
         self.assertEqual(blocked_response.status_code, 302)
         self.assertIn("/home", blocked_response.headers.get("Location", ""))
+
+    def test_admin_recebe_novas_permissoes_por_padrao(self):
+        admin_role = Role.query.filter_by(tenant_id=self.tenant.id, codigo="administrador").first()
+        granted_codes = {
+            link.permission.codigo
+            for link in RolePermission.query.filter_by(
+                tenant_id=self.tenant.id,
+                role_id=admin_role.id,
+            ).all()
+        }
+
+        for codigo in {
+            "cancelar_item_venda",
+            "visualizar_cliente",
+            "criar_cliente",
+            "editar_cliente",
+            "excluir_cliente",
+            "enviar_mensagem_cliente",
+            "gerenciar_configuracao_cliente",
+            "cancelar_movimentacao_estoque",
+        }:
+            self.assertIn(codigo, granted_codes)
 
 
 if __name__ == "__main__":

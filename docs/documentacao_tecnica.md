@@ -7,6 +7,7 @@ O OceanBlue PDV e um sistema web multi-tenant orientado para pequenas lojas, com
 - Estoque por empresa
 - PDV com venda rapida e baixa automatica
 - Financeiro com entradas, saidas e fechamento de caixa
+- Clientes com carteira, historico e mensageria
 
 O projeto preserva a separacao entre plataforma, tenant, empresas e funcionarios. Cada registro operacional relevante e amarrado ao `tenant_id`, e o acesso por empresa e controlado pelo vinculo do funcionario com as empresas permitidas.
 
@@ -68,9 +69,17 @@ Permissoes novas adicionadas:
 - `visualizar_pdv`
 - `registrar_venda`
 - `cancelar_venda`
+- `cancelar_item_venda`
+- `visualizar_cliente`
+- `criar_cliente`
+- `editar_cliente`
+- `excluir_cliente`
+- `enviar_mensagem_cliente`
+- `gerenciar_configuracao_cliente`
 - `visualizar_financeiro`
 - `criar_lancamento_financeiro`
 - `fechar_caixa`
+- `cancelar_movimentacao_estoque`
 
 ## 6. Bootstrap operacional do tenant
 
@@ -128,6 +137,7 @@ Endpoints:
 - `GET /api/pdv/vendas`
 - `POST /api/pdv/vendas`
 - `POST /api/pdv/vendas/<id>/cancelar`
+- `POST /api/pdv/vendas/<id>/itens/<item_id>/cancelar`
 
 Regras da venda:
 
@@ -136,11 +146,14 @@ Regras da venda:
 - exige pagamento total igual ao total da venda
 - aceita desconto manual
 - aceita cupom por codigo, se estiver valido
+- aceita vinculo com cliente
+- aceita uso de cashback configurado por empresa
 - usa o preco de venda do produto por empresa
 - gera numero unico de venda
 - grava venda, itens e pagamentos
 - baixa estoque automaticamente
 - gera lancamentos financeiros automaticamente
+- gera credito de cashback na carteira do cliente quando habilitado
 
 Cancelamento:
 
@@ -150,7 +163,61 @@ Cancelamento:
 - gera saida financeira de estorno
 - preserva rastreabilidade completa
 
-## 9. Modulo financeiro
+Cancelamento parcial:
+
+- atua por item da venda
+- devolve apenas a quantidade cancelada
+- gera estorno proporcional no financeiro
+- ajusta cashback usado e cashback gerado da venda
+
+## 9. Modulo de clientes
+
+Arquivos principais:
+
+- `app/controllers/cliente_controller.py`
+- `app/services/cliente_service.py`
+- `app/services/comunicacao_service.py`
+- `app/repositorys/cliente_repository.py`
+- `app/templates/modulos/cliente/cliente.html`
+- `app/static/js/modulos/cliente.js`
+- `app/static/css/modulos/cliente.css`
+
+Entidades novas:
+
+- `Cliente`
+- `CarteiraCliente`
+- `CreditoCashbackCliente`
+- `MovimentoCarteiraCliente`
+- `ConfiguracaoClienteEmpresa`
+- `MensagemCliente`
+
+Capacidades:
+
+- cadastro de clientes e opt-in por canal
+- carteira com saldo, creditos e expiracao
+- historico de vendas vinculadas
+- configuracao por empresa para cashback e janelas de cancelamento
+- envio de email via SMTP
+- envio de WhatsApp e SMS via webhook HTTP
+
+Endpoints:
+
+- `GET /api/clientes/view`
+- `GET /api/clientes/auxiliares`
+- `GET /api/clientes/`
+- `POST /api/clientes/`
+- `PUT /api/clientes/<id>`
+- `DELETE /api/clientes/<id>`
+- `GET /api/clientes/<id>/carteira`
+- `GET /api/clientes/<id>/historico-vendas`
+- `GET /api/clientes/<id>/mensagens`
+- `POST /api/clientes/<id>/mensagens`
+- `GET /api/clientes/configuracoes`
+- `GET /api/clientes/configuracoes/<empresa_id>`
+- `PUT /api/clientes/configuracoes/<empresa_id>`
+- `POST /api/clientes/configuracoes/<empresa_id>/testar`
+
+## 10. Modulo financeiro
 
 Arquivos principais:
 
@@ -181,7 +248,7 @@ Capacidades:
 - lancamentos automaticos vindos do PDV
 - fechamento de caixa com comparacao entre valor informado e saldo esperado
 
-## 10. Fluxos criticos do negocio
+## 11. Fluxos criticos do negocio
 
 ### 10.1 Venda no PDV
 
@@ -204,19 +271,40 @@ Capacidades:
    - devolve o estoque
    - registra estorno financeiro
 
-### 10.3 Lancamento manual
+### 10.3 Cancelamento parcial de item
+
+1. Operador abre os detalhes da venda.
+2. Escolhe o item a cancelar.
+3. Informa o motivo.
+4. O sistema:
+   - estorna apenas o item
+   - recompõe o estoque proporcional
+   - ajusta o financeiro proporcional
+   - ajusta o cashback do cliente proporcional
+
+### 10.4 Lancamento manual
 
 1. Operador escolhe empresa, tipo, categoria e forma.
 2. Informa descricao e valor.
 3. O sistema grava o lancamento e o incorpora ao dashboard.
 
-### 10.4 Fechamento de caixa
+### 10.5 Fechamento de caixa
 
 1. Operador informa empresa, data, valor inicial e valor final contado.
 2. O sistema calcula o saldo esperado em dinheiro.
 3. O fechamento grava o valor contado e exibe a diferenca.
 
-## 11. Migracoes novas
+### 10.6 Cancelamento de movimentacao manual
+
+1. Operador abre a tela de estoque operacional.
+2. Localiza a movimentacao manual reversivel.
+3. Informa o motivo do cancelamento.
+4. O sistema:
+   - marca a movimentacao original
+   - cria a contramovimentacao
+   - recompõe o saldo do estoque
+
+## 12. Migracoes novas
 
 Foi adicionada a migracao:
 

@@ -139,6 +139,7 @@ window.CrudPage = class CrudPage {
 
     filter(term) {
         const value = (term || "").toLowerCase().trim();
+        const normalizedSearch = this.normalizeSearchValue(value);
 
         if (!value) {
             this.currentPage = 1;
@@ -149,12 +150,22 @@ window.CrudPage = class CrudPage {
         const filtered = this.items.filter(item => {
             return this.config.fields.some(field => {
                 const fieldValue = item[field];
-                return String(fieldValue || "").toLowerCase().includes(value);
+                const rawValue = String(fieldValue || "").toLowerCase();
+                const normalizedValue = this.normalizeSearchValue(fieldValue);
+                return rawValue.includes(value) || (normalizedSearch && normalizedValue.includes(normalizedSearch));
             });
         });
 
         this.currentPage = 1;
         this.renderTable(filtered);
+    }
+
+    normalizeSearchValue(value) {
+        return String(value || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "");
     }
 
     getTotalPages() {
@@ -278,7 +289,12 @@ window.CrudPage = class CrudPage {
         Object.keys(data).forEach(key => {
             const field = form.querySelector(`[name="${key}"]`);
             if (field) {
+                if (field.type === "checkbox") {
+                    field.checked = Boolean(data[key]);
+                    return;
+                }
                 field.value = data[key] ?? "";
+                window.InputMask?.refresh(field);
             }
         });
     }

@@ -30,6 +30,7 @@ window.estoquePage = {
     },
     filtroEmpresa: "",
     busca: "",
+    movimentoSelecionadoId: null,
     paginacao: {
         saldos: { paginaAtual: 1, porPagina: 10 },
         movimentos: { paginaAtual: 1, porPagina: 10 }
@@ -41,6 +42,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     bindFilters();
     bindMovementForm();
     bindMovementHelpers();
+    bindMovementCancellation();
     bindAlertPanels();
     bindBestSellerFilters();
     bindIntegerMask("movimento-quantidade");
@@ -336,6 +338,40 @@ function bindMovementHelpers() {
     }
 }
 
+function bindMovementCancellation() {
+    const form = document.getElementById("form-cancelar-movimento");
+    if (!form) return;
+
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!estoquePage.movimentoSelecionadoId) {
+            showMessage("Movimentacao nao selecionada para cancelamento.", "error");
+            return;
+        }
+
+        try {
+            const payload = {
+                motivo: (document.getElementById("cancelar-movimento-motivo")?.value || "").trim()
+            };
+
+            const result = await requestJson(`/api/estoque/movimentos/${estoquePage.movimentoSelecionadoId}/cancelar`, {
+                method: "POST",
+                headers: getAuthHeaders(true),
+                body: JSON.stringify(payload)
+            });
+
+            showMessage(result.message || "Movimentacao cancelada com sucesso.", "success");
+            estoquePage.movimentoSelecionadoId = null;
+            document.getElementById("cancelar-movimento-motivo").value = "";
+            fecharModal("modal-cancelar-movimento");
+            await Promise.all([carregarSaldos(), carregarMovimentos(), carregarAuxiliares()]);
+        } catch (error) {
+            showMessage(error.message || "Erro ao cancelar a movimentacao.", "error");
+        }
+    });
+}
+
 function popularFiltroEmpresas() {
     const select = document.getElementById("filtro-empresa");
     if (!select) return;
@@ -553,7 +589,7 @@ function renderTabelaMovimentos() {
     if (!estoquePage.movimentos.length) {
         tableBody.innerHTML = `
             <tr>
-                <td colspan="8" class="px-5 py-8 text-center text-slate-400">
+                <td colspan="9" class="px-5 py-8 text-center text-slate-400">
                     Nenhuma movimentação encontrada.
                 </td>
             </tr>
@@ -574,6 +610,12 @@ function renderTabelaMovimentos() {
             : item.origem === "VALE"
                 ? `<span class="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-300">Vale</span>`
                 : `<span class="inline-flex items-center rounded-full bg-slate-700/40 border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300">Manual</span>`;
+        const statusOperacao = item.cancelado_em
+            ? `<span class="inline-flex items-center rounded-full bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 text-[11px] font-medium text-amber-300">Cancelado</span>`
+            : item.revertido
+                ? `<span class="inline-flex items-center rounded-full bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 text-[11px] font-medium text-sky-300">Revertido</span>`
+                : `<span class="inline-flex items-center rounded-full bg-slate-700/40 border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-300">Ativo</span>`;
+        const podeCancelar = movimentoPodeSerCancelado(item);
 
         return `
             <tr class="hover:bg-slate-800/40 transition">
@@ -585,14 +627,54 @@ function renderTabelaMovimentos() {
                 <td class="px-5 py-4 align-middle text-slate-300">${escapeHtml(item.empresa_nome || "-")}</td>
                 <td class="px-5 py-4 align-middle">${origemBadge}</td>
                 <td class="px-5 py-4 align-middle">${tipoBadge}</td>
-                <td class="px-5 py-4 align-middle text-slate-300">${escapeHtml(formatMotivo(item.motivo))}</td>
+                <td class="px-5 py-4 align-middle text-slate-300">
+                    <div class="space-y-1">
+                        <p>${escapeHtml(formatMotivo(item.motivo))}</p>
+                        <p>${statusOperacao}</p>
+                        ${item.motivo_cancelamento ? `<p class="text-xs text-amber-300">${escapeHtml(item.motivo_cancelamento)}</p>` : ""}
+                    </div>
+                </td>
                 <td class="px-5 py-4 align-middle text-right text-white font-semibold">${formatInteger(item.quantidade)}</td>
                 <td class="px-5 py-4 align-middle text-right text-slate-300">${item.valor_total ? formatCurrency(item.valor_total) : "-"}</td>
+                <td class="px-5 py-4 align-middle">
+                    <div class="flex items-center justify-center gap-2">
+                        ${podeCancelar ? `
+                            <button type="button"
+                                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 transition"
+                                onclick="abrirModalCancelamentoMovimento(${item.id})"
+                                title="Cancelar movimentacao">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            </button>
+                        ` : `<span class="text-xs text-slate-500">-</span>`}
+                    </div>
+                </td>
             </tr>
         `;
     }).join("");
 
     renderPagination("movimento-pagination", paginacao, estoquePage.movimentos.length, () => renderTabelaMovimentos());
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+function movimentoPodeSerCancelado(item) {
+    return Boolean(
+        window.__uiFlags?.can_cancel_stock_movements
+        && item
+        && item.origem === "MANUAL"
+        && !item.revertido
+        && !item.cancelado_em
+    );
+}
+
+function abrirModalCancelamentoMovimento(movimentoId) {
+    estoquePage.movimentoSelecionadoId = movimentoId;
+    const campoMotivo = document.getElementById("cancelar-movimento-motivo");
+    if (campoMotivo) {
+        campoMotivo.value = "";
+    }
+    abrirModal("modal-cancelar-movimento");
 }
 
 function abrirModalMovimentacao() {

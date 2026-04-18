@@ -66,7 +66,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </td>
 
                 <td class="px-5 py-4 align-middle">
-                    <p class="text-slate-300 leading-relaxed">${escapeHtml(item.cpf || "-")}</p>
+                    <p class="text-slate-300 leading-relaxed">${escapeHtml(window.InputMask?.formatCpf(item.cpf) || item.cpf || "-")}</p>
                 </td>
 
                 <td class="px-5 py-4 align-middle text-right text-slate-300 font-medium">
@@ -234,20 +234,7 @@ function limparFormularioEdicao() {
 function aplicarMascaraCpf(inputId) {
     const input = document.getElementById(inputId);
     if (!input) return;
-
-    input.addEventListener("input", () => {
-        let value = input.value.replace(/\D/g, "").slice(0, 11);
-
-        if (value.length > 9) {
-            value = value.replace(/^(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, "$1.$2.$3-$4");
-        } else if (value.length > 6) {
-            value = value.replace(/^(\d{3})(\d{3})(\d{0,3}).*/, "$1.$2.$3");
-        } else if (value.length > 3) {
-            value = value.replace(/^(\d{3})(\d{0,3}).*/, "$1.$2");
-        }
-
-        input.value = value;
-    });
+    window.InputMask?.bind(input, "cpf");
 }
 
 function aplicarMascaraMoeda(inputId) {

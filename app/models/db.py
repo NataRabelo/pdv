@@ -65,6 +65,31 @@ class TipoAdiantamentoFuncionario(enum.Enum):
     PRODUTO = "PRODUTO"
 
 
+class TipoPessoa(enum.Enum):
+    FISICA = "FISICA"
+    JURIDICA = "JURIDICA"
+
+
+class CanalMensagemCliente(enum.Enum):
+    EMAIL = "EMAIL"
+    SMS = "SMS"
+    WHATSAPP = "WHATSAPP"
+
+
+class StatusMensagemCliente(enum.Enum):
+    PENDENTE = "PENDENTE"
+    ENVIADO = "ENVIADO"
+    ERRO = "ERRO"
+
+
+class TipoMovimentoCarteiraCliente(enum.Enum):
+    CREDITO = "CREDITO"
+    DEBITO = "DEBITO"
+    ESTORNO = "ESTORNO"
+    EXPIRACAO = "EXPIRACAO"
+    AJUSTE = "AJUSTE"
+
+
 class ModeloBase(db.Model):
     __abstract__ = True
 
@@ -202,6 +227,98 @@ class FuncionarioEmpresa(ModeloBase):
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "funcionario_id", "empresa_id", name="uq_funcionario_empresa"),
+    )
+
+
+class Cliente(ModeloBase):
+    __tablename__ = "clientes"
+
+    nome = db.Column(db.String(150), nullable=False)
+    documento = db.Column(db.String(20), nullable=True)
+    tipo_pessoa = db.Column(db.Enum(TipoPessoa), nullable=False, default=TipoPessoa.FISICA)
+    email = db.Column(db.String(150), nullable=True)
+    telefone = db.Column(db.String(20), nullable=True)
+    whatsapp = db.Column(db.String(20), nullable=True)
+    data_nascimento = db.Column(db.Date, nullable=True)
+    observacao = db.Column(db.Text, nullable=True)
+    aceita_email = db.Column(db.Boolean, nullable=False, default=False)
+    aceita_sms = db.Column(db.Boolean, nullable=False, default=False)
+    aceita_whatsapp = db.Column(db.Boolean, nullable=False, default=True)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "documento", name="uq_cliente_tenant_documento"),
+        Index("ix_cliente_tenant_nome", "tenant_id", "nome"),
+    )
+
+
+class CarteiraCliente(ModeloBase):
+    __tablename__ = "carteiras_cliente"
+
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    saldo_disponivel = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+
+    cliente = db.relationship(
+        "Cliente",
+        backref=db.backref("carteira", uselist=False, lazy=True, cascade="all, delete-orphan"),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "cliente_id", name="uq_carteira_cliente_tenant"),
+        CheckConstraint("saldo_disponivel >= 0", name="ck_carteira_cliente_saldo_non_negative"),
+    )
+
+
+class CreditoCashbackCliente(ModeloBase):
+    __tablename__ = "creditos_cashback_cliente"
+
+    carteira_id = db.Column(db.Integer, db.ForeignKey("carteiras_cliente.id"), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    venda_origem_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=False)
+    valor_original = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    saldo_disponivel = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    data_expiracao = db.Column(db.Date, nullable=False)
+    cancelado_em = db.Column(db.DateTime, nullable=True)
+    expirado_em = db.Column(db.DateTime, nullable=True)
+    observacao = db.Column(db.Text, nullable=True)
+
+    carteira = db.relationship("CarteiraCliente", backref=db.backref("creditos", lazy=True, cascade="all, delete-orphan"))
+    cliente = db.relationship("Cliente", backref=db.backref("creditos_cashback", lazy=True))
+    empresa = db.relationship("Empresa", backref=db.backref("creditos_cashback", lazy=True))
+    venda_origem = db.relationship("Venda", foreign_keys=[venda_origem_id], backref=db.backref("creditos_cashback", lazy=True))
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "venda_origem_id", name="uq_credito_cashback_tenant_venda_origem"),
+        CheckConstraint("valor_original >= 0", name="ck_credito_cashback_valor_original_non_negative"),
+        CheckConstraint("saldo_disponivel >= 0", name="ck_credito_cashback_saldo_non_negative"),
+        CheckConstraint("saldo_disponivel <= valor_original", name="ck_credito_cashback_saldo_lte_original"),
+        Index("ix_credito_cashback_tenant_cliente_expiracao", "tenant_id", "cliente_id", "data_expiracao"),
+    )
+
+
+class MovimentoCarteiraCliente(ModeloBase):
+    __tablename__ = "movimentos_carteira_cliente"
+
+    carteira_id = db.Column(db.Integer, db.ForeignKey("carteiras_cliente.id"), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    credito_id = db.Column(db.Integer, db.ForeignKey("creditos_cashback_cliente.id"), nullable=True)
+    venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=True)
+    funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
+    tipo = db.Column(db.Enum(TipoMovimentoCarteiraCliente), nullable=False)
+    valor = db.Column(db.Numeric(12, 2), nullable=False)
+    descricao = db.Column(db.String(255), nullable=False)
+    data_movimento = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+
+    carteira = db.relationship("CarteiraCliente", backref=db.backref("movimentos", lazy=True, cascade="all, delete-orphan"))
+    cliente = db.relationship("Cliente", backref=db.backref("movimentos_carteira", lazy=True))
+    credito = db.relationship("CreditoCashbackCliente", backref=db.backref("movimentos", lazy=True))
+    venda = db.relationship("Venda", backref=db.backref("movimentos_carteira", lazy=True))
+    funcionario = db.relationship("Funcionario", backref=db.backref("movimentos_carteira", lazy=True))
+
+    __table_args__ = (
+        CheckConstraint("valor > 0", name="ck_movimento_carteira_valor_positive"),
+        Index("ix_movimento_carteira_tenant_cliente_data", "tenant_id", "cliente_id", "data_movimento"),
     )
 
 
@@ -364,18 +481,30 @@ class MovimentoEstoque(ModeloBase):
     produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False)
     funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=True)
+    item_venda_id = db.Column(db.Integer, db.ForeignKey("itens_venda.id"), nullable=True)
+    movimento_origem_id = db.Column(db.Integer, db.ForeignKey("movimentos_estoque.id"), nullable=True)
     tipo_movimento = db.Column(db.Enum(TipoMovimentoEstoque), nullable=False)
     motivo = db.Column(db.Enum(MotivoMovimentoEstoque), nullable=False)
     quantidade = db.Column(db.Integer, nullable=False)
     valor_unitario = db.Column(db.Numeric(12, 2), nullable=True)
     valor_total = db.Column(db.Numeric(12, 2), nullable=True)
+    revertido = db.Column(db.Boolean, nullable=False, default=False)
+    cancelado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
+    cancelado_em = db.Column(db.DateTime, nullable=True)
+    motivo_cancelamento = db.Column(db.Text, nullable=True)
     observacao = db.Column(db.Text, nullable=True)
     data_movimento = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
 
     empresa = db.relationship("Empresa", backref=db.backref("movimentos_estoque", lazy=True))
     produto = db.relationship("Produto", backref=db.backref("movimentos_estoque", lazy=True))
-    funcionario = db.relationship("Funcionario", backref=db.backref("movimentos_estoque", lazy=True))
+    funcionario = db.relationship("Funcionario", foreign_keys=[funcionario_id], backref=db.backref("movimentos_estoque", lazy=True))
+    cancelado_por = db.relationship(
+        "Funcionario",
+        foreign_keys=[cancelado_por_funcionario_id],
+        backref=db.backref("movimentos_estoque_cancelados", lazy=True),
+    )
     venda = db.relationship("Venda", backref=db.backref("movimentos_estoque", lazy=True))
+    item_venda = db.relationship("ItemVenda", backref=db.backref("movimentos_estoque", lazy=True))
 
     __table_args__ = (
         CheckConstraint("quantidade > 0", name="ck_movimento_estoque_quantidade_positive"),
@@ -390,25 +519,42 @@ class Venda(ModeloBase):
 
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
     funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=True)
     tipo_operacao_id = db.Column(db.Integer, db.ForeignKey("tipos_operacao.id"), nullable=False)
     cupom_id = db.Column(db.Integer, db.ForeignKey("cupons.id"), nullable=True)
+    cancelado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
     numero_unico = db.Column(db.String(50), nullable=False)
     status = db.Column(db.Enum(StatusVenda), nullable=False, default=StatusVenda.ABERTA)
     subtotal = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    cashback_utilizado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    cashback_gerado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    cashback_percentual_aplicado = db.Column(db.Numeric(5, 2), nullable=False, default=0)
+    valor_cancelado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     total = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    cancelado_em = db.Column(db.DateTime, nullable=True)
     data_venda = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
     observacao = db.Column(db.Text, nullable=True)
 
     empresa = db.relationship("Empresa", backref=db.backref("vendas", lazy=True))
-    funcionario = db.relationship("Funcionario", backref=db.backref("vendas", lazy=True))
+    funcionario = db.relationship("Funcionario", foreign_keys=[funcionario_id], backref=db.backref("vendas", lazy=True))
+    cliente = db.relationship("Cliente", backref=db.backref("vendas", lazy=True))
     tipo_operacao = db.relationship("TipoOperacao", backref=db.backref("vendas", lazy=True))
     cupom = db.relationship("Cupom", backref=db.backref("vendas", lazy=True))
+    cancelado_por = db.relationship(
+        "Funcionario",
+        foreign_keys=[cancelado_por_funcionario_id],
+        backref=db.backref("vendas_canceladas", lazy=True),
+    )
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "empresa_id", "numero_unico", name="uq_venda_tenant_empresa_numero_unico"),
         CheckConstraint("subtotal >= 0", name="ck_venda_subtotal_non_negative"),
         CheckConstraint("desconto >= 0", name="ck_venda_desconto_non_negative"),
+        CheckConstraint("cashback_utilizado >= 0", name="ck_venda_cashback_utilizado_non_negative"),
+        CheckConstraint("cashback_gerado >= 0", name="ck_venda_cashback_gerado_non_negative"),
+        CheckConstraint("cashback_percentual_aplicado >= 0 AND cashback_percentual_aplicado <= 100", name="ck_venda_cashback_percentual_range"),
+        CheckConstraint("valor_cancelado >= 0", name="ck_venda_valor_cancelado_non_negative"),
         CheckConstraint("total >= 0", name="ck_venda_total_non_negative"),
         Index("ix_venda_tenant_empresa_data", "tenant_id", "empresa_id", "data_venda"),
     )
@@ -419,17 +565,31 @@ class ItemVenda(ModeloBase):
 
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=False)
     produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False)
+    cancelado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
     quantidade = db.Column(db.Integer, nullable=False)
+    quantidade_cancelada = db.Column(db.Integer, nullable=False, default=0)
     valor_unitario = db.Column(db.Numeric(12, 2), nullable=False)
     valor_total = db.Column(db.Numeric(12, 2), nullable=False)
+    valor_cancelado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    cancelado_em = db.Column(db.DateTime, nullable=True)
+    motivo_cancelamento = db.Column(db.Text, nullable=True)
 
     venda = db.relationship("Venda", backref=db.backref("itens", lazy=True, cascade="all, delete-orphan"))
     produto = db.relationship("Produto", backref=db.backref("itens_venda", lazy=True))
+    cancelado_por = db.relationship(
+        "Funcionario",
+        foreign_keys=[cancelado_por_funcionario_id],
+        backref=db.backref("itens_venda_cancelados", lazy=True),
+    )
 
     __table_args__ = (
         CheckConstraint("quantidade > 0", name="ck_item_venda_quantidade_positive"),
+        CheckConstraint("quantidade_cancelada >= 0", name="ck_item_venda_quantidade_cancelada_non_negative"),
+        CheckConstraint("quantidade_cancelada <= quantidade", name="ck_item_venda_quantidade_cancelada_lte_quantidade"),
         CheckConstraint("valor_unitario >= 0", name="ck_item_venda_valor_unitario_non_negative"),
         CheckConstraint("valor_total >= 0", name="ck_item_venda_valor_total_non_negative"),
+        CheckConstraint("valor_cancelado >= 0", name="ck_item_venda_valor_cancelado_non_negative"),
+        CheckConstraint("valor_cancelado <= valor_total", name="ck_item_venda_valor_cancelado_lte_total"),
     )
 
 
@@ -457,9 +617,12 @@ class LancamentoFinanceiro(ModeloBase):
     categoria_id = db.Column(db.Integer, db.ForeignKey("categorias_financeiras.id"), nullable=False)
     forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("formas_pagamento.id"), nullable=False)
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=True)
+    item_venda_id = db.Column(db.Integer, db.ForeignKey("itens_venda.id"), nullable=True)
+    lancamento_origem_id = db.Column(db.Integer, db.ForeignKey("lancamentos_financeiros.id"), nullable=True)
     tipo = db.Column(db.Enum(TipoFinanceiro), nullable=False)
     descricao = db.Column(db.String(255), nullable=False)
     valor = db.Column(db.Numeric(12, 2), nullable=False)
+    revertido = db.Column(db.Boolean, nullable=False, default=False)
     data_lancamento = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
     data_competencia = db.Column(db.Date, nullable=True)
     observacao = db.Column(db.Text, nullable=True)
@@ -469,6 +632,7 @@ class LancamentoFinanceiro(ModeloBase):
     categoria = db.relationship("CategoriaFinanceira", backref=db.backref("lancamentos_financeiros", lazy=True))
     forma_pagamento = db.relationship("FormaPagamento", backref=db.backref("lancamentos_financeiros", lazy=True))
     venda = db.relationship("Venda", backref=db.backref("lancamentos_financeiros", lazy=True))
+    item_venda = db.relationship("ItemVenda", backref=db.backref("lancamentos_financeiros", lazy=True))
 
     __table_args__ = (
         CheckConstraint("valor >= 0", name="ck_lancamento_financeiro_valor_non_negative"),
@@ -497,6 +661,75 @@ class FechamentoCaixa(ModeloBase):
             "data_fechamento",
             name="uq_fechamento_caixa_tenant_empresa_funcionario_data"
         ),
+    )
+
+
+class ConfiguracaoClienteEmpresa(ModeloBase):
+    __tablename__ = "configuracoes_cliente_empresa"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    cashback_ativo = db.Column(db.Boolean, nullable=False, default=False)
+    cashback_percentual = db.Column(db.Numeric(5, 2), nullable=False, default=0)
+    cashback_validade_dias = db.Column(db.Integer, nullable=False, default=30)
+    cashback_valor_minimo_resgate = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    cancelamento_venda_limite_horas = db.Column(db.Integer, nullable=False, default=24)
+    cancelamento_item_limite_horas = db.Column(db.Integer, nullable=False, default=24)
+    cancelamento_movimento_limite_horas = db.Column(db.Integer, nullable=False, default=24)
+    email_habilitado = db.Column(db.Boolean, nullable=False, default=False)
+    email_remetente = db.Column(db.String(150), nullable=True)
+    email_remetente_nome = db.Column(db.String(120), nullable=True)
+    smtp_host = db.Column(db.String(180), nullable=True)
+    smtp_port = db.Column(db.Integer, nullable=False, default=587)
+    smtp_usuario = db.Column(db.String(150), nullable=True)
+    smtp_senha = db.Column(db.String(255), nullable=True)
+    smtp_tls = db.Column(db.Boolean, nullable=False, default=True)
+    smtp_ssl = db.Column(db.Boolean, nullable=False, default=False)
+    whatsapp_habilitado = db.Column(db.Boolean, nullable=False, default=False)
+    whatsapp_api_url = db.Column(db.String(255), nullable=True)
+    whatsapp_token = db.Column(db.String(255), nullable=True)
+    whatsapp_remetente = db.Column(db.String(80), nullable=True)
+    sms_habilitado = db.Column(db.Boolean, nullable=False, default=False)
+    sms_api_url = db.Column(db.String(255), nullable=True)
+    sms_token = db.Column(db.String(255), nullable=True)
+    sms_remetente = db.Column(db.String(80), nullable=True)
+    request_timeout_segundos = db.Column(db.Integer, nullable=False, default=15)
+
+    empresa = db.relationship("Empresa", backref=db.backref("configuracao_cliente", uselist=False, lazy=True, cascade="all, delete-orphan"))
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "empresa_id", name="uq_config_cliente_empresa_tenant"),
+        CheckConstraint("cashback_percentual >= 0 AND cashback_percentual <= 100", name="ck_config_cliente_cashback_percentual_range"),
+        CheckConstraint("cashback_validade_dias >= 1", name="ck_config_cliente_cashback_validade_positive"),
+        CheckConstraint("cashback_valor_minimo_resgate >= 0", name="ck_config_cliente_cashback_resgate_non_negative"),
+        CheckConstraint("cancelamento_venda_limite_horas >= 0", name="ck_config_cliente_cancelamento_venda_non_negative"),
+        CheckConstraint("cancelamento_item_limite_horas >= 0", name="ck_config_cliente_cancelamento_item_non_negative"),
+        CheckConstraint("cancelamento_movimento_limite_horas >= 0", name="ck_config_cliente_cancelamento_movimento_non_negative"),
+        CheckConstraint("smtp_port >= 1", name="ck_config_cliente_smtp_port_positive"),
+        CheckConstraint("request_timeout_segundos >= 1", name="ck_config_cliente_timeout_positive"),
+    )
+
+
+class MensagemCliente(ModeloBase):
+    __tablename__ = "mensagens_cliente"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
+    canal = db.Column(db.Enum(CanalMensagemCliente), nullable=False)
+    destinatario = db.Column(db.String(160), nullable=False)
+    assunto = db.Column(db.String(160), nullable=True)
+    conteudo = db.Column(db.Text, nullable=False)
+    status = db.Column(db.Enum(StatusMensagemCliente), nullable=False, default=StatusMensagemCliente.PENDENTE)
+    resposta_integracao = db.Column(db.Text, nullable=True)
+    erro = db.Column(db.Text, nullable=True)
+    enviado_em = db.Column(db.DateTime, nullable=True)
+
+    empresa = db.relationship("Empresa", backref=db.backref("mensagens_cliente", lazy=True))
+    cliente = db.relationship("Cliente", backref=db.backref("mensagens", lazy=True))
+    funcionario = db.relationship("Funcionario", backref=db.backref("mensagens_cliente", lazy=True))
+
+    __table_args__ = (
+        Index("ix_mensagem_cliente_tenant_cliente_criado", "tenant_id", "cliente_id", "criado_em"),
     )
 
 

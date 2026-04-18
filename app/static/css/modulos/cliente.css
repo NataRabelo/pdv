@@ -1,0 +1,112 @@
+.cliente-kpi-card {
+    border: 1px solid rgba(51, 65, 85, 0.8);
+    background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(2, 6, 23, 0.92));
+    border-radius: 1rem;
+    padding: 1.25rem;
+    box-shadow: 0 20px 40px rgba(2, 6, 23, 0.24);
+}
+
+.cliente-kpi-label {
+    display: block;
+    color: rgb(148, 163, 184);
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.cliente-kpi-value {
+    display: block;
+    margin-top: 0.75rem;
+    color: white;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.cliente-input {
+    width: 100%;
+    border: 1px solid rgb(30, 41, 59);
+    background: rgb(2, 6, 23);
+    border-radius: 0.85rem;
+    padding: 0.85rem 1rem;
+    color: white;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cliente-input:focus {
+    border-color: rgb(14, 165, 233);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+.cliente-input::placeholder {
+    color: rgb(100, 116, 139);
+}
+
+.cliente-config-card {
+    border: 1px solid rgba(51, 65, 85, 0.85);
+    background: rgba(2, 6, 23, 0.72);
+    border-radius: 1rem;
+    padding: 1.25rem;
+}
+
+.cliente-config-title {
+    color: white;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.cliente-checkline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: rgb(226, 232, 240);
+    font-size: 0.95rem;
+}
+
+.cliente-checkline input[type="checkbox"] {
+    border-radius: 0.35rem;
+    border: 1px solid rgb(71, 85, 105);
+    background: rgb(15, 23, 42);
+    color: rgb(14, 165, 233);
+}
+
+.cliente-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid rgba(71, 85, 105, 0.8);
+    background: rgba(15, 23, 42, 0.8);
+    padding: 0.3rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgb(203, 213, 225);
+}
+
+.cliente-chip-ok {
+    border-color: rgba(16, 185, 129, 0.25);
+    background: rgba(16, 185, 129, 0.08);
+    color: rgb(110, 231, 183);
+}
+
+.cliente-chip-off {
+    border-color: rgba(100, 116, 139, 0.5);
+    background: rgba(15, 23, 42, 0.8);
+    color: rgb(148, 163, 184);
+}
+
+.cliente-section-title {
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+}
+
+.cliente-empty-panel {
+    border: 1px dashed rgba(71, 85, 105, 0.6);
+    border-radius: 1rem;
+    background: rgba(2, 6, 23, 0.48);
+    padding: 1rem;
+    color: rgb(148, 163, 184);
+    font-size: 0.92rem;
+}

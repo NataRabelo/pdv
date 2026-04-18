@@ -4,6 +4,13 @@ from app.extensions import db
 from app.models.db import Empresa, Funcionario, FuncionarioEmpresa, PlatformOwner, Role, Tenant
 
 
+def _digits_only_expression(column):
+    expression = column
+    for token in (".", "-", "/", "(", ")", " ", "+"):
+        expression = db.func.replace(expression, token, "")
+    return expression
+
+
 class PlatformRepository:
 
     @staticmethod
@@ -55,10 +62,11 @@ class PlatformRepository:
 
     @staticmethod
     def buscar_empresa_por_cnpj(cnpj, tenant_id):
+        cnpj_normalizado = "".join(char for char in str(cnpj) if char.isdigit())
         return (
             Empresa.query
             .filter(
-                Empresa.cnpj == cnpj,
+                _digits_only_expression(Empresa.cnpj) == cnpj_normalizado,
                 Empresa.tenant_id == tenant_id
             )
             .first()
@@ -77,10 +85,11 @@ class PlatformRepository:
 
     @staticmethod
     def buscar_funcionario_por_cpf(cpf, tenant_id):
+        cpf_normalizado = "".join(char for char in str(cpf) if char.isdigit())
         return (
             Funcionario.query
             .filter(
-                Funcionario.cpf == cpf,
+                _digits_only_expression(Funcionario.cpf) == cpf_normalizado,
                 Funcionario.tenant_id == tenant_id
             )
             .first()

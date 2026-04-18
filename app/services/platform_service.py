@@ -146,7 +146,7 @@ class PlatformService:
 
     @staticmethod
     def _criar_empresa_obj(tenant_id, data):
-        cnpj = (data.get("cnpj") or "").strip()
+        cnpj = PlatformService._normalizar_cnpj(data.get("cnpj"))
         razao_social = (data.get("razao_social") or "").strip()
         nome_fantasia = (data.get("nome_fantasia") or "").strip()
         tipo_empresa = PlatformService._to_tipo_empresa(data.get("tipo_empresa"))
@@ -176,7 +176,7 @@ class PlatformService:
         nome = (data.get("nome") or "").strip()
         usuario = (data.get("usuario") or "").strip()
         senha = (data.get("senha") or "").strip()
-        cpf = (data.get("cpf") or "").strip()
+        cpf = PlatformService._normalizar_cpf(data.get("cpf"))
 
         if not nome:
             raise ValueError("Nome do admin e obrigatorio.")
@@ -319,3 +319,11 @@ class PlatformService:
             return int(value)
         except (TypeError, ValueError):
             raise ValueError(f"{field_name} invalida.")
+
+    @staticmethod
+    def _normalizar_cpf(value):
+        return "".join(char for char in str(value or "") if char.isdigit())
+
+    @staticmethod
+    def _normalizar_cnpj(value):
+        return "".join(char for char in str(value or "") if char.isdigit())

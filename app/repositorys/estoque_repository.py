@@ -9,6 +9,7 @@ from app.models.db import (
     Produto,
     ProdutoEmpresa,
     StatusVenda,
+    TipoMovimentoEstoque,
     Venda,
 )
 
@@ -43,6 +44,8 @@ class EstoqueRepository:
                 joinedload(MovimentoEstoque.empresa),
                 joinedload(MovimentoEstoque.produto),
                 joinedload(MovimentoEstoque.funcionario),
+                joinedload(MovimentoEstoque.cancelado_por),
+                joinedload(MovimentoEstoque.item_venda),
                 joinedload(MovimentoEstoque.adiantamentos),
             )
             .filter(MovimentoEstoque.tenant_id == tenant_id)
@@ -56,6 +59,49 @@ class EstoqueRepository:
             query = query.filter(MovimentoEstoque.empresa_id == empresa_id)
 
         return query.limit(max(limite, 1)).all()
+
+    @staticmethod
+    def buscar_movimento_por_id(movimento_id, tenant_id, empresa_ids=None):
+        query = (
+            MovimentoEstoque.query
+            .options(
+                joinedload(MovimentoEstoque.empresa),
+                joinedload(MovimentoEstoque.produto),
+                joinedload(MovimentoEstoque.funcionario),
+                joinedload(MovimentoEstoque.cancelado_por),
+                joinedload(MovimentoEstoque.item_venda),
+                joinedload(MovimentoEstoque.adiantamentos),
+            )
+            .filter(
+                MovimentoEstoque.id == movimento_id,
+                MovimentoEstoque.tenant_id == tenant_id,
+            )
+        )
+
+        if empresa_ids is not None:
+            query = query.filter(MovimentoEstoque.empresa_id.in_(empresa_ids))
+
+        return query.first()
+
+    @staticmethod
+    def buscar_movimento_venda_por_item(item_venda_id, tenant_id):
+        return (
+            MovimentoEstoque.query
+            .options(
+                joinedload(MovimentoEstoque.empresa),
+                joinedload(MovimentoEstoque.produto),
+                joinedload(MovimentoEstoque.funcionario),
+                joinedload(MovimentoEstoque.item_venda),
+            )
+            .filter(
+                MovimentoEstoque.tenant_id == tenant_id,
+                MovimentoEstoque.item_venda_id == item_venda_id,
+                MovimentoEstoque.venda_id.is_not(None),
+                MovimentoEstoque.tipo_movimento == TipoMovimentoEstoque.SAIDA,
+            )
+            .order_by(MovimentoEstoque.id.asc())
+            .first()
+        )
 
     @staticmethod
     def listar_empresas(tenant_id, empresa_ids=None):

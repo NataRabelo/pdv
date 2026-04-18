@@ -132,6 +132,25 @@ def cancelar_venda(venda_id):
         return jsonify({"success": False, "message": str(e)}), 400
 
 
+@pdv_bp.route("/vendas/<int:venda_id>/itens/<int:item_id>/cancelar", methods=["POST"])
+@permission_required("cancelar_item_venda")
+def cancelar_item_venda(venda_id, item_id):
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        data = request.get_json(silent=True) or {}
+
+        venda = PdvService.cancelar_item_venda(venda_id, item_id, data, tenant_id, escopo, funcionario_id)
+        return jsonify({
+            "success": True,
+            "message": "Item cancelado com sucesso.",
+            "data": venda,
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+
 @pdv_bp.route("/vendas/<int:venda_id>/comprovante", methods=["GET"])
 @permission_required("visualizar_pdv")
 def comprovante_venda(venda_id):

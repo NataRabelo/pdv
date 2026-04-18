@@ -9,6 +9,32 @@ from app.services.time_service import TimeService
 estoque_bp = Blueprint("estoque", __name__)
 
 
+def _serializar_movimento(item):
+    return {
+        "id": item.id,
+        "empresa_id": item.empresa.id,
+        "empresa_nome": item.empresa.nome_fantasia,
+        "produto_id": item.produto.id,
+        "produto_nome": item.produto.nome,
+        "funcionario_nome": item.funcionario.nome if item.funcionario else None,
+        "tipo_movimento": item.tipo_movimento.value,
+        "motivo": item.motivo.value,
+        "quantidade": int(item.quantidade),
+        "valor_unitario": str(item.valor_unitario) if item.valor_unitario is not None else None,
+        "valor_total": str(item.valor_total) if item.valor_total is not None else None,
+        "observacao": item.observacao,
+        "venda_id": item.venda_id,
+        "item_venda_id": getattr(item, "item_venda_id", None),
+        "movimento_origem_id": getattr(item, "movimento_origem_id", None),
+        "revertido": bool(getattr(item, "revertido", False)),
+        "cancelado_em": TimeService.serialize_utc_iso(getattr(item, "cancelado_em", None)),
+        "cancelado_por_nome": item.cancelado_por.nome if getattr(item, "cancelado_por", None) else None,
+        "motivo_cancelamento": getattr(item, "motivo_cancelamento", None),
+        "origem": "VALE" if getattr(item, "adiantamentos", None) else ("PDV" if item.venda_id else "MANUAL"),
+        "data_movimento": TimeService.serialize_utc_iso(item.data_movimento),
+    }
+
+
 @estoque_bp.route("/view", methods=["GET"])
 @jwt_required()
 @ui_permission_required("visualizar_produto")
@@ -81,26 +107,7 @@ def listar_movimentos():
 
         return jsonify({
             "success": True,
-            "data": [
-                {
-                    "id": item.id,
-                    "empresa_id": item.empresa.id,
-                    "empresa_nome": item.empresa.nome_fantasia,
-                    "produto_id": item.produto.id,
-                    "produto_nome": item.produto.nome,
-                    "funcionario_nome": item.funcionario.nome if item.funcionario else None,
-                    "tipo_movimento": item.tipo_movimento.value,
-                    "motivo": item.motivo.value,
-                    "quantidade": int(item.quantidade),
-                    "valor_unitario": str(item.valor_unitario) if item.valor_unitario is not None else None,
-                    "valor_total": str(item.valor_total) if item.valor_total is not None else None,
-                    "observacao": item.observacao,
-                    "venda_id": item.venda_id,
-                    "origem": "VALE" if getattr(item, "adiantamentos", None) else ("PDV" if item.venda_id else "MANUAL"),
-                    "data_movimento": TimeService.serialize_utc_iso(item.data_movimento),
-                }
-                for item in movimentos
-            ]
+            "data": [_serializar_movimento(item) for item in movimentos]
         })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
@@ -243,23 +250,26 @@ def criar_movimento_manual():
         return jsonify({
             "success": True,
             "message": "Movimentacao registrada com sucesso.",
-            "data": {
-                "id": movimento.id,
-                "empresa_id": movimento.empresa.id,
-                "empresa_nome": movimento.empresa.nome_fantasia,
-                "produto_id": movimento.produto.id,
-                "produto_nome": movimento.produto.nome,
-                "funcionario_nome": movimento.funcionario.nome if movimento.funcionario else None,
-                "tipo_movimento": movimento.tipo_movimento.value,
-                "motivo": movimento.motivo.value,
-                "quantidade": int(movimento.quantidade),
-                "valor_unitario": str(movimento.valor_unitario) if movimento.valor_unitario is not None else None,
-                "valor_total": str(movimento.valor_total) if movimento.valor_total is not None else None,
-                "observacao": movimento.observacao,
-                "venda_id": movimento.venda_id,
-                "origem": "VALE" if getattr(movimento, "adiantamentos", None) else ("PDV" if movimento.venda_id else "MANUAL"),
-                "data_movimento": TimeService.serialize_utc_iso(movimento.data_movimento),
-            }
+            "data": _serializar_movimento(movimento)
         }), 201
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+
+@estoque_bp.route("/movimentos/<int:movimento_id>/cancelar", methods=["POST"])
+@permission_required("cancelar_movimentacao_estoque")
+def cancelar_movimento(movimento_id):
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        data = request.get_json(silent=True) or {}
+        movimento = EstoqueService.cancelar_movimento(movimento_id, data, tenant_id, escopo, funcionario_id)
+
+        return jsonify({
+            "success": True,
+            "message": "Movimentacao cancelada com sucesso.",
+            "data": _serializar_movimento(movimento),
+        })
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 400

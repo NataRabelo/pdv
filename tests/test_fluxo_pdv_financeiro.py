@@ -1,26 +1,35 @@
 import os
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from app import create_app
 from app.extensions import db
 from app.models.db import (
     AdiantamentoFuncionario,
     CategoriaProduto,
+    Cliente,
     Empresa,
     Funcionario,
     FuncionarioEmpresa,
     LancamentoFinanceiro,
+    MensagemCliente,
     MovimentoEstoque,
     Produto,
     ProdutoEmpresa,
+    StatusMensagemCliente,
     StatusVenda,
     Tenant,
     TipoEmpresa,
     TipoFinanceiro,
 )
+from app.repositorys.cliente_repository import ClienteRepository
 from app.security.password import hash_password
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.adiantamento_service import AdiantamentoService
+from app.services.cliente_service import ClienteService
+from app.services.comunicacao_service import ComunicacaoService
+from app.services.estoque_service import EstoqueService
 from app.services.financeiro_service import FinanceiroService
 from app.services.pdv_service import PdvService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
@@ -322,6 +331,467 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
         self.assertEqual(relatorio["totais"]["produtos"], 1)
         self.assertEqual(relatorio["itens"][0]["produto_nome"], "Refrigerante 2L")
         self.assertEqual(relatorio["itens"][0]["quantidade"], 3)
+
+    def test_venda_com_cliente_gera_cashback_e_historico(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente Cashback",
+                "documento": "12345678901",
+                "email": "cliente@example.com",
+                "aceita_email": True,
+                "aceita_whatsapp": True,
+            },
+            self.tenant.id,
+        )
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "cashback_ativo": True,
+                "cashback_percentual": "10.00",
+                "cashback_validade_dias": "45",
+                "cashback_valor_minimo_resgate": "1.00",
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        payload = {
+            "empresa_id": self.empresa.id,
+            "cliente_id": cliente.id,
+            "itens": [{"produto_id": self.produto.id, "quantidade": 2, "valor_unitario": "7.50"}],
+            "pagamentos": [{
+                "forma_pagamento_id": FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"],
+                "valor": "15.00",
+            }],
+            "desconto_manual": "0.00",
+        }
+
+        venda = PdvService.criar_venda(payload, self.tenant.id, self.escopo, self.funcionario.id)
+        historico = ClienteService.obter_historico_vendas(cliente.id, self.tenant.id, self.escopo)
+
+        self.assertEqual(venda["cliente_id"], cliente.id)
+        self.assertEqual(venda["cashback_gerado"], "1.50")
+        self.assertEqual(str(ClienteService.calcular_saldo_disponivel(cliente.id, self.tenant.id)), "1.50")
+        self.assertEqual(len(historico), 1)
+        self.assertEqual(historico[0]["numero_unico"], venda["numero_unico"])
+
+    def test_cliente_sem_vendas_serializa_total_zero(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente Novo",
+                "documento": "32165498700",
+                "telefone": "(11) 99888-7766",
+                "whatsapp": "+55 11 99888-7766",
+            },
+            self.tenant.id,
+        )
+
+        serializado = ClienteService.serializar_cliente(cliente)
+
+        self.assertEqual(serializado["documento"], "32165498700")
+        self.assertEqual(serializado["telefone"], "11998887766")
+        self.assertEqual(serializado["whatsapp"], "+5511998887766")
+        self.assertEqual(serializado["total_vendido"], "0.00")
+        self.assertEqual(serializado["saldo_cashback"], "0.00")
+
+    def test_configuracao_cliente_preserva_senha_existente_quando_campo_nao_e_enviado(self):
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "email_habilitado": True,
+                "email_remetente": "loja@example.com",
+                "smtp_host": "smtp.gmail.com",
+                "smtp_port": "587",
+                "smtp_usuario": "loja@example.com",
+                "smtp_senha": "senha-app",
+                "smtp_tls": True,
+                "smtp_ssl": False,
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        dados = ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "email_habilitado": True,
+                "email_remetente": "loja@example.com",
+                "smtp_host": "smtp.gmail.com",
+                "smtp_port": "587",
+                "smtp_usuario": "loja@example.com",
+                "smtp_tls": True,
+                "smtp_ssl": False,
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        configuracao = ClienteService._obter_ou_criar_configuracao_empresa(self.empresa.id, self.tenant.id)
+
+        self.assertEqual(configuracao.smtp_senha, "senha-app")
+        self.assertEqual(dados["smtp_senha"], "")
+        self.assertTrue(dados["smtp_senha_configurada"])
+
+    def test_normalizacao_de_senha_app_do_gmail_remove_espacos(self):
+        configuracao = SimpleNamespace(
+            smtp_host="smtp.gmail.com",
+            smtp_senha="abcd efgh ijkl mnop",
+        )
+
+        self.assertEqual(
+            ComunicacaoService._normalizar_senha_smtp(configuracao),
+            "abcdefghijklmnop",
+        )
+
+    def test_teste_configuracao_empresa_usa_payload_informado_sem_persistir(self):
+        with patch("app.services.cliente_service.ComunicacaoService.enviar") as mocked:
+            mocked.return_value = {"resposta": "ok"}
+
+            ClienteService.testar_configuracao_empresa(
+                self.empresa.id,
+                {
+                    "canal": "EMAIL",
+                    "destinatario": "destino@example.com",
+                    "assunto": "Teste SMTP",
+                    "conteudo": "Mensagem",
+                    "configuracao": {
+                        "email_habilitado": True,
+                        "email_remetente": "loja@example.com",
+                        "smtp_host": "smtp.gmail.com",
+                        "smtp_port": "587",
+                        "smtp_usuario": "loja@example.com",
+                        "smtp_senha": "senha-app",
+                        "smtp_tls": True,
+                        "smtp_ssl": False,
+                    },
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+        configuracao_enviada = mocked.call_args.kwargs["configuracao"]
+        configuracao_salva = ClienteRepository.buscar_configuracao_empresa(self.empresa.id, self.tenant.id)
+
+        self.assertEqual(configuracao_enviada.smtp_host, "smtp.gmail.com")
+        self.assertEqual(configuracao_enviada.smtp_senha, "senha-app")
+        self.assertIsNone(configuracao_salva)
+
+    def test_venda_com_cliente_envia_email_automatico_e_registra_cashback(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente Email",
+                "documento": "11122233344",
+                "email": "cliente@email.com",
+                "aceita_email": True,
+            },
+            self.tenant.id,
+        )
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "cashback_ativo": True,
+                "cashback_percentual": "10.00",
+                "cashback_validade_dias": "30",
+                "cashback_valor_minimo_resgate": "1.00",
+                "email_habilitado": True,
+                "email_remetente": "loja@example.com",
+                "email_remetente_nome": "Loja Teste",
+                "smtp_host": "smtp.gmail.com",
+                "smtp_port": "587",
+                "smtp_usuario": "loja@example.com",
+                "smtp_senha": "senha-app",
+                "smtp_tls": True,
+                "smtp_ssl": False,
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        with patch("app.services.cliente_service.ComunicacaoService.enviar") as mocked:
+            mocked.return_value = {"resposta": "ok"}
+
+            venda = PdvService.criar_venda(
+                {
+                    "empresa_id": self.empresa.id,
+                    "cliente_id": cliente.id,
+                    "itens": [{"produto_id": self.produto.id, "quantidade": 1, "valor_unitario": "7.50"}],
+                    "pagamentos": [{
+                        "forma_pagamento_id": FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"],
+                        "valor": "7.50",
+                    }],
+                    "desconto_manual": "0.00",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+        mensagem = MensagemCliente.query.first()
+
+        self.assertEqual(venda["status"], StatusVenda.FINALIZADA.value)
+        self.assertEqual(venda["cashback_gerado"], "0.75")
+        self.assertEqual(venda["email_venda"]["status"], "ENVIADO")
+        self.assertEqual(MensagemCliente.query.count(), 1)
+        self.assertEqual(mensagem.status, StatusMensagemCliente.ENVIADO)
+        self.assertIn("Comprovante da venda", mensagem.assunto)
+        self.assertIn("Cashback gerado nesta compra", mensagem.conteudo)
+        self.assertEqual(mocked.call_count, 1)
+
+    def test_template_html_do_email_de_venda_usa_identidade_oceanblue(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente Layout",
+                "documento": "55566677788",
+                "email": "layout@email.com",
+                "aceita_email": True,
+            },
+            self.tenant.id,
+        )
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "cashback_ativo": True,
+                "cashback_percentual": "10.00",
+                "cashback_validade_dias": "30",
+                "cashback_valor_minimo_resgate": "1.00",
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        venda = PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "cliente_id": cliente.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 1, "valor_unitario": "7.50"}],
+                "pagamentos": [{
+                    "forma_pagamento_id": FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"],
+                    "valor": "7.50",
+                }],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        venda_modelo = ClienteRepository.listar_vendas_cliente(cliente.id, self.tenant.id, limite=1)[0]
+        assunto, conteudo, html = ClienteService._montar_email_venda(venda_modelo, self.tenant.id)
+
+        self.assertIn("Comprovante da venda", assunto)
+        self.assertIn("Cashback gerado nesta compra", conteudo)
+        self.assertIn("OceanBlue", html)
+        self.assertIn("Sua compra foi concluida", html)
+        self.assertIn("Itens da venda", html)
+        self.assertIn(venda["numero_unico"], html)
+
+    def test_venda_permanece_finalizada_quando_email_automatico_falha(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente SMTP",
+                "documento": "44433322211",
+                "email": "cliente@email.com",
+                "aceita_email": True,
+            },
+            self.tenant.id,
+        )
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "email_habilitado": True,
+                "email_remetente": "loja@example.com",
+                "smtp_host": "smtp.gmail.com",
+                "smtp_port": "587",
+                "smtp_usuario": "loja@example.com",
+                "smtp_senha": "senha-app",
+                "smtp_tls": True,
+                "smtp_ssl": False,
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        with patch("app.services.cliente_service.ComunicacaoService.enviar") as mocked:
+            mocked.side_effect = ValueError("SMTP indisponivel")
+
+            venda = PdvService.criar_venda(
+                {
+                    "empresa_id": self.empresa.id,
+                    "cliente_id": cliente.id,
+                    "itens": [{"produto_id": self.produto.id, "quantidade": 1, "valor_unitario": "7.50"}],
+                    "pagamentos": [{
+                        "forma_pagamento_id": FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"],
+                        "valor": "7.50",
+                    }],
+                    "desconto_manual": "0.00",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+        mensagem = MensagemCliente.query.first()
+
+        self.assertEqual(venda["status"], StatusVenda.FINALIZADA.value)
+        self.assertEqual(venda["email_venda"]["status"], "ERRO")
+        self.assertEqual(MensagemCliente.query.count(), 1)
+        self.assertEqual(mensagem.status, StatusMensagemCliente.ERRO)
+        self.assertEqual(mensagem.erro, "SMTP indisponivel")
+        self.assertEqual(mocked.call_count, 1)
+
+    def test_disparo_coletivo_envia_apenas_para_clientes_elegiveis(self):
+        ClienteService.criar(
+            {
+                "nome": "Cliente Elegivel",
+                "documento": "10020030040",
+                "email": "elegivel@email.com",
+                "aceita_email": True,
+            },
+            self.tenant.id,
+        )
+        ClienteService.criar(
+            {
+                "nome": "Cliente Sem Optin",
+                "documento": "10020030041",
+                "email": "semoptin@email.com",
+                "aceita_email": False,
+            },
+            self.tenant.id,
+        )
+        ClienteService.criar(
+            {
+                "nome": "Cliente Sem Email",
+                "documento": "10020030042",
+                "aceita_email": True,
+            },
+            self.tenant.id,
+        )
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "email_habilitado": True,
+                "email_remetente": "loja@example.com",
+                "smtp_host": "smtp.gmail.com",
+                "smtp_port": "587",
+                "smtp_usuario": "loja@example.com",
+                "smtp_senha": "senha-app",
+                "smtp_tls": True,
+                "smtp_ssl": False,
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        with patch("app.services.cliente_service.ComunicacaoService.enviar") as mocked:
+            mocked.return_value = {"resposta": "ok"}
+
+            resumo = ClienteService.enviar_mensagem_coletiva(
+                {
+                    "empresa_id": self.empresa.id,
+                    "canal": "EMAIL",
+                    "assunto": "Campanha",
+                    "conteudo": "Oferta especial para voce.",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+        self.assertEqual(resumo["enviados"], 1)
+        self.assertEqual(resumo["ignorados"], 2)
+        self.assertEqual(resumo["erros"], 0)
+        self.assertEqual(MensagemCliente.query.count(), 1)
+        self.assertEqual(mocked.call_count, 1)
+
+    def test_cancelamento_parcial_de_item_reverte_estoque_e_ajusta_cashback(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente Parcial",
+                "documento": "98765432100",
+                "aceita_whatsapp": True,
+            },
+            self.tenant.id,
+        )
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "cashback_ativo": True,
+                "cashback_percentual": "10.00",
+                "cashback_validade_dias": "30",
+                "cashback_valor_minimo_resgate": "1.00",
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        venda = PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "cliente_id": cliente.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 2, "valor_unitario": "7.50"}],
+                "pagamentos": [{
+                    "forma_pagamento_id": FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"],
+                    "valor": "15.00",
+                }],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        item_id = venda["itens"][0]["id"]
+        ajustada = PdvService.cancelar_item_venda(
+            venda["id"],
+            item_id,
+            {"motivo": "Devolucao parcial"},
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        produto_empresa = db.session.get(ProdutoEmpresa, self.produto_empresa.id)
+
+        self.assertEqual(produto_empresa.estoque_atual, 9)
+        self.assertEqual(ajustada["itens"][0]["quantidade_cancelada"], 1)
+        self.assertEqual(ajustada["valor_cancelado"], "7.50")
+        self.assertEqual(ajustada["cashback_gerado"], "0.75")
+        self.assertEqual(str(ClienteService.calcular_saldo_disponivel(cliente.id, self.tenant.id)), "0.75")
+        self.assertEqual(LancamentoFinanceiro.query.count(), 2)
+        self.assertEqual(MovimentoEstoque.query.count(), 2)
+
+    def test_cancelamento_de_movimento_manual_reverte_saldo(self):
+        movimento = EstoqueService.registrar_movimentacao_manual(
+            {
+                "tipo_movimento": "ENTRADA",
+                "motivo": "AJUSTE",
+                "empresa_id": self.empresa.id,
+                "produto_empresa_id": self.produto_empresa.id,
+                "quantidade": "3",
+                "valor_unitario": "4.50",
+                "observacao": "Ajuste de entrada",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        cancelamento = EstoqueService.cancelar_movimento(
+            movimento.id,
+            {"motivo": "Lancamento incorreto"},
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        produto_empresa = db.session.get(ProdutoEmpresa, self.produto_empresa.id)
+        movimento_original = db.session.get(MovimentoEstoque, movimento.id)
+
+        self.assertEqual(produto_empresa.estoque_atual, 10)
+        self.assertTrue(movimento_original.revertido)
+        self.assertEqual(cancelamento.tipo_movimento.value, "SAIDA")
+        self.assertEqual(MovimentoEstoque.query.count(), 2)
 
 
 if __name__ == "__main__":

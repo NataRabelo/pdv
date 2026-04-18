@@ -1,0 +1,438 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue - Clientes{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col bg-slate-950 text-white
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modulos/cliente.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Clientes" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 page-shell">
+    <section class="mb-8">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white">Clientes e cashback</h1>
+                <p class="text-slate-400 mt-2">Cadastre clientes, acompanhe a carteira e configure a comunicacao por empresa.</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+                {% if ui_flags.can_send_customer_messages %}
+                <button type="button" id="cliente-open-broadcast"
+                    class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-100 font-medium px-5 py-3 transition">
+                    <i data-lucide="megaphone" class="w-4 h-4"></i>
+                    Disparo coletivo
+                </button>
+                {% endif %}
+
+                {% if ui_flags.can_manage_customer_settings %}
+                <button type="button" id="cliente-open-settings"
+                    class="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 hover:border-sky-500/40 text-slate-100 font-medium px-5 py-3 transition">
+                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
+                    Configuracoes
+                </button>
+                {% endif %}
+
+                {% if ui_flags.can_manage_customers %}
+                <button type="button" onclick="clientePage.openCreateModal()"
+                    class="inline-flex items-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition-all duration-200 shadow-lg shadow-sky-500/20">
+                    <i data-lucide="user-plus" class="w-4 h-4"></i>
+                    Novo Cliente
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <article class="cliente-kpi-card">
+            <span class="cliente-kpi-label">Clientes ativos</span>
+            <strong id="cliente-kpi-total" class="cliente-kpi-value">0</strong>
+        </article>
+        <article class="cliente-kpi-card">
+            <span class="cliente-kpi-label">Saldo cashback</span>
+            <strong id="cliente-kpi-cashback" class="cliente-kpi-value">R$ 0,00</strong>
+        </article>
+        <article class="cliente-kpi-card">
+            <span class="cliente-kpi-label">Mensagens liberadas</span>
+            <strong id="cliente-kpi-canais" class="cliente-kpi-value">0</strong>
+        </article>
+    </section>
+
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-2xl shadow-black/20 overflow-hidden">
+        <div class="border-b border-slate-800 px-5 py-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">Base de clientes</h2>
+                    <p class="text-sm text-slate-400">Busque por nome, documento, telefone ou email.</p>
+                </div>
+
+                <div class="w-full md:w-80 relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                    </span>
+                    <input id="cliente-input-busca" type="text" placeholder="Buscar cliente..."
+                        class="w-full bg-slate-950/80 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition">
+                </div>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full min-w-[1080px]">
+                <thead class="bg-slate-950/70">
+                    <tr class="border-b border-slate-800">
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Cliente</th>
+                        <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Contato</th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Cashback</th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Vendas</th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">Total</th>
+                        <th class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[220px]">Acoes</th>
+                    </tr>
+                </thead>
+
+                <tbody id="cliente-table-body" class="divide-y divide-slate-800">
+                    <tr>
+                        <td colspan="6" class="px-5 py-8 text-center text-slate-400">Carregando clientes...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="cliente-pagination"></div>
+    </section>
+</main>
+
+<div id="cliente-modal-cadastro" class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Novo Cliente</h3>
+                <p class="text-sm text-slate-400 mt-1">Cadastre o cliente e habilite os canais desejados.</p>
+            </div>
+            <button type="button" data-close-modal="cliente-modal-cadastro" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="cliente-form-cadastro" class="px-6 py-6 space-y-5">
+            {% set field_prefix = "cliente-cadastro" %}
+            {% include "modulos/cliente/partials/cliente_form_fields.html" %}
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="cliente-modal-cadastro" class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+                <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    Salvar Cliente
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="cliente-modal-edicao" class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Editar Cliente</h3>
+                <p class="text-sm text-slate-400 mt-1">Atualize os dados e preferências do cliente.</p>
+            </div>
+            <button type="button" data-close-modal="cliente-modal-edicao" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="cliente-form-edicao" class="px-6 py-6 space-y-5">
+            <input type="hidden" id="cliente-edicao-id" name="id">
+            {% set field_prefix = "cliente-edicao" %}
+            {% include "modulos/cliente/partials/cliente_form_fields.html" %}
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="cliente-modal-edicao" class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+                <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="square-pen" class="w-4 h-4"></i>
+                    Atualizar Cliente
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="cliente-modal-delete" class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="px-6 py-5 border-b border-slate-800">
+            <h3 class="text-lg font-bold text-white">Inativar cliente</h3>
+            <p class="text-sm text-slate-400 mt-1">O historico sera preservado, mas o cliente sai do fluxo operacional.</p>
+        </div>
+        <form id="cliente-form-delete" class="px-6 py-6">
+            <p class="text-slate-300 leading-relaxed">Deseja inativar este cliente?</p>
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-6">
+                <button type="button" data-close-modal="cliente-modal-delete" class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+                <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold px-5 py-3 transition">
+                    <i data-lucide="user-x" class="w-4 h-4"></i>
+                    Inativar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="cliente-modal-detalhes" class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Carteira e historico</h3>
+                <p class="text-sm text-slate-400 mt-1">Saldo de cashback, creditos ativos, mensagens e compras do cliente.</p>
+            </div>
+            <button type="button" data-close-modal="cliente-modal-detalhes" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div id="cliente-detalhes-content" class="px-6 py-6 space-y-5"></div>
+    </div>
+</div>
+
+<div id="cliente-modal-mensagem" class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Enviar mensagem</h3>
+                <p class="text-sm text-slate-400 mt-1">Use os canais configurados na empresa para falar com o cliente.</p>
+            </div>
+            <button type="button" data-close-modal="cliente-modal-mensagem" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <form id="cliente-form-mensagem" class="px-6 py-6 space-y-5">
+            <input type="hidden" id="cliente-mensagem-id" name="cliente_id">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="cliente-mensagem-empresa" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                    <select id="cliente-mensagem-empresa" name="empresa_id" class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+                <div>
+                    <label for="cliente-mensagem-canal" class="block text-sm font-medium text-slate-300 mb-2">Canal</label>
+                    <select id="cliente-mensagem-canal" name="canal" class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+            </div>
+            <div>
+                <label for="cliente-mensagem-assunto" class="block text-sm font-medium text-slate-300 mb-2">Assunto</label>
+                <input id="cliente-mensagem-assunto" name="assunto" type="text" maxlength="160" class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+            </div>
+            <div>
+                <label for="cliente-mensagem-conteudo" class="block text-sm font-medium text-slate-300 mb-2">Mensagem</label>
+                <textarea id="cliente-mensagem-conteudo" name="conteudo" rows="5" class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition resize-none"></textarea>
+            </div>
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="cliente-modal-mensagem" class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+                <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    Enviar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="cliente-modal-configuracoes" class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Configuracoes por empresa</h3>
+                <p class="text-sm text-slate-400 mt-1">Cashback, janela de cancelamento e servidores de comunicacao.</p>
+            </div>
+            <button type="button" data-close-modal="cliente-modal-configuracoes" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <div class="px-6 py-6 space-y-6">
+            <div>
+                <label for="cliente-config-empresa" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                <select id="cliente-config-empresa" class="w-full md:w-80 bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+            </div>
+
+            <form id="cliente-form-configuracoes" class="space-y-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <section class="cliente-config-card">
+                        <h4 class="cliente-config-title">Cashback</h4>
+                        <div class="space-y-4">
+                            <label class="cliente-checkline"><input id="config-cashback-ativo" type="checkbox"> <span>Habilitar cashback</span></label>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label for="config-cashback-percentual" class="block text-sm font-medium text-slate-300 mb-2">Percentual</label>
+                                    <input id="config-cashback-percentual" type="text" inputmode="decimal" class="cliente-input" value="0,00">
+                                </div>
+                                <div>
+                                    <label for="config-cashback-validade" class="block text-sm font-medium text-slate-300 mb-2">Validade em dias</label>
+                                    <input id="config-cashback-validade" type="number" min="1" class="cliente-input" value="30">
+                                </div>
+                                <div>
+                                    <label for="config-cashback-minimo" class="block text-sm font-medium text-slate-300 mb-2">Minimo de resgate</label>
+                                    <input id="config-cashback-minimo" type="text" inputmode="decimal" class="cliente-input" value="0,00">
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="cliente-config-card">
+                        <h4 class="cliente-config-title">Cancelamentos</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="config-cancelamento-venda" class="block text-sm font-medium text-slate-300 mb-2">Venda completa</label>
+                                <input id="config-cancelamento-venda" type="number" min="0" class="cliente-input" value="24">
+                            </div>
+                            <div>
+                                <label for="config-cancelamento-item" class="block text-sm font-medium text-slate-300 mb-2">Itens da venda</label>
+                                <input id="config-cancelamento-item" type="number" min="0" class="cliente-input" value="24">
+                            </div>
+                            <div>
+                                <label for="config-cancelamento-movimento" class="block text-sm font-medium text-slate-300 mb-2">Movimentacoes</label>
+                                <input id="config-cancelamento-movimento" type="number" min="0" class="cliente-input" value="24">
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <section class="cliente-config-card">
+                        <h4 class="cliente-config-title">Email SMTP</h4>
+                        <div class="space-y-4">
+                            <label class="cliente-checkline"><input id="config-email-habilitado" type="checkbox"> <span>Habilitar email</span></label>
+                            <input id="config-email-remetente-nome" type="text" placeholder="Nome do remetente" class="cliente-input">
+                            <input id="config-email-remetente" type="email" placeholder="email@empresa.com" class="cliente-input">
+                            <input id="config-smtp-host" type="text" placeholder="smtp.seuprovedor.com" class="cliente-input">
+                            <div class="grid grid-cols-2 gap-4">
+                                <input id="config-smtp-port" type="number" min="1" placeholder="587" class="cliente-input">
+                                <input id="config-smtp-usuario" type="text" placeholder="Usuario SMTP" class="cliente-input">
+                            </div>
+                            <input id="config-smtp-senha" type="password" placeholder="Senha SMTP" class="cliente-input">
+                            <p id="config-smtp-senha-status" class="text-xs text-slate-500">
+                                Se estiver usando Gmail, utilize senha de app. Se ela vier com espacos, o sistema normaliza automaticamente.
+                            </p>
+                            <div class="flex flex-wrap gap-4">
+                                <label class="cliente-checkline"><input id="config-smtp-tls" type="checkbox"> <span>Usar TLS</span></label>
+                                <label class="cliente-checkline"><input id="config-smtp-ssl" type="checkbox"> <span>Usar SSL</span></label>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="cliente-config-card">
+                        <h4 class="cliente-config-title">WhatsApp</h4>
+                        <div class="space-y-4">
+                            <label class="cliente-checkline"><input id="config-whatsapp-habilitado" type="checkbox"> <span>Habilitar WhatsApp</span></label>
+                            <input id="config-whatsapp-api-url" type="url" placeholder="https://gateway.exemplo/api/messages" class="cliente-input">
+                            <input id="config-whatsapp-token" type="text" placeholder="Token Bearer" class="cliente-input">
+                            <input id="config-whatsapp-remetente" type="text" placeholder="Remetente / instancia" class="cliente-input">
+                        </div>
+                    </section>
+
+                    <section class="cliente-config-card">
+                        <h4 class="cliente-config-title">SMS</h4>
+                        <div class="space-y-4">
+                            <label class="cliente-checkline"><input id="config-sms-habilitado" type="checkbox"> <span>Habilitar SMS</span></label>
+                            <input id="config-sms-api-url" type="url" placeholder="https://gateway.exemplo/api/sms" class="cliente-input">
+                            <input id="config-sms-token" type="text" placeholder="Token Bearer" class="cliente-input">
+                            <input id="config-sms-remetente" type="text" placeholder="Alias do remetente" class="cliente-input">
+                            <div>
+                                <label for="config-timeout" class="block text-sm font-medium text-slate-300 mb-2">Timeout (segundos)</label>
+                                <input id="config-timeout" type="number" min="1" class="cliente-input" value="15">
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                    <button type="button" data-close-modal="cliente-modal-configuracoes" class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                        Fechar
+                    </button>
+                    <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-5 py-3 transition">
+                        <i data-lucide="save" class="w-4 h-4"></i>
+                        Salvar configuracoes
+                    </button>
+                </div>
+            </form>
+
+            <div class="cliente-config-card">
+                <h4 class="cliente-config-title">Teste de comunicacao</h4>
+                <form id="cliente-form-teste-config" class="space-y-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <select id="config-teste-canal" class="cliente-input"></select>
+                        <input id="config-teste-destinatario" type="text" placeholder="Destino do teste" class="cliente-input">
+                        <input id="config-teste-assunto" type="text" placeholder="Assunto do teste" class="cliente-input">
+                    </div>
+                    <textarea id="config-teste-conteudo" rows="3" class="cliente-input resize-none" placeholder="Mensagem de teste"></textarea>
+                    <div class="flex justify-end">
+                        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            Executar teste
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="cliente-modal-disparo-coletivo" class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Disparo coletivo</h3>
+                <p class="text-sm text-slate-400 mt-1">Envia a mensagem para todos os clientes ativos aptos ao canal selecionado.</p>
+            </div>
+            <button type="button" data-close-modal="cliente-modal-disparo-coletivo" class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+        <form id="cliente-form-disparo-coletivo" class="px-6 py-6 space-y-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                    <label for="cliente-coletivo-empresa" class="block text-sm font-medium text-slate-300 mb-2">Empresa</label>
+                    <select id="cliente-coletivo-empresa" class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+                <div>
+                    <label for="cliente-coletivo-canal" class="block text-sm font-medium text-slate-300 mb-2">Canal</label>
+                    <select id="cliente-coletivo-canal" class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition"></select>
+                </div>
+            </div>
+            <div>
+                <label for="cliente-coletivo-assunto" class="block text-sm font-medium text-slate-300 mb-2">Assunto</label>
+                <input id="cliente-coletivo-assunto" type="text" maxlength="160" class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+            </div>
+            <div>
+                <label for="cliente-coletivo-conteudo" class="block text-sm font-medium text-slate-300 mb-2">Mensagem</label>
+                <textarea id="cliente-coletivo-conteudo" rows="5" class="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-xl px-4 py-3 text-white outline-none transition resize-none"></textarea>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
+                Clientes sem opt-in, sem contato valido ou sem configuracao compativel para o canal serao ignorados automaticamente no disparo.
+            </div>
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="cliente-modal-disparo-coletivo" class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Cancelar
+                </button>
+                <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    Disparar para todos
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/core/crud.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modulos/cliente.js') }}"></script>
+{% endblock %}

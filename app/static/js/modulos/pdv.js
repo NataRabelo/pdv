@@ -7,6 +7,7 @@ window.pdvPage = {
     carrinho: [],
     pagamentos: [],
     empresaId: "",
+    clienteId: "",
     busca: "",
     statusVenda: "",
     vendaSelecionada: null,
@@ -15,6 +16,7 @@ window.pdvPage = {
     pagamentoConfirmado: false,
     pagamentoConfirmadoTotal: null,
     paymentCounter: 1,
+    empresaConfiguracaoAtual: null,
     paginacao: {
         produtos: { paginaAtual: 1, porPagina: 10 },
         vendas: { paginaAtual: 1, porPagina: 10 }
@@ -29,6 +31,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     bindTopActions();
     bindCloseoutActions();
     bindMoneyMask("pdv-desconto-manual");
+    bindMoneyMask("pdv-cashback-utilizado");
     bindMoneyMask("pdv-closeout-inicial");
     bindMoneyMask("pdv-closeout-final");
 
@@ -99,7 +102,9 @@ async function carregarVendas() {
 
 function bindPdvFilters() {
     const empresaSelect = document.getElementById("pdv-empresa");
+    const clienteSelect = document.getElementById("pdv-cliente");
     const buscaInput = document.getElementById("pdv-busca");
+    const cashbackInput = document.getElementById("pdv-cashback-utilizado");
     const barcodeInput = document.getElementById("pdv-barcode-input");
     const barcodeSubmit = document.getElementById("pdv-barcode-submit");
     const statusSelect = document.getElementById("pdv-status-venda");
@@ -113,8 +118,24 @@ function bindPdvFilters() {
             limparCarrinho();
             limparBarcodeField();
             popularEmpresas();
+            popularClientesPdv();
             await carregarDadosPdv();
             document.getElementById("pdv-barcode-input")?.focus();
+        });
+    }
+
+    if (clienteSelect) {
+        clienteSelect.addEventListener("change", () => {
+            pdvPage.clienteId = clienteSelect.value || "";
+            if (!pdvPage.clienteId) {
+                const input = document.getElementById("pdv-cashback-utilizado");
+                if (input) {
+                    input.value = "0,00";
+                }
+            }
+            marcarPagamentoPendente();
+            atualizarResumoClientePdv();
+            atualizarResumoVenda();
         });
     }
 
@@ -145,6 +166,19 @@ function bindPdvFilters() {
             pdvPage.statusVenda = statusSelect.value || "";
             pdvPage.paginacao.vendas.paginaAtual = 1;
             await carregarVendas();
+        });
+    }
+
+    if (cashbackInput) {
+        cashbackInput.addEventListener("input", () => {
+            marcarPagamentoPendente();
+            atualizarResumoClientePdv();
+            atualizarResumoVenda();
+        });
+        cashbackInput.addEventListener("blur", () => {
+            cashbackInput.value = formatCurrencyInput(obterCashbackAplicado(obterBaseTotalAntesDoCashback()));
+            atualizarResumoClientePdv();
+            atualizarResumoVenda();
         });
     }
 }
@@ -254,7 +288,14 @@ function bindSaleActions() {
                 pdvPage.payloadConfirmacaoPendente = null;
                 fecharModal("pdv-confirm-modal");
                 abrirModalSucessoVenda(pdvPage.ultimaVendaFinalizada);
-                showMessage(result.message || "Venda registrada com sucesso.", "success");
+                const emailVenda = result.data?.email_venda || null;
+                let mensagemSucesso = result.message || "Venda registrada com sucesso.";
+                if (emailVenda?.status === "ENVIADO") {
+                    mensagemSucesso = `${mensagemSucesso} Email da venda enviado ao cliente.`;
+                } else if (emailVenda?.status === "ERRO") {
+                    mensagemSucesso = `${mensagemSucesso} O email automatico nao foi enviado: ${emailVenda.erro || "falha na comunicacao SMTP."}`;
+                }
+                showMessage(mensagemSucesso, "success");
                 limparCarrinho();
                 await carregarDadosPdv();
             } catch (error) {
@@ -311,6 +352,7 @@ function popularEmpresas() {
 
     const empresaInfo = document.getElementById("pdv-info-empresa");
     const empresaAtual = pdvPage.auxiliares.empresas.find((item) => String(item.id) === String(pdvPage.empresaId));
+    pdvPage.empresaConfiguracaoAtual = empresaAtual?.configuracao_cliente || null;
     if (empresaInfo) {
         empresaInfo.textContent = empresaAtual
             ? `Caixa pronto para atendimento em ${empresaAtual.nome}.`
@@ -323,6 +365,127 @@ function popularEmpresas() {
             : "Selecione a empresa para habilitar a leitura por codigo de barras.",
         empresaAtual ? "info" : "muted"
     );
+
+    popularClientesPdv();
+    atualizarResumoClientePdv();
+}
+
+function popularClientesPdv() {
+    const select = document.getElementById("pdv-cliente");
+    if (!select) return;
+
+    const currentValue = pdvPage.clienteId || "";
+    select.innerHTML = `
+        <option value="">Venda sem cliente vinculado</option>
+        ${(pdvPage.auxiliares.clientes || []).map((cliente) => `
+            <option value="${cliente.id}" ${String(cliente.id) === String(currentValue) ? "selected" : ""}>
+                ${escapeHtml(cliente.nome || "Cliente")} ${cliente.documento ? `- ${escapeHtml(formatDocumentValue(cliente.documento))}` : ""}
+            </option>
+        `).join("")}
+    `;
+}
+
+function obterEmpresaAtualPdv() {
+    return (pdvPage.auxiliares.empresas || []).find((item) => String(item.id) === String(pdvPage.empresaId)) || null;
+}
+
+function obterClienteSelecionadoPdv() {
+    return (pdvPage.auxiliares.clientes || []).find((item) => String(item.id) === String(pdvPage.clienteId)) || null;
+}
+
+function obterBaseTotalAntesDoCashback() {
+    const subtotal = pdvPage.carrinho.reduce((sum, item) => sum + multiplicar(item.valor_venda, item.quantidade), 0);
+    const descontoManual = parseCurrencyValue(document.getElementById("pdv-desconto-manual")?.value || "0");
+    const cupom = obterCupomSelecionado();
+    const descontoCupom = calcularDescontoCupom(cupom, subtotal);
+    const descontoTotal = Math.min(subtotal, descontoManual + descontoCupom);
+    return Math.max(subtotal - descontoTotal, 0);
+}
+
+function obterCashbackAplicado(baseTotal) {
+    const input = document.getElementById("pdv-cashback-utilizado");
+    const cliente = obterClienteSelecionadoPdv();
+    const configuracao = pdvPage.empresaConfiguracaoAtual || {};
+    const saldo = parseCurrencyValue(cliente?.saldo_cashback || "0");
+    const informado = parseCurrencyValue(input?.value || "0");
+    const minimo = parseCurrencyValue(configuracao.cashback_valor_minimo_resgate || "0");
+
+    if (!cliente || !pdvPage.empresaId || !configuracao.cashback_ativo) {
+        return 0;
+    }
+
+    const base = typeof baseTotal === "number" ? baseTotal : obterBaseTotalAntesDoCashback();
+    if (base <= 0) return 0;
+
+    let valor = Math.min(informado, saldo, base);
+    if (valor < 0) valor = 0;
+    if (valor > 0 && valor < minimo) {
+        valor = 0;
+    }
+    return valor;
+}
+
+function atualizarResumoClientePdv() {
+    const cliente = obterClienteSelecionadoPdv();
+    const configuracao = pdvPage.empresaConfiguracaoAtual || {};
+    const feedback = document.getElementById("pdv-cliente-feedback");
+    const saldo = document.getElementById("pdv-cliente-saldo");
+    const regra = document.getElementById("pdv-cashback-regra");
+    const cashbackFeedback = document.getElementById("pdv-cashback-feedback");
+    const cashbackInput = document.getElementById("pdv-cashback-utilizado");
+
+    const saldoDisponivel = parseCurrencyValue(cliente?.saldo_cashback || "0");
+    const baseTotal = obterBaseTotalAntesDoCashback();
+    const cashbackAplicado = obterCashbackAplicado(baseTotal);
+
+    if (saldo) {
+        saldo.textContent = formatCurrency(saldoDisponivel);
+    }
+
+    if (!cliente) {
+        if (feedback) feedback.textContent = "Selecione um cliente para vincular o historico da venda e liberar cashback.";
+        if (regra) regra.textContent = "Sem cliente selecionado.";
+        if (cashbackFeedback) cashbackFeedback.textContent = "O cashback sera liberado quando houver cliente e empresa configurados.";
+        if (cashbackInput) {
+            cashbackInput.disabled = true;
+            cashbackInput.value = "0,00";
+        }
+        return;
+    }
+
+    if (feedback) {
+        feedback.textContent = `${cliente.nome} selecionado. Saldo em carteira disponivel para esta venda.`;
+    }
+
+    if (cashbackInput) {
+        cashbackInput.disabled = !(pdvPage.empresaId && configuracao.cashback_ativo);
+    }
+
+    if (!pdvPage.empresaId) {
+        if (regra) regra.textContent = "Selecione a empresa para consultar a regra de cashback.";
+        if (cashbackFeedback) cashbackFeedback.textContent = "A empresa define percentual, validade e minimo de uso.";
+        return;
+    }
+
+    if (!configuracao.cashback_ativo) {
+        if (regra) regra.textContent = "Cashback desabilitado para esta empresa.";
+        if (cashbackFeedback) cashbackFeedback.textContent = "A venda ficara vinculada ao cliente, mas sem uso ou geracao de cashback.";
+        if (cashbackInput) {
+            cashbackInput.value = "0,00";
+        }
+        return;
+    }
+
+    const minimo = parseCurrencyValue(configuracao.cashback_valor_minimo_resgate || "0");
+    if (regra) {
+        regra.textContent = `${configuracao.cashback_percentual || "0.00"}% de retorno, validade ${configuracao.cashback_validade_dias || 30} dias, uso minimo ${formatCurrency(minimo)}.`;
+    }
+
+    if (cashbackFeedback) {
+        cashbackFeedback.textContent = cashbackAplicado > 0
+            ? `Serao usados ${formatCurrency(cashbackAplicado)} nesta venda.`
+            : "Informe um valor dentro do saldo e respeitando o minimo configurado.";
+    }
 }
 
 function renderProdutos() {
@@ -739,12 +902,14 @@ function renderVendas() {
         const statusBadge = venda.status === "FINALIZADA"
             ? `<span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-300">Finalizada</span>`
             : `<span class="inline-flex items-center rounded-full bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 text-[11px] font-medium text-rose-300">Cancelada</span>`;
+        const podeCancelarVenda = Boolean(window.__uiFlags?.can_cancel_sales) && venda.permite_cancelamento;
 
         return `
             <tr class="hover:bg-slate-800/40 transition">
                 <td class="px-5 py-4 align-middle">
                     <p class="font-semibold text-white">${escapeHtml(venda.numero_unico)}</p>
                     <p class="text-xs text-slate-500">${escapeHtml(venda.funcionario_nome || "Sem operador")}</p>
+                    <p class="text-xs text-slate-500">${escapeHtml(venda.cliente_nome || "Sem cliente")}</p>
                 </td>
                 <td class="px-5 py-4 align-middle text-slate-300">${formatDateTime(venda.data_venda)}</td>
                 <td class="px-5 py-4 align-middle text-slate-300">${escapeHtml(venda.empresa_nome || "-")}</td>
@@ -764,7 +929,7 @@ function renderVendas() {
                             onclick="abrirComprovanteVenda(${venda.id})">
                             <i data-lucide="printer" class="w-4 h-4"></i>
                         </button>
-                        ${venda.permite_cancelamento ? `
+                        ${podeCancelarVenda ? `
                             <button type="button"
                                 class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 hover:bg-rose-500/20 transition"
                                 onclick="abrirModalVenda(${venda.id}, true)">
@@ -808,6 +973,19 @@ function abrirModalVenda(vendaId, focarCancelamento) {
                     <strong class="block text-white mt-2">${formatCurrency(venda.total)}</strong>
                     <p class="text-sm text-slate-400 mt-2">Subtotal ${formatCurrency(venda.subtotal)}</p>
                     <p class="text-sm text-slate-400">Desconto ${formatCurrency(venda.desconto)}</p>
+                    <p class="text-sm text-slate-400">Cashback usado ${formatCurrency(venda.cashback_utilizado || 0)}</p>
+                    <p class="text-sm text-slate-400">Cashback gerado ${formatCurrency(venda.cashback_gerado || 0)}</p>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500 mb-3">Cliente vinculado</p>
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div>
+                        <p class="font-medium text-white">${escapeHtml(venda.cliente_nome || "Venda sem cliente")}</p>
+                        <p class="text-sm text-slate-400">${escapeHtml(formatDocumentValue(venda.cliente_documento) || "Sem documento")}</p>
+                    </div>
+                    <span class="text-sm text-slate-400">${escapeHtml(venda.status || "-")}</span>
                 </div>
             </div>
 
@@ -815,12 +993,24 @@ function abrirModalVenda(vendaId, focarCancelamento) {
                 <p class="text-xs uppercase tracking-[0.14em] text-slate-500 mb-3">Itens</p>
                 <div class="space-y-3">
                     ${venda.itens.map((item) => `
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex-1">
                                 <p class="font-medium text-white">${escapeHtml(item.produto_nome || "-")}</p>
                                 <p class="text-sm text-slate-400">${formatInteger(item.quantidade)} x ${formatCurrency(item.valor_unitario)}</p>
+                                <p class="text-xs text-slate-500">Cancelado ${formatInteger(item.quantidade_cancelada || 0)} | Disponivel ${formatInteger(item.quantidade_disponivel_cancelamento || 0)}</p>
+                                ${item.motivo_cancelamento ? `<p class="text-xs text-rose-300 mt-2">${escapeHtml(item.motivo_cancelamento)}</p>` : ""}
                             </div>
-                            <strong class="text-white">${formatCurrency(item.valor_total)}</strong>
+                            <div class="flex flex-col items-end gap-3">
+                                <strong class="text-white">${formatCurrency(item.valor_total)}</strong>
+                                ${Boolean(window.__uiFlags?.can_cancel_sale_items) && item.permite_cancelamento ? `
+                                    <button type="button"
+                                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-400/10 border border-amber-400/20 text-amber-300 hover:bg-amber-400/20 text-xs font-semibold px-3 py-2 transition"
+                                        onclick="cancelarItemVenda(${item.id})">
+                                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                                        Cancelar item
+                                    </button>
+                                ` : ""}
+                            </div>
                         </div>
                     `).join("")}
                 </div>
@@ -855,7 +1045,7 @@ function abrirModalVenda(vendaId, focarCancelamento) {
     }
 
     if (cancelButton) {
-        cancelButton.classList.toggle("hidden", !venda.permite_cancelamento);
+        cancelButton.classList.toggle("hidden", !(Boolean(window.__uiFlags?.can_cancel_sales) && venda.permite_cancelamento));
     }
 
     abrirModal("pdv-sale-modal");
@@ -868,6 +1058,25 @@ function abrirModalVenda(vendaId, focarCancelamento) {
     }
 }
 
+async function cancelarItemVenda(itemId) {
+    if (!pdvPage.vendaSelecionada) return;
+
+    try {
+        const motivo = (document.getElementById("pdv-sale-cancel-reason")?.value || "").trim();
+        const result = await requestJson(`/api/pdv/vendas/${pdvPage.vendaSelecionada.id}/itens/${itemId}/cancelar`, {
+            method: "POST",
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ motivo })
+        });
+
+        showMessage(result.message || "Item cancelado com sucesso.", "success");
+        await carregarDadosPdv();
+        abrirModalVenda(pdvPage.vendaSelecionada.id, false);
+    } catch (error) {
+        showMessage(error.message || "Erro ao cancelar o item.", "error");
+    }
+}
+
 function abrirModalConfirmacaoVenda(payload) {
     const content = document.getElementById("pdv-confirm-content");
     if (!content) return;
@@ -876,6 +1085,8 @@ function abrirModalConfirmacaoVenda(payload) {
     const desconto = parseCurrencyValue(document.getElementById("pdv-total-desconto")?.textContent || "0");
     const total = parseCurrencyValue(document.getElementById("pdv-total-geral")?.textContent || "0");
     const empresa = pdvPage.auxiliares.empresas.find((item) => String(item.id) === String(payload.empresa_id));
+    const cliente = obterClienteSelecionadoPdv();
+    const cashback = parseCurrencyValue(payload.cashback_utilizado || "0");
 
     content.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -890,6 +1101,20 @@ function abrirModalConfirmacaoVenda(payload) {
             <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Total</p>
                 <strong class="block text-white mt-2">${formatCurrency(total)}</strong>
+            </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Cliente</p>
+                    <p class="font-medium text-white mt-2">${escapeHtml(cliente?.nome || "Venda sem cliente")}</p>
+                    <p class="text-sm text-slate-400">${escapeHtml(formatDocumentValue(cliente?.documento) || "Sem documento")}</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Cashback usado</p>
+                    <p class="font-semibold text-white mt-2">${formatCurrency(cashback)}</p>
+                </div>
             </div>
         </div>
 
@@ -914,7 +1139,7 @@ function abrirModalConfirmacaoVenda(payload) {
         <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
             <p class="text-xs uppercase tracking-[0.14em] text-slate-500 mb-3">Pagamentos</p>
             <div class="space-y-3">
-                ${payload.pagamentos.map((pagamento) => {
+                ${payload.pagamentos.length ? payload.pagamentos.map((pagamento) => {
                     const forma = pdvPage.auxiliares.formas_pagamento.find((item) => String(item.id) === String(pagamento.forma_pagamento_id));
                     return `
                         <div class="flex items-center justify-between gap-4">
@@ -922,7 +1147,12 @@ function abrirModalConfirmacaoVenda(payload) {
                             <strong class="text-white">${formatCurrency(pagamento.valor)}</strong>
                         </div>
                     `;
-                }).join("")}
+                }).join("") : `
+                    <div class="flex items-center justify-between gap-4">
+                        <p class="font-medium text-white">Sem pagamento adicional</p>
+                        <strong class="text-white">${formatCurrency(0)}</strong>
+                    </div>
+                `}
             </div>
         </div>
     `;
@@ -953,6 +1183,18 @@ function abrirModalSucessoVenda(venda) {
                 <div class="flex items-center justify-between gap-3">
                     <span>Itens</span>
                     <strong class="text-white">${formatInteger(venda.itens_quantidade)}</strong>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <span>Cliente</span>
+                    <strong class="text-white">${escapeHtml(venda.cliente_nome || "Sem cliente")}</strong>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <span>Cashback usado</span>
+                    <strong class="text-white">${formatCurrency(venda.cashback_utilizado || 0)}</strong>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <span>Cashback gerado</span>
+                    <strong class="text-white">${formatCurrency(venda.cashback_gerado || 0)}</strong>
                 </div>
                 <div class="flex items-center justify-between gap-3">
                     <span>Total</span>
@@ -998,8 +1240,10 @@ function montarPayloadVenda() {
 
     return {
         empresa_id: pdvPage.empresaId,
+        cliente_id: pdvPage.clienteId || "",
         cupom_codigo: (document.getElementById("pdv-cupom-codigo")?.value || "").trim(),
         desconto_manual: normalizeMoneyForApi(document.getElementById("pdv-desconto-manual")?.value || "0"),
+        cashback_utilizado: normalizeMoneyForApi(document.getElementById("pdv-cashback-utilizado")?.value || "0"),
         observacao: (document.getElementById("pdv-observacao")?.value || "").trim(),
         itens: pdvPage.carrinho.map((item) => ({
             produto_id: item.produto_id,
@@ -1016,11 +1260,18 @@ function atualizarResumoVenda() {
     const cupom = obterCupomSelecionado();
     const descontoCupom = calcularDescontoCupom(cupom, subtotal);
     const descontoTotal = Math.min(subtotal, descontoManual + descontoCupom);
-    const total = Math.max(subtotal - descontoTotal, 0);
+    const baseTotal = Math.max(subtotal - descontoTotal, 0);
+    const cashbackAplicado = obterCashbackAplicado(baseTotal);
+    const cashbackInput = document.getElementById("pdv-cashback-utilizado");
+    if (cashbackInput) {
+        cashbackInput.value = formatCurrencyInput(cashbackAplicado);
+    }
+    const total = Math.max(baseTotal - cashbackAplicado, 0);
 
     setText("pdv-total-subtotal", formatCurrency(subtotal));
     setText("pdv-total-desconto", formatCurrency(descontoTotal));
     setText("pdv-total-geral", formatCurrency(total));
+    atualizarResumoClientePdv();
 
     if (pdvPage.pagamentoConfirmado && !pagamentoEstaConfirmadoParaTotalAtual(total)) {
         marcarPagamentoPendente();
@@ -1084,6 +1335,11 @@ function syncSinglePaymentWithTotal(totalOverride) {
 }
 
 function validarPagamentosConfigurados() {
+    const totalVenda = obterTotalAtualVenda();
+    if (totalVenda <= 0.009) {
+        return [];
+    }
+
     const pagamentosNormalizados = pdvPage.pagamentos.map((item) => {
         const formaPagamentoId = String(item.forma_pagamento_id || "").trim();
         const valorNumerico = parseCurrencyValue(item.valor);
@@ -1111,8 +1367,6 @@ function validarPagamentosConfigurados() {
     if (!pagamentos.length) {
         throw new Error("Informe ao menos um pagamento valido.");
     }
-
-    const totalVenda = obterTotalAtualVenda();
 
     const totalInformado = pagamentos.reduce((sum, item) => sum + item.valorNumerico, 0);
     if (Math.abs(totalInformado - totalVenda) > 0.009) {
@@ -1213,14 +1467,20 @@ function obterTotalAtualVenda() {
 function limparCarrinho() {
     pdvPage.carrinho = [];
     pdvPage.payloadConfirmacaoPendente = null;
+    pdvPage.clienteId = "";
     const cupom = document.getElementById("pdv-cupom-codigo");
+    const cliente = document.getElementById("pdv-cliente");
+    const cashback = document.getElementById("pdv-cashback-utilizado");
     const desconto = document.getElementById("pdv-desconto-manual");
     const observacao = document.getElementById("pdv-observacao");
     if (cupom) cupom.value = "";
+    if (cliente) cliente.value = "";
+    if (cashback) cashback.value = "0,00";
     if (desconto) desconto.value = "0,00";
     if (observacao) observacao.value = "";
     pdvPage.pagamentoConfirmado = false;
     pdvPage.pagamentoConfirmadoTotal = null;
+    atualizarResumoClientePdv();
     renderCarrinho();
 }
 
@@ -1420,6 +1680,10 @@ function formatCurrency(value) {
         style: "currency",
         currency: "BRL"
     }).format(Number.isNaN(parsed) ? 0 : parsed);
+}
+
+function formatDocumentValue(value) {
+    return window.InputMask?.formatDocument(value) ?? String(value ?? "");
 }
 
 function formatInteger(value) {

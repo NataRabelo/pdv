@@ -5,6 +5,7 @@ from uuid import uuid4
 from app.models.db import ItemVenda, PagamentoVenda, StatusVenda, TipoDesconto, Venda
 from app.repositorys.pdv_repository import PdvRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.cliente_service import ClienteService
 from app.services.estoque_service import EstoqueService
 from app.services.financeiro_service import FinanceiroService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
@@ -21,10 +22,17 @@ class PdvService:
         empresas = PdvRepository.listar_empresas(tenant_id, empresa_ids=empresa_ids)
         formas_pagamento = PdvRepository.listar_formas_pagamento(tenant_id)
         cupons = PdvRepository.listar_cupons_ativos(tenant_id, data_referencia=date.today())
+        clientes = ClienteService.listar_para_pdv(tenant_id)
 
         return {
             "empresas": [
-                {"id": empresa.id, "nome": empresa.nome_fantasia}
+                {
+                    "id": empresa.id,
+                    "nome": empresa.nome_fantasia,
+                    "configuracao_cliente": ClienteService.serializar_configuracao_empresa(
+                        ClienteService.obter_modelo_configuracao_empresa(empresa.id, tenant_id)
+                    ),
+                }
                 for empresa in empresas
             ],
             "formas_pagamento": [
@@ -42,6 +50,7 @@ class PdvService:
                 }
                 for cupom in cupons
             ],
+            "clientes": clientes,
         }
 
     @staticmethod
@@ -115,7 +124,9 @@ class PdvService:
             PdvService._garantir_base_operacional(tenant_id)
 
             empresa_id = PdvService._to_int(data.get("empresa_id"), "Empresa")
+            cliente_id = PdvService._to_optional_int(data.get("cliente_id"), "Cliente")
             desconto_manual = PdvService._to_optional_decimal(data.get("desconto_manual"), "desconto manual")
+            cashback_utilizado = PdvService._to_optional_decimal(data.get("cashback_utilizado"), "cashback utilizado") or Decimal("0.00")
             observacao = (data.get("observacao") or "").strip() or None
             cupom_codigo = (data.get("cupom_codigo") or "").strip() or None
             itens_payload = data.get("itens") or []
@@ -123,9 +134,6 @@ class PdvService:
 
             if not itens_payload:
                 raise ValueError("Adicione ao menos um item ao carrinho.")
-
-            if not pagamentos_payload:
-                raise ValueError("Informe ao menos uma forma de pagamento.")
 
             AcessoEmpresaService.validar_empresa(empresa_id, escopo)
 
@@ -168,7 +176,19 @@ class PdvService:
             if desconto_total > subtotal:
                 raise ValueError("O desconto total nao pode ser maior que o subtotal.")
 
-            total = (subtotal - desconto_total).quantize(Decimal("0.01"))
+            total_sem_cashback = (subtotal - desconto_total).quantize(Decimal("0.01"))
+            if cashback_utilizado > total_sem_cashback:
+                raise ValueError("O cashback utilizado nao pode ser maior que o total liquido da venda.")
+
+            if cliente_id and cashback_utilizado > Decimal("0.00"):
+                ClienteService.preparar_uso_cashback(
+                    cliente_id=cliente_id,
+                    empresa_id=empresa_id,
+                    valor_solicitado=cashback_utilizado,
+                    tenant_id=tenant_id,
+                )
+
+            total = (total_sem_cashback - cashback_utilizado).quantize(Decimal("0.01"))
 
             pagamentos_compilados = PdvService._validar_pagamentos(
                 pagamentos_payload=pagamentos_payload,
@@ -186,6 +206,8 @@ class PdvService:
                 status=StatusVenda.FINALIZADA,
                 subtotal=subtotal,
                 desconto=desconto_total,
+                cashback_utilizado=cashback_utilizado,
+                cashback_gerado=Decimal("0.00"),
                 total=total,
                 data_venda=TimeService.now_utc_naive(),
                 observacao=observacao,
@@ -193,17 +215,18 @@ class PdvService:
             PdvRepository.adicionar(venda)
             PdvRepository.flush()
 
+            itens_registrados = []
             for item in itens_compilados:
-                PdvRepository.adicionar(
-                    ItemVenda(
-                        tenant_id=tenant_id,
-                        venda_id=venda.id,
-                        produto_id=item["produto_id"],
-                        quantidade=item["quantidade"],
-                        valor_unitario=item["valor_unitario"],
-                        valor_total=item["valor_total"],
-                    )
+                item_obj = ItemVenda(
+                    tenant_id=tenant_id,
+                    venda_id=venda.id,
+                    produto_id=item["produto_id"],
+                    quantidade=item["quantidade"],
+                    valor_unitario=item["valor_unitario"],
+                    valor_total=item["valor_total"],
                 )
+                PdvRepository.adicionar(item_obj)
+                itens_registrados.append(item_obj)
 
             pagamentos_registrados = []
             for pagamento in pagamentos_compilados:
@@ -225,11 +248,12 @@ class PdvService:
                 empresa_id=empresa_id,
                 itens=[
                     {
+                        "item_venda_id": item_obj.id,
                         "produto_id": item["produto_id"],
                         "quantidade": item["quantidade"],
                         "valor_unitario": item["valor_unitario"],
                     }
-                    for item in itens_compilados
+                    for item, item_obj in zip(itens_compilados, itens_registrados)
                 ],
                 tenant_id=tenant_id,
                 funcionario_id=funcionario_id,
@@ -243,12 +267,28 @@ class PdvService:
                 funcionario_id=funcionario_id,
                 persistir=False,
             )
+            ClienteService.processar_cashback_da_venda(
+                venda=venda,
+                cliente_id=cliente_id,
+                empresa_id=empresa_id,
+                valor_cashback_utilizado=cashback_utilizado,
+                tenant_id=tenant_id,
+                funcionario_id=funcionario_id,
+            )
 
             PdvRepository.salvar()
 
             empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
             venda = PdvRepository.buscar_venda_por_id(venda.id, tenant_id, empresa_ids=empresa_ids)
-            return PdvService.serializar_venda(venda)
+            email_venda = ClienteService.enviar_email_venda_automatica(
+                venda=venda,
+                tenant_id=tenant_id,
+                funcionario_id=funcionario_id,
+            )
+            venda = PdvRepository.buscar_venda_por_id(venda.id, tenant_id, empresa_ids=empresa_ids)
+            dados_venda = PdvService.serializar_venda(venda)
+            dados_venda["email_venda"] = email_venda
+            return dados_venda
         except Exception:
             PdvRepository.rollback()
             raise
@@ -264,7 +304,22 @@ class PdvService:
             if venda.status != StatusVenda.FINALIZADA:
                 raise ValueError("Somente vendas finalizadas podem ser canceladas.")
 
+            if any(int(getattr(item, "quantidade_cancelada", 0) or 0) > 0 for item in venda.itens):
+                raise ValueError("Esta venda ja possui cancelamentos parciais. Finalize o processo pelos itens restantes.")
+
+            configuracao = ClienteService.obter_modelo_configuracao_empresa(venda.empresa_id, tenant_id)
+            PdvService._validar_janela_cancelamento(
+                data_base=venda.data_venda,
+                limite_horas=configuracao.cancelamento_venda_limite_horas,
+                mensagem="A janela de cancelamento da venda expirou para esta empresa.",
+            )
+
             motivo = (data.get("motivo") or "").strip() or "Cancelamento manual realizado pelo operador."
+            venda.cancelado_em = TimeService.now_utc_naive()
+            venda.cancelado_por_funcionario_id = funcionario_id
+            venda.valor_cancelado = (
+                PdvService._to_decimal_value(venda.total) + PdvService._to_decimal_value(getattr(venda, "cashback_utilizado", 0))
+            ).quantize(Decimal("0.01"))
             venda.status = StatusVenda.CANCELADA
             venda.observacao = PdvService._mesclar_observacao(venda.observacao, motivo)
 
@@ -273,6 +328,7 @@ class PdvService:
                 empresa_id=venda.empresa_id,
                 itens=[
                     {
+                        "item_venda_id": item.id,
                         "produto_id": item.produto_id,
                         "quantidade": item.quantidade,
                         "valor_unitario": item.valor_unitario,
@@ -290,9 +346,120 @@ class PdvService:
                 funcionario_id=funcionario_id,
                 persistir=False,
             )
+            ClienteService.reverter_cashback_venda(venda, tenant_id, funcionario_id)
 
             PdvRepository.salvar()
 
+            venda = PdvRepository.buscar_venda_por_id(venda.id, tenant_id, empresa_ids=empresa_ids)
+            return PdvService.serializar_venda(venda)
+        except Exception:
+            PdvRepository.rollback()
+            raise
+
+    @staticmethod
+    def cancelar_item_venda(venda_id, item_id, data, tenant_id, escopo, funcionario_id):
+        try:
+            empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+            item = PdvRepository.buscar_item_venda(venda_id, item_id, tenant_id)
+            if not item or not item.venda or (empresa_ids is not None and item.venda.empresa_id not in empresa_ids):
+                raise ValueError("Item da venda nao encontrado.")
+
+            venda = item.venda
+            if venda.status != StatusVenda.FINALIZADA:
+                raise ValueError("Somente vendas finalizadas podem ter itens cancelados.")
+
+            configuracao = ClienteService.obter_modelo_configuracao_empresa(venda.empresa_id, tenant_id)
+            PdvService._validar_janela_cancelamento(
+                data_base=venda.data_venda,
+                limite_horas=configuracao.cancelamento_item_limite_horas,
+                mensagem="A janela de cancelamento de itens expirou para esta empresa.",
+            )
+
+            quantidade_informada = data.get("quantidade")
+            if quantidade_informada in (None, ""):
+                quantidade_informada = 1
+            quantidade_cancelar = PdvService._to_positive_int(quantidade_informada, "quantidade")
+            quantidade_cancelada_atual = int(getattr(item, "quantidade_cancelada", 0) or 0)
+            quantidade_disponivel = int(item.quantidade) - quantidade_cancelada_atual
+            if quantidade_disponivel <= 0:
+                raise ValueError("Este item ja foi cancelado integralmente.")
+            if quantidade_cancelar > quantidade_disponivel:
+                raise ValueError("A quantidade informada ultrapassa o saldo disponivel para cancelamento do item.")
+
+            motivo = (data.get("motivo") or "").strip() or "Cancelamento parcial do item solicitado pelo operador."
+            valor_bruto_cancelado = (
+                PdvService._to_decimal_value(item.valor_unitario) * quantidade_cancelar
+            ).quantize(Decimal("0.01"))
+            percentual_desconto = Decimal("0.00")
+            if PdvService._to_decimal_value(venda.subtotal) > Decimal("0.00"):
+                percentual_desconto = (
+                    PdvService._to_decimal_value(venda.desconto) / PdvService._to_decimal_value(venda.subtotal)
+                )
+            valor_cancelamento_liquido = (
+                valor_bruto_cancelado * (Decimal("1.00") - percentual_desconto)
+            ).quantize(Decimal("0.01"))
+
+            base_pos_desconto = (
+                PdvService._to_decimal_value(venda.total) + PdvService._to_decimal_value(getattr(venda, "cashback_utilizado", 0))
+            ).quantize(Decimal("0.01"))
+            cashback_restaurar = Decimal("0.00")
+            if base_pos_desconto > Decimal("0.00") and PdvService._to_decimal_value(getattr(venda, "cashback_utilizado", 0)) > Decimal("0.00"):
+                cashback_restaurar = (
+                    valor_cancelamento_liquido * PdvService._to_decimal_value(venda.cashback_utilizado) / base_pos_desconto
+                ).quantize(Decimal("0.01"))
+
+            valor_estorno_financeiro = (valor_cancelamento_liquido - cashback_restaurar).quantize(Decimal("0.01"))
+
+            item.quantidade_cancelada = quantidade_cancelada_atual + quantidade_cancelar
+            item.valor_cancelado = (
+                PdvService._to_decimal_value(getattr(item, "valor_cancelado", 0)) + valor_cancelamento_liquido
+            ).quantize(Decimal("0.01"))
+            item.cancelado_em = TimeService.now_utc_naive()
+            item.cancelado_por_funcionario_id = funcionario_id
+            item.motivo_cancelamento = PdvService._mesclar_observacao(item.motivo_cancelamento, motivo)
+
+            venda.valor_cancelado = (
+                PdvService._to_decimal_value(getattr(venda, "valor_cancelado", 0)) + valor_cancelamento_liquido
+            ).quantize(Decimal("0.01"))
+            venda.observacao = PdvService._mesclar_observacao(venda.observacao, f"Item cancelado: {motivo}")
+
+            EstoqueService.registrar_entrada_por_cancelamento_item_venda(
+                venda_id=venda.id,
+                empresa_id=venda.empresa_id,
+                item_venda=item,
+                quantidade=quantidade_cancelar,
+                tenant_id=tenant_id,
+                funcionario_id=funcionario_id,
+                escopo=escopo,
+                persistir=False,
+            )
+            FinanceiroService.registrar_estorno_parcial_da_venda(
+                venda=venda,
+                item_venda=item,
+                valor_estorno=valor_estorno_financeiro,
+                tenant_id=tenant_id,
+                funcionario_id=funcionario_id,
+                persistir=False,
+            )
+            ClienteService.restaurar_cashback_parcial_da_venda(
+                venda=venda,
+                valor_restaurar=cashback_restaurar,
+                tenant_id=tenant_id,
+                funcionario_id=funcionario_id,
+            )
+            ClienteService.ajustar_cashback_gerado_por_cancelamento_item(
+                venda=venda,
+                valor_cancelamento_liquido=valor_cancelamento_liquido,
+                tenant_id=tenant_id,
+                funcionario_id=funcionario_id,
+            )
+
+            if all(int(item_venda.quantidade_cancelada or 0) >= int(item_venda.quantidade) for item_venda in venda.itens):
+                venda.status = StatusVenda.CANCELADA
+                venda.cancelado_em = TimeService.now_utc_naive()
+                venda.cancelado_por_funcionario_id = funcionario_id
+
+            PdvRepository.salvar()
             venda = PdvRepository.buscar_venda_por_id(venda.id, tenant_id, empresa_ids=empresa_ids)
             return PdvService.serializar_venda(venda)
         except Exception:
@@ -319,17 +486,37 @@ class PdvService:
 
     @staticmethod
     def serializar_venda(venda):
+        configuracao = ClienteService.obter_modelo_configuracao_empresa(venda.empresa_id, venda.tenant_id)
+        permite_cancelamento = (
+            venda.status == StatusVenda.FINALIZADA
+            and not any(int(getattr(item, "quantidade_cancelada", 0) or 0) > 0 for item in venda.itens)
+            and PdvService._esta_dentro_janela_cancelamento(venda.data_venda, configuracao.cancelamento_venda_limite_horas)
+        )
+        permite_cancelar_itens = (
+            venda.status == StatusVenda.FINALIZADA
+            and PdvService._esta_dentro_janela_cancelamento(venda.data_venda, configuracao.cancelamento_item_limite_horas)
+            and any(int(item.quantidade) > int(getattr(item, "quantidade_cancelada", 0) or 0) for item in venda.itens)
+        )
+
         return {
             "id": venda.id,
             "empresa_id": venda.empresa_id,
             "empresa_nome": venda.empresa.nome_fantasia if venda.empresa else None,
             "funcionario_nome": venda.funcionario.nome if venda.funcionario else None,
+            "cliente_id": venda.cliente_id,
+            "cliente_nome": venda.cliente.nome if venda.cliente else None,
+            "cliente_documento": venda.cliente.documento if venda.cliente else None,
             "numero_unico": venda.numero_unico,
             "status": venda.status.value,
             "subtotal": str(PdvService._to_decimal_value(venda.subtotal)),
             "desconto": str(PdvService._to_decimal_value(venda.desconto)),
+            "cashback_utilizado": str(PdvService._to_decimal_value(getattr(venda, "cashback_utilizado", 0))),
+            "cashback_gerado": str(PdvService._to_decimal_value(getattr(venda, "cashback_gerado", 0))),
+            "cashback_percentual_aplicado": str(PdvService._to_decimal_value(getattr(venda, "cashback_percentual_aplicado", 0))),
+            "valor_cancelado": str(PdvService._to_decimal_value(getattr(venda, "valor_cancelado", 0))),
             "total": str(PdvService._to_decimal_value(venda.total)),
             "data_venda": TimeService.serialize_utc_iso(venda.data_venda),
+            "cancelado_em": TimeService.serialize_utc_iso(getattr(venda, "cancelado_em", None)),
             "observacao": venda.observacao,
             "cupom_codigo": venda.cupom.codigo if venda.cupom else None,
             "itens_quantidade": sum(int(item.quantidade) for item in venda.itens),
@@ -339,8 +526,18 @@ class PdvService:
                     "produto_id": item.produto_id,
                     "produto_nome": item.produto.nome if item.produto else None,
                     "quantidade": int(item.quantidade),
+                    "quantidade_cancelada": int(getattr(item, "quantidade_cancelada", 0) or 0),
+                    "quantidade_disponivel_cancelamento": int(item.quantidade) - int(getattr(item, "quantidade_cancelada", 0) or 0),
                     "valor_unitario": str(PdvService._to_decimal_value(item.valor_unitario)),
                     "valor_total": str(PdvService._to_decimal_value(item.valor_total)),
+                    "valor_cancelado": str(PdvService._to_decimal_value(getattr(item, "valor_cancelado", 0))),
+                    "motivo_cancelamento": getattr(item, "motivo_cancelamento", None),
+                    "cancelado_em": TimeService.serialize_utc_iso(getattr(item, "cancelado_em", None)),
+                    "permite_cancelamento": (
+                        venda.status == StatusVenda.FINALIZADA
+                        and PdvService._esta_dentro_janela_cancelamento(venda.data_venda, configuracao.cancelamento_item_limite_horas)
+                        and int(item.quantidade) > int(getattr(item, "quantidade_cancelada", 0) or 0)
+                    ),
                 }
                 for item in venda.itens
             ],
@@ -354,7 +551,8 @@ class PdvService:
                 }
                 for pagamento in venda.pagamentos
             ],
-            "permite_cancelamento": venda.status == StatusVenda.FINALIZADA,
+            "permite_cancelamento": permite_cancelamento,
+            "permite_cancelar_itens": permite_cancelar_itens,
         }
 
     @staticmethod
@@ -393,6 +591,12 @@ class PdvService:
 
     @staticmethod
     def _validar_pagamentos(pagamentos_payload, tenant_id, total_esperado):
+        if PdvService._to_decimal_value(total_esperado) <= Decimal("0.00"):
+            return []
+
+        if not pagamentos_payload:
+            raise ValueError("Informe ao menos uma forma de pagamento.")
+
         formas_ids = [
             PdvService._to_int(item.get("forma_pagamento_id"), "Forma de pagamento")
             for item in pagamentos_payload
@@ -510,3 +714,33 @@ class PdvService:
             return Decimal(str(value or 0)).quantize(Decimal("0.01"))
         except (InvalidOperation, ValueError):
             return Decimal("0.00")
+
+    @staticmethod
+    def _to_optional_int(value, field_name):
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field_name} invalido.")
+
+    @staticmethod
+    def _esta_dentro_janela_cancelamento(data_base, limite_horas):
+        try:
+            limite = int(limite_horas or 0)
+        except (TypeError, ValueError):
+            limite = 0
+        if limite <= 0:
+            return True
+        agora = TimeService.now_utc_naive()
+        return agora <= (data_base + PdvService._timedelta_hours(limite))
+
+    @staticmethod
+    def _validar_janela_cancelamento(data_base, limite_horas, mensagem):
+        if not PdvService._esta_dentro_janela_cancelamento(data_base, limite_horas):
+            raise ValueError(mensagem)
+
+    @staticmethod
+    def _timedelta_hours(hours):
+        from datetime import timedelta
+        return timedelta(hours=max(int(hours or 0), 0))

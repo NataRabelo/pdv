@@ -24,6 +24,7 @@ def register_context_processors(app: Flask) -> None:
         {"label": "PDV", "endpoint": "main.pdv_home", "icon": "shopping-cart", "permission": "visualizar_pdv"},
         {"label": "Estoque", "endpoint": "main.estoque_home", "icon": "boxes", "permission": "visualizar_produto"},
         {"label": "Financeiro", "endpoint": "main.financeiro_home", "icon": "landmark", "permission": "visualizar_financeiro"},
+        {"label": "Clientes", "href": "/api/clientes/view", "icon": "contact-round", "permission": "visualizar_cliente"},
         {"label": "Funcionarios", "href": "/api/funcionarios/view", "icon": "users", "permission": "visualizar_funcionario"},
         {"label": "Roles", "href": "/api/roles/view", "icon": "shield-check", "permission": "visualizar_role"},
         {"label": "Permissions", "href": "/api/permissions/view", "icon": "key-round", "permission": "visualizar_permission"},
@@ -83,13 +84,22 @@ def register_context_processors(app: Flask) -> None:
             "can_view_pdv": "visualizar_pdv" in permission_codes,
             "can_manage_sales": "registrar_venda" in permission_codes,
             "can_cancel_sales": "cancelar_venda" in permission_codes,
+            "can_cancel_sale_items": "cancelar_item_venda" in permission_codes,
             "can_view_stock": "visualizar_produto" in permission_codes,
             "can_manage_products": "criar_produto" in permission_codes or "editar_produto" in permission_codes,
+            "can_cancel_stock_movements": "cancelar_movimentacao_estoque" in permission_codes,
             "can_view_categories": "visualizar_categoria" in permission_codes,
             "can_manage_categories": any(
                 permission in permission_codes
                 for permission in ["criar_categoria", "editar_categoria", "excluir_categoria"]
             ),
+            "can_view_customers": "visualizar_cliente" in permission_codes,
+            "can_manage_customers": any(
+                permission in permission_codes
+                for permission in ["criar_cliente", "editar_cliente", "excluir_cliente"]
+            ),
+            "can_send_customer_messages": "enviar_mensagem_cliente" in permission_codes,
+            "can_manage_customer_settings": "gerenciar_configuracao_cliente" in permission_codes,
             "can_view_finance": "visualizar_financeiro" in permission_codes,
             "can_view_finance_reports": "visualizar_relatorio_financeiro" in permission_codes,
             "can_manage_finance_entries": "criar_lancamento_financeiro" in permission_codes,

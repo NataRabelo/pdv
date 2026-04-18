@@ -24,7 +24,7 @@ min-h-screen flex flex-col
             <p class="text-slate-400">Acesse somente os modulos liberados para o seu perfil.</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-8">
             {% if ui_flags.can_view_pdv %}
             <a href="{{ url_for('main.pdv_home') }}" class="glass module-card group">
                 <div class="icon-wrapper">
@@ -52,6 +52,16 @@ min-h-screen flex flex-col
                 </div>
                 <h3 class="text-xl font-bold text-white mb-2">Financeiro</h3>
                 <p class="text-slate-400 text-sm">Fluxo de caixa, indicadores, lancamentos e fechamento.</p>
+            </a>
+            {% endif %}
+
+            {% if ui_flags.can_view_customers %}
+            <a href="/api/clientes/view" class="glass module-card group">
+                <div class="icon-wrapper">
+                    <i data-lucide="contact-round" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-xl font-bold text-white mb-2">Clientes</h3>
+                <p class="text-slate-400 text-sm">Cadastro, carteira cashback, historico de compras e comunicacao.</p>
             </a>
             {% endif %}
 

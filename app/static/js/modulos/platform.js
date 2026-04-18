@@ -38,6 +38,14 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
+function formatPlatformCpf(value) {
+  return window.InputMask?.formatCpf(value) || String(value ?? "");
+}
+
+function formatPlatformCnpj(value) {
+  return window.InputMask?.formatCnpj(value) || String(value ?? "");
+}
+
 function showFeedback(message, type = "info") {
   if (!platformElements.feedback) {
     return;
@@ -157,7 +165,7 @@ function renderTenantGrid() {
             </div>
             <div class="text-right">
               <strong class="platform-list-title">${escapeHtml(empresa.tipo_empresa)}</strong>
-              <span class="platform-list-subtitle">${escapeHtml(empresa.cnpj)}</span>
+              <span class="platform-list-subtitle">${escapeHtml(formatPlatformCnpj(empresa.cnpj))}</span>
             </div>
           </li>
         `).join("")
@@ -179,7 +187,7 @@ function renderTenantGrid() {
             </div>
             <div class="text-right">
               <strong class="platform-list-title">${admin.ativo ? "Ativo" : "Inativo"}</strong>
-              <span class="platform-list-subtitle">${escapeHtml(admin.cpf)}</span>
+              <span class="platform-list-subtitle">${escapeHtml(formatPlatformCpf(admin.cpf))}</span>
             </div>
           </li>
         `).join("")
@@ -412,7 +420,7 @@ function prepareAdminModal(tenantId) {
   }
   if (platformElements.adminEmpresaId) {
       platformElements.adminEmpresaId.innerHTML = tenant.empresas.map((empresa) => `
-      <option value="${empresa.id}">${escapeHtml(empresa.nome_fantasia)} - ${escapeHtml(empresa.cnpj)}</option>
+      <option value="${empresa.id}">${escapeHtml(empresa.nome_fantasia)} - ${escapeHtml(formatPlatformCnpj(empresa.cnpj))}</option>
     `).join("");
   }
 

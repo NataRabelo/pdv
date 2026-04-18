@@ -1,6 +1,7 @@
 from app.controllers.adiantamento_controller import adiantamento_bp
 from app.controllers.auth_controller import auth_bp
 from app.controllers.categoria_controller import categoria_bp
+from app.controllers.cliente_controller import cliente_bp
 from app.controllers.cupom_controller import cupom_bp
 from app.controllers.estoque_controller import estoque_bp
 from app.controllers.financeiro_controller import financeiro_bp
@@ -21,6 +22,7 @@ def register_blueprints(app):
     app.register_blueprint(main_bp)
     app.register_blueprint(platform_bp)
     app.register_blueprint(produto_bp, url_prefix="/api/produtos")
+    app.register_blueprint(cliente_bp, url_prefix="/api/clientes")
     app.register_blueprint(cupom_bp, url_prefix="/api/cupons")
     app.register_blueprint(adiantamento_bp, url_prefix="/api/adiantamentos")
     app.register_blueprint(estoque_bp, url_prefix="/api/estoque")

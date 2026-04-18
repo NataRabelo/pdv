@@ -7,6 +7,7 @@ Este manual foi escrito para o usuario operacional do sistema. Ele explica como 
 - Estoque
 - PDV
 - Financeiro
+- Clientes
 
 ## 2. Acesso ao sistema
 
@@ -35,7 +36,10 @@ Pelo menu superior tambem e possivel navegar entre:
 - PDV
 - Estoque
 - Financeiro
+- Clientes
 - Funcionarios
+
+Existe tambem um manual especifico para a operacao de clientes, cashback e mensageria em [manual_clientes_cashback_mensageria.md](./manual_clientes_cashback_mensageria.md).
 
 ## 4. Modulo de estoque
 
@@ -168,7 +172,28 @@ O card mostra:
 - valor do sistema
 - diferenca entre o caixa contado e o esperado
 
-## 7. Filtros e acompanhamento
+## 7. Modulo de clientes
+
+### O que pode ser feito
+
+- cadastrar clientes
+- vincular vendas ao cliente
+- consultar carteira de cashback
+- ver historico de compras
+- enviar email, SMS e WhatsApp
+- configurar cashback e janelas de cancelamento por empresa
+
+### Onde encontrar o detalhamento completo
+
+Use o guia dedicado em [manual_clientes_cashback_mensageria.md](./manual_clientes_cashback_mensageria.md) para:
+
+- configuracao de SMTP
+- configuracao de webhook para WhatsApp e SMS
+- regras de uso do cashback
+- cancelamento parcial de itens
+- cancelamento de movimentacoes operacionais
+
+## 8. Filtros e acompanhamento
 
 ### No PDV
 
@@ -186,7 +211,7 @@ Voce pode filtrar:
 - periodo em dias
 - tipo de lancamento
 
-## 8. Boas praticas operacionais
+## 9. Boas praticas operacionais
 
 - Sempre selecione a empresa correta antes de vender.
 - Revise o carrinho antes de finalizar.
@@ -194,8 +219,9 @@ Voce pode filtrar:
 - Evite lancamentos manuais sem categoria adequada.
 - Registre o fechamento de caixa ao fim do turno.
 - Use o cancelamento de venda apenas quando realmente necessario.
+- Vincule o cliente quando houver historico, relacionamento ou uso de cashback.
 
-## 9. Dicas para conferencias
+## 10. Dicas para conferencias
 
 - Se um item sumiu do estoque, confira primeiro as vendas e depois as movimentacoes manuais.
 - Se o saldo financeiro nao bater, verifique:
@@ -203,8 +229,9 @@ Voce pode filtrar:
   - estornos de venda
   - fechamento de caixa
 - Se um operador nao enxergar uma empresa, confirme o vinculo dele com essa empresa.
+- Se o cashback nao aparecer no PDV, confira a configuracao da empresa e o saldo da carteira do cliente.
 
-## 10. Resumo rapido por modulo
+## 11. Resumo rapido por modulo
 
 ### Estoque
 
@@ -217,6 +244,10 @@ Voce pode filtrar:
 ### Financeiro
 
 - registra entradas, saidas e fechamento
+
+### Clientes
+
+- concentra cadastro, historico, carteira e comunicacao
 
 ## 11. Quando chamar suporte tecnico
 

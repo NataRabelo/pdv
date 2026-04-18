@@ -247,7 +247,7 @@ class FuncionarioService:
 
     @staticmethod
     def _normalizar_cpf(value):
-        return (value or "").strip()
+        return "".join(char for char in str(value or "") if char.isdigit())
 
     @staticmethod
     def _to_non_negative_decimal(value, field_name):

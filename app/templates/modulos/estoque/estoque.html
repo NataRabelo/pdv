@@ -165,12 +165,13 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         <th class="estoque-th">Motivo</th>
                         <th class="estoque-th text-right">Quantidade</th>
                         <th class="estoque-th text-right">Valor total</th>
+                        <th class="estoque-th text-center">Acoes</th>
                     </tr>
                 </thead>
 
                 <tbody id="movimento-table-body" class="divide-y divide-slate-800">
                     <tr>
-                        <td colspan="8" class="px-5 py-8 text-center text-slate-400">
+                        <td colspan="9" class="px-5 py-8 text-center text-slate-400">
                             Carregando movimentacoes...
                         </td>
                     </tr>
@@ -284,6 +285,43 @@ min-h-screen flex flex-col bg-slate-950 text-white
     </div>
 </div>
 {% endif %}
+
+<div id="modal-cancelar-movimento"
+    class="modal-overlay hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-5 border-b border-slate-800">
+            <div>
+                <h3 class="text-xl font-bold text-white">Cancelar movimentacao</h3>
+                <p class="text-sm text-slate-400 mt-1">Informe o motivo da reversao operacional.</p>
+            </div>
+            <button type="button" data-close-modal="modal-cancelar-movimento"
+                class="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="form-cancelar-movimento" class="px-6 py-6 space-y-5">
+            <div>
+                <label for="cancelar-movimento-motivo" class="block text-sm font-medium text-slate-300 mb-2">Motivo</label>
+                <textarea id="cancelar-movimento-motivo" rows="4"
+                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white placeholder:text-slate-500 outline-none transition resize-none"
+                    placeholder="Ex.: retorno de transferencia, devolucao de compra, ajuste indevido."></textarea>
+            </div>
+
+            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                <button type="button" data-close-modal="modal-cancelar-movimento"
+                    class="inline-flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-5 py-3 transition">
+                    Fechar
+                </button>
+                <button type="submit"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-semibold px-5 py-3 transition">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    Confirmar cancelamento
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}

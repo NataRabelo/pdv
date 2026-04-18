@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 
 import sqlalchemy as sa
+from sqlalchemy.orm import joinedload
 
 from app.extensions import db
 from app.models.db import (
@@ -550,10 +551,24 @@ class FinanceiroService:
             if not categoria:
                 raise ValueError("Categoria padrao de estorno nao encontrada.")
 
-            for pagamento in venda.pagamentos:
+            lancamentos_origem = (
+                FinanceiroRepository.query_lancamentos(tenant_id=tenant_id, empresa_id=venda.empresa_id)
+                .options(joinedload(LancamentoFinanceiro.forma_pagamento))
+                .filter(
+                    LancamentoFinanceiro.venda_id == venda.id,
+                    LancamentoFinanceiro.tipo == TipoFinanceiro.ENTRADA,
+                )
+                .all()
+            )
+
+            for pagamento, lancamento_origem in zip(venda.pagamentos, lancamentos_origem):
                 descricao = f"Estorno da venda {venda.numero_unico}"
-                if pagamento.forma_pagamento:
-                    descricao = f"{descricao} - {pagamento.forma_pagamento.nome}"
+                forma_pagamento = pagamento.forma_pagamento or getattr(lancamento_origem, "forma_pagamento", None)
+                if forma_pagamento:
+                    descricao = f"{descricao} - {forma_pagamento.nome}"
+
+                if lancamento_origem:
+                    lancamento_origem.revertido = True
 
                 FinanceiroRepository.adicionar(
                     LancamentoFinanceiro(
@@ -563,6 +578,7 @@ class FinanceiroService:
                         categoria_id=categoria.id,
                         forma_pagamento_id=pagamento.forma_pagamento_id,
                         venda_id=venda.id,
+                        lancamento_origem_id=lancamento_origem.id if lancamento_origem else None,
                         tipo=TipoFinanceiro.SAIDA,
                         descricao=descricao,
                         valor=FinanceiroService._to_decimal_value(pagamento.valor),
@@ -574,6 +590,86 @@ class FinanceiroService:
 
             if persistir:
                 FinanceiroRepository.salvar()
+        except Exception:
+            if persistir:
+                FinanceiroRepository.rollback()
+            raise
+
+    @staticmethod
+    def registrar_estorno_parcial_da_venda(venda, item_venda, valor_estorno, tenant_id, funcionario_id=None, persistir=True):
+        try:
+            valor_total_estorno = FinanceiroService._to_non_negative_decimal(valor_estorno, "valor de estorno")
+            if valor_total_estorno <= Decimal("0.00"):
+                return []
+
+            categoria = FinanceiroRepository.buscar_categoria_por_nome(
+                FinanceiroService.CATEGORIA_ESTORNO,
+                TipoCategoriaFinanceira.SAIDA,
+                tenant_id,
+            )
+            if not categoria:
+                raise ValueError("Categoria padrao de estorno nao encontrada.")
+
+            lancamentos_origem = (
+                FinanceiroRepository.query_lancamentos(tenant_id=tenant_id, empresa_id=venda.empresa_id)
+                .options(joinedload(LancamentoFinanceiro.forma_pagamento))
+                .filter(
+                    LancamentoFinanceiro.venda_id == venda.id,
+                    LancamentoFinanceiro.tipo == TipoFinanceiro.ENTRADA,
+                )
+                .order_by(LancamentoFinanceiro.id.asc())
+                .all()
+            )
+            if not lancamentos_origem:
+                raise ValueError("Nao foi possivel localizar os lancamentos financeiros da venda.")
+
+            total_entradas = sum(FinanceiroService._to_decimal_value(item.valor) for item in lancamentos_origem)
+            if total_entradas <= Decimal("0.00"):
+                raise ValueError("Nao foi possivel calcular o rateio do estorno financeiro.")
+
+            restante = valor_total_estorno
+            estornos = []
+            for index, lancamento_origem in enumerate(lancamentos_origem, start=1):
+                if index == len(lancamentos_origem):
+                    valor_lancamento = restante
+                else:
+                    proporcao = FinanceiroService._to_decimal_value(lancamento_origem.valor) / total_entradas
+                    valor_lancamento = (valor_total_estorno * proporcao).quantize(Decimal("0.01"))
+                    if valor_lancamento > restante:
+                        valor_lancamento = restante
+
+                if valor_lancamento <= Decimal("0.00"):
+                    continue
+
+                descricao = f"Estorno parcial da venda {venda.numero_unico}"
+                if lancamento_origem.forma_pagamento:
+                    descricao = f"{descricao} - {lancamento_origem.forma_pagamento.nome}"
+
+                estorno = LancamentoFinanceiro(
+                    tenant_id=tenant_id,
+                    empresa_id=venda.empresa_id,
+                    funcionario_id=funcionario_id,
+                    categoria_id=categoria.id,
+                    forma_pagamento_id=lancamento_origem.forma_pagamento_id,
+                    venda_id=venda.id,
+                    item_venda_id=item_venda.id if item_venda else None,
+                    lancamento_origem_id=lancamento_origem.id,
+                    tipo=TipoFinanceiro.SAIDA,
+                    descricao=descricao,
+                    valor=valor_lancamento,
+                    data_lancamento=TimeService.now_utc_naive(),
+                    data_competencia=date.today(),
+                    observacao="Saida automatica gerada pelo cancelamento parcial de item no PDV.",
+                )
+                FinanceiroRepository.adicionar(estorno)
+                estornos.append(estorno)
+                restante = (restante - valor_lancamento).quantize(Decimal("0.01"))
+                if restante <= Decimal("0.00"):
+                    break
+
+            if persistir:
+                FinanceiroRepository.salvar()
+            return estornos
         except Exception:
             if persistir:
                 FinanceiroRepository.rollback()
@@ -741,9 +837,12 @@ class FinanceiroService:
             "forma_pagamento_id": lancamento.forma_pagamento_id,
             "forma_pagamento_nome": lancamento.forma_pagamento.nome if lancamento.forma_pagamento else None,
             "venda_id": lancamento.venda_id,
+            "item_venda_id": getattr(lancamento, "item_venda_id", None),
+            "lancamento_origem_id": getattr(lancamento, "lancamento_origem_id", None),
             "tipo": lancamento.tipo.value,
             "descricao": lancamento.descricao,
             "valor": str(FinanceiroService._to_decimal_value(lancamento.valor)),
+            "revertido": bool(getattr(lancamento, "revertido", False)),
             "data_lancamento": TimeService.serialize_utc_iso(lancamento.data_lancamento),
             "data_competencia": lancamento.data_competencia.isoformat() if lancamento.data_competencia else None,
             "observacao": lancamento.observacao,

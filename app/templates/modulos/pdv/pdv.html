@@ -139,6 +139,36 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
             <div class="pdv-form-stack">
                 <div class="grid grid-cols-1 gap-4">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label for="pdv-cliente" class="block text-sm font-medium text-slate-300 mb-2">Cliente</label>
+                            <select id="pdv-cliente"
+                                class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                                <option value="">Venda sem cliente vinculado</option>
+                            </select>
+                            <p id="pdv-cliente-feedback" class="text-xs text-slate-500 mt-2">
+                                Vincule o cliente para historico de compras, carteira e cashback.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_13rem] gap-4">
+                            <div>
+                                <label for="pdv-cashback-utilizado" class="block text-sm font-medium text-slate-300 mb-2">Cashback usado</label>
+                                <input id="pdv-cashback-utilizado" type="text" inputmode="decimal" value="0,00"
+                                    class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                                <p id="pdv-cashback-feedback" class="text-xs text-slate-500 mt-2">
+                                    O saldo sera liberado conforme a configuracao da empresa.
+                                </p>
+                            </div>
+
+                            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 px-4 py-3">
+                                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Saldo disponivel</p>
+                                <strong id="pdv-cliente-saldo" class="block text-lg text-white mt-2">R$ 0,00</strong>
+                                <p id="pdv-cashback-regra" class="text-xs text-slate-500 mt-2">Sem cliente selecionado.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div>
                         <label for="pdv-cupom-codigo" class="block text-sm font-medium text-slate-300 mb-2">Cupom</label>
                         <input id="pdv-cupom-codigo" type="text"

@@ -180,10 +180,12 @@ class PdvRepository:
             Venda.query
             .options(
                 joinedload(Venda.empresa),
+                joinedload(Venda.cliente),
                 joinedload(Venda.funcionario),
                 joinedload(Venda.tipo_operacao),
                 joinedload(Venda.cupom),
                 joinedload(Venda.itens).joinedload(ItemVenda.produto),
+                joinedload(Venda.itens).joinedload(ItemVenda.cancelado_por),
                 joinedload(Venda.pagamentos).joinedload(PagamentoVenda.forma_pagamento),
             )
             .filter(Venda.tenant_id == tenant_id)
@@ -210,10 +212,12 @@ class PdvRepository:
             Venda.query
             .options(
                 joinedload(Venda.empresa),
+                joinedload(Venda.cliente),
                 joinedload(Venda.funcionario),
                 joinedload(Venda.tipo_operacao),
                 joinedload(Venda.cupom),
                 joinedload(Venda.itens).joinedload(ItemVenda.produto),
+                joinedload(Venda.itens).joinedload(ItemVenda.cancelado_por),
                 joinedload(Venda.pagamentos).joinedload(PagamentoVenda.forma_pagamento),
             )
             .filter(
@@ -238,6 +242,24 @@ class PdvRepository:
                 Venda.status != StatusVenda.CANCELADA,
             )
             .count()
+        )
+
+    @staticmethod
+    def buscar_item_venda(venda_id, item_id, tenant_id):
+        return (
+            ItemVenda.query
+            .options(
+                joinedload(ItemVenda.venda).joinedload(Venda.empresa),
+                joinedload(ItemVenda.venda).joinedload(Venda.cliente),
+                joinedload(ItemVenda.produto),
+                joinedload(ItemVenda.cancelado_por),
+            )
+            .filter(
+                ItemVenda.id == item_id,
+                ItemVenda.venda_id == venda_id,
+                ItemVenda.tenant_id == tenant_id,
+            )
+            .first()
         )
 
     @staticmethod

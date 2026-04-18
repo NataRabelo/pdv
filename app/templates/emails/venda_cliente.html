@@ -1,0 +1,152 @@
+{% extends "emails/base_oceanblue.html" %}
+
+{% block content %}
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+            <tr>
+                <td width="50%" style="padding:0 8px 16px 0; vertical-align:top;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:20px;">
+                        <tr>
+                            <td style="padding:18px 18px 16px 18px;">
+                                <div style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#64748b; margin-bottom:8px;">Venda</div>
+                                <div style="font-size:20px; line-height:26px; font-weight:700; color:#f8fafc;">{{ venda_numero }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td width="50%" style="padding:0 0 16px 8px; vertical-align:top;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:20px;">
+                        <tr>
+                            <td style="padding:18px 18px 16px 18px;">
+                                <div style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#64748b; margin-bottom:8px;">Data</div>
+                                <div style="font-size:20px; line-height:26px; font-weight:700; color:#f8fafc;">{{ data_venda }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td width="50%" style="padding:0 8px 0 0; vertical-align:top;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#082f49; border:1px solid #0c4a6e; border-radius:20px;">
+                        <tr>
+                            <td style="padding:18px 18px 16px 18px;">
+                                <div style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#bae6fd; margin-bottom:8px;">Total pago</div>
+                                <div style="font-size:24px; line-height:28px; font-weight:700; color:#f0f9ff;">{{ total_pago }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <td width="50%" style="padding:0 0 0 8px; vertical-align:top;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#052e16; border:1px solid #166534; border-radius:20px;">
+                        <tr>
+                            <td style="padding:18px 18px 16px 18px;">
+                                <div style="font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#bbf7d0; margin-bottom:8px;">Cashback gerado</div>
+                                <div style="font-size:24px; line-height:28px; font-weight:700; color:#f0fdf4;">{{ cashback_gerado }}</div>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:22px;">
+            <tr>
+                <td style="padding:24px;">
+                    <div style="font-size:16px; line-height:24px; color:#cbd5e1; margin-bottom:14px;">
+                        {{ saudacao }}
+                    </div>
+                    <div style="font-size:15px; line-height:24px; color:#94a3b8;">
+                        Sua compra foi concluida com sucesso. Abaixo esta o resumo completo da operacao e do cashback vinculado.
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
+
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:22px;">
+            <tr>
+                <td style="padding:22px 24px 10px 24px;">
+                    <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#7dd3fc; font-weight:700;">Resumo financeiro</div>
+                </td>
+            </tr>
+            {% for linha in resumo_financeiro %}
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                            <td style="font-size:14px; line-height:22px; color:#94a3b8;">{{ linha.label }}</td>
+                            <td align="right" style="font-size:14px; line-height:22px; color:#f8fafc; font-weight:700;">{{ linha.value }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </td>
+</tr>
+
+{% if itens %}
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:22px;">
+            <tr>
+                <td style="padding:22px 24px 10px 24px;">
+                    <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#7dd3fc; font-weight:700;">Itens da venda</div>
+                </td>
+            </tr>
+            {% for item in itens %}
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#0f172a; border:1px solid #1e293b; border-radius:16px;">
+                        <tr>
+                            <td style="padding:16px 18px;">
+                                <div style="font-size:15px; line-height:22px; color:#f8fafc; font-weight:700;">{{ item.nome }}</div>
+                                <div style="font-size:13px; line-height:20px; color:#64748b; margin-top:4px;">Quantidade {{ item.quantidade }}</div>
+                            </td>
+                            <td align="right" style="padding:16px 18px; font-size:15px; line-height:22px; color:#e2e8f0; font-weight:700;">
+                                {{ item.valor_total }}
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </td>
+</tr>
+{% endif %}
+
+{% if pagamentos %}
+<tr>
+    <td style="padding:0 32px 18px 32px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#020617; border:1px solid #1e293b; border-radius:22px;">
+            <tr>
+                <td style="padding:22px 24px 10px 24px;">
+                    <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:#7dd3fc; font-weight:700;">Pagamentos</div>
+                </td>
+            </tr>
+            {% for pagamento in pagamentos %}
+            <tr>
+                <td style="padding:0 24px 14px 24px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                        <tr>
+                            <td style="font-size:14px; line-height:22px; color:#94a3b8;">{{ pagamento.forma }}</td>
+                            <td align="right" style="font-size:14px; line-height:22px; color:#f8fafc; font-weight:700;">{{ pagamento.valor }}</td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </td>
+</tr>
+{% endif %}
+{% endblock %}

@@ -5,6 +5,7 @@ from app.models.db import ConfiguracaoNotificacaoEstoque
 from app.models.db import MotivoMovimentoEstoque, MovimentoEstoque, TipoMovimentoEstoque
 from app.repositorys.estoque_repository import EstoqueRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.cliente_service import ClienteService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
 from app.services.time_service import TimeService
 
@@ -339,6 +340,7 @@ class EstoqueService:
 
         try:
             for item in itens:
+                item_venda_id = EstoqueService._to_optional_int(item.get("item_venda_id"), "Item da venda")
                 produto_id = EstoqueService._to_int(item.get("produto_id"), "Produto")
                 quantidade = EstoqueService._to_positive_int(item.get("quantidade"), "quantidade")
                 valor_unitario = EstoqueService._to_optional_decimal(
@@ -359,6 +361,7 @@ class EstoqueService:
                     quantidade=quantidade,
                     funcionario_id=funcionario_id,
                     venda_id=venda_id,
+                    item_venda_id=item_venda_id,
                     valor_unitario=valor_unitario,
                     observacao="Baixa automatica por venda do PDV.",
                 )
@@ -389,6 +392,7 @@ class EstoqueService:
 
         try:
             for item in itens:
+                item_venda_id = EstoqueService._to_optional_int(item.get("item_venda_id"), "Item da venda")
                 produto_id = EstoqueService._to_int(item.get("produto_id"), "Produto")
                 quantidade = EstoqueService._to_positive_int(item.get("quantidade"), "quantidade")
                 valor_unitario = EstoqueService._to_optional_decimal(
@@ -401,6 +405,12 @@ class EstoqueService:
                 if not produto_empresa:
                     raise ValueError("Produto da venda nao encontrado no estoque da empresa.")
 
+                movimento_origem = None
+                if item_venda_id:
+                    movimento_origem = EstoqueRepository.buscar_movimento_venda_por_item(item_venda_id, tenant_id)
+                    if movimento_origem and quantidade >= int(movimento_origem.quantidade):
+                        movimento_origem.revertido = True
+
                 movimento = EstoqueService._registrar_movimento(
                     tenant_id=tenant_id,
                     produto_empresa=produto_empresa,
@@ -409,6 +419,8 @@ class EstoqueService:
                     quantidade=quantidade,
                     funcionario_id=funcionario_id,
                     venda_id=venda_id,
+                    item_venda_id=item_venda_id,
+                    movimento_origem_id=movimento_origem.id if movimento_origem else None,
                     valor_unitario=valor_unitario,
                     observacao="Estorno automatico por cancelamento de venda do PDV.",
                 )
@@ -420,6 +432,110 @@ class EstoqueService:
         except Exception:
             if persistir:
                 EstoqueRepository.rollback()
+            raise
+
+    @staticmethod
+    def registrar_entrada_por_cancelamento_item_venda(
+        venda_id,
+        empresa_id,
+        item_venda,
+        quantidade,
+        tenant_id,
+        funcionario_id=None,
+        escopo=None,
+        persistir=True,
+    ):
+        if escopo is not None:
+            AcessoEmpresaService.validar_empresa(empresa_id, escopo)
+
+        try:
+            quantidade_cancelada = EstoqueService._to_positive_int(quantidade, "quantidade")
+            produto_empresa = EstoqueRepository.buscar_produto_empresa(item_venda.produto_id, empresa_id, tenant_id)
+            if not produto_empresa:
+                raise ValueError("Produto da venda nao encontrado no estoque da empresa.")
+
+            movimento_origem = EstoqueRepository.buscar_movimento_venda_por_item(item_venda.id, tenant_id)
+            if movimento_origem and int(getattr(item_venda, "quantidade_cancelada", 0) or 0) >= int(item_venda.quantidade):
+                movimento_origem.revertido = True
+
+            movimento = EstoqueService._registrar_movimento(
+                tenant_id=tenant_id,
+                produto_empresa=produto_empresa,
+                tipo_movimento=TipoMovimentoEstoque.ENTRADA,
+                motivo=MotivoMovimentoEstoque.DEVOLUCAO,
+                quantidade=quantidade_cancelada,
+                funcionario_id=funcionario_id,
+                venda_id=venda_id,
+                item_venda_id=item_venda.id,
+                movimento_origem_id=movimento_origem.id if movimento_origem else None,
+                valor_unitario=EstoqueService._to_optional_decimal(item_venda.valor_unitario, "valor unitario", casas=2),
+                observacao="Retorno automatico por cancelamento parcial de item da venda.",
+            )
+
+            if persistir:
+                EstoqueRepository.salvar()
+
+            return movimento
+        except Exception:
+            if persistir:
+                EstoqueRepository.rollback()
+            raise
+
+    @staticmethod
+    def cancelar_movimento(movimento_id, data, tenant_id, escopo, funcionario_id):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        movimento = EstoqueRepository.buscar_movimento_por_id(movimento_id, tenant_id, empresa_ids=empresa_ids)
+        if not movimento:
+            raise ValueError("Movimentacao nao encontrada.")
+
+        if movimento.revertido:
+            raise ValueError("Esta movimentacao ja foi cancelada anteriormente.")
+
+        if movimento.venda_id:
+            raise ValueError("Use o modulo do PDV para cancelar movimentos originados de venda.")
+
+        if getattr(movimento, "adiantamentos", None):
+            raise ValueError("Use o modulo de vales para tratar movimentos vinculados a adiantamentos.")
+
+        configuracao = ClienteService.obter_modelo_configuracao_empresa(movimento.empresa_id, tenant_id)
+        EstoqueService._validar_janela_cancelamento(
+            data_base=movimento.data_movimento,
+            limite_horas=configuracao.cancelamento_movimento_limite_horas,
+            mensagem="A janela de cancelamento da movimentacao expirou para esta empresa.",
+        )
+
+        motivo = (data.get("motivo") or "").strip() or "Cancelamento manual de movimentacao."
+        produto_empresa = EstoqueRepository.buscar_produto_empresa(movimento.produto_id, movimento.empresa_id, tenant_id)
+        if not produto_empresa:
+            raise ValueError("Produto nao encontrado para reverter a movimentacao.")
+
+        tipo_reverso = (
+            TipoMovimentoEstoque.ENTRADA
+            if movimento.tipo_movimento == TipoMovimentoEstoque.SAIDA
+            else TipoMovimentoEstoque.SAIDA
+        )
+
+        try:
+            movimento.revertido = True
+            movimento.cancelado_por_funcionario_id = funcionario_id
+            movimento.cancelado_em = TimeService.now_utc_naive()
+            movimento.motivo_cancelamento = motivo
+
+            reversao = EstoqueService._registrar_movimento(
+                tenant_id=tenant_id,
+                produto_empresa=produto_empresa,
+                tipo_movimento=tipo_reverso,
+                motivo=movimento.motivo,
+                quantidade=int(movimento.quantidade),
+                funcionario_id=funcionario_id,
+                valor_unitario=EstoqueService._to_optional_decimal(movimento.valor_unitario, "valor unitario", casas=2),
+                observacao=f"Reversao automatica da movimentacao #{movimento.id}. {motivo}",
+                movimento_origem_id=movimento.id,
+            )
+            EstoqueRepository.salvar()
+            return reversao
+        except Exception:
+            EstoqueRepository.rollback()
             raise
 
     @staticmethod
@@ -471,6 +587,8 @@ class EstoqueService:
         quantidade,
         funcionario_id=None,
         venda_id=None,
+        item_venda_id=None,
+        movimento_origem_id=None,
         valor_unitario=None,
         observacao=None,
         data_movimento=None,
@@ -501,6 +619,8 @@ class EstoqueService:
             produto_id=produto_empresa.produto_id,
             funcionario_id=funcionario_id,
             venda_id=venda_id,
+            item_venda_id=item_venda_id,
+            movimento_origem_id=movimento_origem_id,
             tipo_movimento=tipo_movimento,
             motivo=motivo,
             quantidade=quantidade,
@@ -613,6 +733,30 @@ class EstoqueService:
     def _normalizar_destinatarios(value):
         linhas = [parte.strip() for parte in str(value or "").replace(";", "\n").splitlines()]
         return "\n".join([parte for parte in linhas if parte]) or None
+
+    @staticmethod
+    def _to_optional_int(value, field_name):
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            raise ValueError(f"{field_name} invalido.")
+
+    @staticmethod
+    def _esta_dentro_janela_cancelamento(data_base, limite_horas):
+        try:
+            limite = int(limite_horas or 0)
+        except (TypeError, ValueError):
+            limite = 0
+        if limite <= 0:
+            return True
+        return TimeService.now_utc_naive() <= (data_base + timedelta(hours=limite))
+
+    @staticmethod
+    def _validar_janela_cancelamento(data_base, limite_horas, mensagem):
+        if not EstoqueService._esta_dentro_janela_cancelamento(data_base, limite_horas):
+            raise ValueError(mensagem)
 
     @staticmethod
     def _obter_ou_criar_configuracao(tenant_id):
