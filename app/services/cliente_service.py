@@ -256,6 +256,7 @@ class ClienteService:
             empresa_id=empresa_id,
             cashback_ativo=False,
             cashback_percentual=Decimal("0.00"),
+            cashback_percentual_limite_resgate_venda=Decimal("100.00"),
             cashback_validade_dias=30,
             cashback_valor_minimo_resgate=Decimal("0.00"),
             cancelamento_venda_limite_horas=24,
@@ -707,7 +708,7 @@ class ClienteService:
         return houve_alteracao
 
     @staticmethod
-    def preparar_uso_cashback(cliente_id, empresa_id, valor_solicitado, tenant_id):
+    def preparar_uso_cashback(cliente_id, empresa_id, valor_solicitado, tenant_id, valor_base_venda=None):
         valor = ClienteService._to_non_negative_decimal(valor_solicitado, "cashback solicitado")
         configuracao = ClienteService._obter_ou_criar_configuracao_empresa(empresa_id, tenant_id)
 
@@ -732,6 +733,20 @@ class ClienteService:
 
         if valor < ClienteService._to_decimal_value(configuracao.cashback_valor_minimo_resgate):
             raise ValueError("O valor informado esta abaixo do minimo configurado para uso do cashback.")
+
+        if valor_base_venda is not None:
+            limite_resgate = ClienteService.calcular_limite_resgate_cashback(
+                configuracao,
+                valor_base_venda,
+            )
+            if valor > limite_resgate:
+                percentual_limite = ClienteService._to_decimal_value(
+                    getattr(configuracao, "cashback_percentual_limite_resgate_venda", 100)
+                )
+                raise ValueError(
+                    "O cashback utilizado nao pode ultrapassar "
+                    f"{str(percentual_limite)}% do valor liquido da venda para esta empresa."
+                )
 
         saldo_disponivel = ClienteService._to_decimal_value(carteira.saldo_disponivel)
         if saldo_disponivel < valor:
@@ -765,7 +780,15 @@ class ClienteService:
         }
 
     @staticmethod
-    def processar_cashback_da_venda(venda, cliente_id, empresa_id, valor_cashback_utilizado, tenant_id, funcionario_id):
+    def processar_cashback_da_venda(
+        venda,
+        cliente_id,
+        empresa_id,
+        valor_cashback_utilizado,
+        tenant_id,
+        funcionario_id,
+        cashback_ativado=True,
+    ):
         configuracao = ClienteService._obter_ou_criar_configuracao_empresa(empresa_id, tenant_id)
         preparacao = (
             ClienteService.preparar_uso_cashback(
@@ -773,8 +796,12 @@ class ClienteService:
                 empresa_id=empresa_id,
                 valor_solicitado=valor_cashback_utilizado,
                 tenant_id=tenant_id,
+                valor_base_venda=(
+                    ClienteService._to_decimal_value(venda.total)
+                    + ClienteService._to_decimal_value(valor_cashback_utilizado)
+                ),
             )
-            if cliente_id
+            if cliente_id and cashback_ativado
             else {
                 "cliente": None,
                 "carteira": None,
@@ -827,7 +854,7 @@ class ClienteService:
 
             venda.cashback_utilizado = valor_utilizado
 
-        if cliente and configuracao.cashback_ativo:
+        if cliente and configuracao.cashback_ativo and cashback_ativado:
             percentual_gerado = ClienteService._to_decimal_value(configuracao.cashback_percentual)
             total_venda = ClienteService._to_decimal_value(venda.total)
             if percentual_gerado > Decimal("0.00") and total_venda > Decimal("0.00"):
@@ -941,6 +968,18 @@ class ClienteService:
                     data_movimento=TimeService.now_utc_naive(),
                 )
             )
+
+    @staticmethod
+    def calcular_limite_resgate_cashback(configuracao, valor_base_venda):
+        base_venda = ClienteService._to_decimal_value(valor_base_venda)
+        percentual_limite = ClienteService._to_decimal_value(
+            getattr(configuracao, "cashback_percentual_limite_resgate_venda", 100)
+        )
+
+        if base_venda <= Decimal("0.00") or percentual_limite <= Decimal("0.00"):
+            return Decimal("0.00")
+
+        return (base_venda * percentual_limite / Decimal("100")).quantize(Decimal("0.01"))
 
     @staticmethod
     def restaurar_cashback_parcial_da_venda(venda, valor_restaurar, tenant_id, funcionario_id):
@@ -1213,6 +1252,7 @@ class ClienteService:
             empresa_id=empresa_id,
             cashback_ativo=False,
             cashback_percentual=Decimal("0.00"),
+            cashback_percentual_limite_resgate_venda=Decimal("100.00"),
             cashback_validade_dias=30,
             cashback_valor_minimo_resgate=Decimal("0.00"),
             cancelamento_venda_limite_horas=24,
@@ -1237,6 +1277,9 @@ class ClienteService:
             empresa_id=configuracao.empresa_id,
             cashback_ativo=bool(configuracao.cashback_ativo),
             cashback_percentual=ClienteService._to_decimal_value(configuracao.cashback_percentual),
+            cashback_percentual_limite_resgate_venda=ClienteService._to_decimal_value(
+                getattr(configuracao, "cashback_percentual_limite_resgate_venda", 100)
+            ),
             cashback_validade_dias=int(configuracao.cashback_validade_dias or 30),
             cashback_valor_minimo_resgate=ClienteService._to_decimal_value(configuracao.cashback_valor_minimo_resgate),
             cancelamento_venda_limite_horas=int(configuracao.cancelamento_venda_limite_horas or 24),
@@ -1271,6 +1314,14 @@ class ClienteService:
         configuracao.cashback_percentual = ClienteService._to_non_negative_decimal(
             data.get("cashback_percentual", configuracao.cashback_percentual),
             "percentual de cashback",
+            maximo=Decimal("100.00"),
+        )
+        configuracao.cashback_percentual_limite_resgate_venda = ClienteService._to_non_negative_decimal(
+            data.get(
+                "cashback_percentual_limite_resgate_venda",
+                getattr(configuracao, "cashback_percentual_limite_resgate_venda", Decimal("100.00")),
+            ),
+            "limite percentual de resgate por venda",
             maximo=Decimal("100.00"),
         )
         configuracao.cashback_validade_dias = ClienteService._to_positive_int(
@@ -1467,6 +1518,9 @@ class ClienteService:
             "empresa_nome": empresa_nome,
             "cashback_ativo": bool(configuracao.cashback_ativo),
             "cashback_percentual": str(ClienteService._to_decimal_value(configuracao.cashback_percentual)),
+            "cashback_percentual_limite_resgate_venda": str(
+                ClienteService._to_decimal_value(getattr(configuracao, "cashback_percentual_limite_resgate_venda", 100))
+            ),
             "cashback_validade_dias": int(configuracao.cashback_validade_dias or 30),
             "cashback_valor_minimo_resgate": str(ClienteService._to_decimal_value(configuracao.cashback_valor_minimo_resgate)),
             "cancelamento_venda_limite_horas": int(configuracao.cancelamento_venda_limite_horas or 0),

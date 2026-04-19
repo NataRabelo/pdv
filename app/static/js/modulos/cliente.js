@@ -484,6 +484,10 @@ async function carregarConfiguracaoEmpresaSelecionada(empresaId) {
 function preencherFormularioConfiguracaoCliente(configuracao) {
     setClienteChecked("config-cashback-ativo", configuracao.cashback_ativo);
     setClienteValue("config-cashback-percentual", formatClienteMoneyInput(configuracao.cashback_percentual || 0));
+    setClienteValue(
+        "config-cashback-limite-venda",
+        formatClienteMoneyInput(configuracao.cashback_percentual_limite_resgate_venda || 100)
+    );
     setClienteValue("config-cashback-validade", configuracao.cashback_validade_dias ?? 30);
     setClienteValue("config-cashback-minimo", formatClienteMoneyInput(configuracao.cashback_valor_minimo_resgate || 0));
     setClienteValue("config-cancelamento-venda", configuracao.cancelamento_venda_limite_horas ?? 24);
@@ -517,6 +521,9 @@ function coletarPayloadConfiguracaoCliente() {
     const payload = {
         cashback_ativo: document.getElementById("config-cashback-ativo")?.checked,
         cashback_percentual: normalizeClienteMoneyForApi(document.getElementById("config-cashback-percentual")?.value || "0"),
+        cashback_percentual_limite_resgate_venda: normalizeClienteMoneyForApi(
+            document.getElementById("config-cashback-limite-venda")?.value || "100"
+        ),
         cashback_validade_dias: document.getElementById("config-cashback-validade")?.value || "30",
         cashback_valor_minimo_resgate: normalizeClienteMoneyForApi(document.getElementById("config-cashback-minimo")?.value || "0"),
         cancelamento_venda_limite_horas: document.getElementById("config-cancelamento-venda")?.value || "24",
@@ -647,7 +654,7 @@ function resetClienteForm(formId) {
 }
 
 function aplicarMascarasCliente() {
-    ["config-cashback-percentual", "config-cashback-minimo"].forEach(bindClienteMoneyMask);
+    ["config-cashback-percentual", "config-cashback-limite-venda", "config-cashback-minimo"].forEach(bindClienteMoneyMask);
     window.InputMask?.bindAll(document);
 }
 

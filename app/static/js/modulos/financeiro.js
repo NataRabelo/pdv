@@ -539,16 +539,27 @@ function renderLancamentosFinanceiro() {
 
 function renderFechamentosFinanceiro() {
     const container = document.getElementById("financeiro-fechamentos-body");
+    const resumo = document.getElementById("financeiro-fechamentos-resumo");
     if (!container) return;
     const paginacao = financeiroPage.paginacao.fechamentos;
+    const itens = Array.isArray(financeiroPage.fechamentos) ? financeiroPage.fechamentos : [];
 
-    if (!financeiroPage.fechamentos.length) {
+    if (resumo) {
+        const divergencias = itens.filter((item) => Math.abs(parseFinanceiroMoney(item.diferenca)) > 0.009).length;
+        const operadores = new Set(itens.map((item) => item.funcionario_id).filter(Boolean)).size;
+        resumo.innerHTML = `
+            <strong class="block text-white">${itens.length}</strong>
+            <span>${operadores} operador(es) · ${divergencias} com diferenca</span>
+        `;
+    }
+
+    if (!itens.length) {
         container.innerHTML = `<p class="text-slate-400 px-1">Nenhum fechamento registrado ainda.</p>`;
         renderFinanceiroPagination("financeiro-fechamentos-pagination", paginacao, 0, () => renderFechamentosFinanceiro());
         return;
     }
 
-    const itensPagina = getFinanceiroPageItems(financeiroPage.fechamentos, paginacao);
+    const itensPagina = getFinanceiroPageItems(itens, paginacao);
 
     container.innerHTML = itensPagina.map((item) => `
         <article class="financeiro-closure-card">
@@ -577,13 +588,14 @@ function renderFechamentosFinanceiro() {
                     <strong class="${parseFinanceiroMoney(item.diferenca) < 0 ? "text-rose-300" : "text-emerald-300"}">${formatFinanceiroCurrency(item.diferenca)}</strong>
                 </div>
             </div>
+            <p class="text-xs text-slate-500 mt-4">${escapeFinanceiroHtml(item.observacao || "Sem observacao adicional.")}</p>
         </article>
     `).join("");
 
     renderFinanceiroPagination(
         "financeiro-fechamentos-pagination",
         paginacao,
-        financeiroPage.fechamentos.length,
+        itens.length,
         () => renderFechamentosFinanceiro()
     );
 }

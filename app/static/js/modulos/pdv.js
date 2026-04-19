@@ -17,6 +17,7 @@ window.pdvPage = {
     pagamentoConfirmadoTotal: null,
     paymentCounter: 1,
     empresaConfiguracaoAtual: null,
+    cashbackAtivadoNaVenda: true,
     paginacao: {
         produtos: { paginaAtual: 1, porPagina: 10 },
         vendas: { paginaAtual: 1, porPagina: 10 }
@@ -105,6 +106,7 @@ function bindPdvFilters() {
     const clienteSelect = document.getElementById("pdv-cliente");
     const buscaInput = document.getElementById("pdv-busca");
     const cashbackInput = document.getElementById("pdv-cashback-utilizado");
+    const cashbackToggle = document.getElementById("pdv-cashback-ativado");
     const barcodeInput = document.getElementById("pdv-barcode-input");
     const barcodeSubmit = document.getElementById("pdv-barcode-submit");
     const statusSelect = document.getElementById("pdv-status-venda");
@@ -177,6 +179,18 @@ function bindPdvFilters() {
         });
         cashbackInput.addEventListener("blur", () => {
             cashbackInput.value = formatCurrencyInput(obterCashbackAplicado(obterBaseTotalAntesDoCashback()));
+            atualizarResumoClientePdv();
+            atualizarResumoVenda();
+        });
+    }
+
+    if (cashbackToggle) {
+        cashbackToggle.addEventListener("change", () => {
+            pdvPage.cashbackAtivadoNaVenda = Boolean(cashbackToggle.checked);
+            if (!pdvPage.cashbackAtivadoNaVenda && cashbackInput) {
+                cashbackInput.value = "0,00";
+            }
+            marcarPagamentoPendente();
             atualizarResumoClientePdv();
             atualizarResumoVenda();
         });
@@ -353,6 +367,8 @@ function popularEmpresas() {
     const empresaInfo = document.getElementById("pdv-info-empresa");
     const empresaAtual = pdvPage.auxiliares.empresas.find((item) => String(item.id) === String(pdvPage.empresaId));
     pdvPage.empresaConfiguracaoAtual = empresaAtual?.configuracao_cliente || null;
+    pdvPage.cashbackAtivadoNaVenda = cashbackPodeSerOperadoNaVenda();
+    sincronizarToggleCashbackVenda();
     if (empresaInfo) {
         empresaInfo.textContent = empresaAtual
             ? `Caixa pronto para atendimento em ${empresaAtual.nome}.`
@@ -389,6 +405,24 @@ function obterEmpresaAtualPdv() {
     return (pdvPage.auxiliares.empresas || []).find((item) => String(item.id) === String(pdvPage.empresaId)) || null;
 }
 
+function cashbackPodeSerOperadoNaVenda() {
+    const configuracao = pdvPage.empresaConfiguracaoAtual || {};
+    return Boolean(pdvPage.empresaId && configuracao.cashback_ativo);
+}
+
+function cashbackEstaAtivadoNaVenda() {
+    return Boolean(pdvPage.cashbackAtivadoNaVenda && cashbackPodeSerOperadoNaVenda());
+}
+
+function sincronizarToggleCashbackVenda() {
+    const cashbackToggle = document.getElementById("pdv-cashback-ativado");
+    if (!cashbackToggle) return;
+
+    const podeOperar = cashbackPodeSerOperadoNaVenda();
+    cashbackToggle.disabled = !podeOperar;
+    cashbackToggle.checked = Boolean(podeOperar && pdvPage.cashbackAtivadoNaVenda);
+}
+
 function obterClienteSelecionadoPdv() {
     return (pdvPage.auxiliares.clientes || []).find((item) => String(item.id) === String(pdvPage.clienteId)) || null;
 }
@@ -409,15 +443,20 @@ function obterCashbackAplicado(baseTotal) {
     const saldo = parseCurrencyValue(cliente?.saldo_cashback || "0");
     const informado = parseCurrencyValue(input?.value || "0");
     const minimo = parseCurrencyValue(configuracao.cashback_valor_minimo_resgate || "0");
+    const percentualLimite = Math.min(
+        Math.max(parseCurrencyValue(configuracao.cashback_percentual_limite_resgate_venda || "100"), 0),
+        100
+    );
 
-    if (!cliente || !pdvPage.empresaId || !configuracao.cashback_ativo) {
+    if (!cliente || !cashbackEstaAtivadoNaVenda()) {
         return 0;
     }
 
     const base = typeof baseTotal === "number" ? baseTotal : obterBaseTotalAntesDoCashback();
     if (base <= 0) return 0;
+    const limitePercentual = base * (percentualLimite / 100);
 
-    let valor = Math.min(informado, saldo, base);
+    let valor = Math.min(informado, saldo, base, limitePercentual);
     if (valor < 0) valor = 0;
     if (valor > 0 && valor < minimo) {
         valor = 0;
@@ -458,12 +497,13 @@ function atualizarResumoClientePdv() {
     }
 
     if (cashbackInput) {
-        cashbackInput.disabled = !(pdvPage.empresaId && configuracao.cashback_ativo);
+        cashbackInput.disabled = !cashbackEstaAtivadoNaVenda();
     }
 
     if (!pdvPage.empresaId) {
         if (regra) regra.textContent = "Selecione a empresa para consultar a regra de cashback.";
         if (cashbackFeedback) cashbackFeedback.textContent = "A empresa define percentual, validade e minimo de uso.";
+        sincronizarToggleCashbackVenda();
         return;
     }
 
@@ -473,18 +513,32 @@ function atualizarResumoClientePdv() {
         if (cashbackInput) {
             cashbackInput.value = "0,00";
         }
+        sincronizarToggleCashbackVenda();
+        return;
+    }
+
+    sincronizarToggleCashbackVenda();
+
+    if (!cashbackEstaAtivadoNaVenda()) {
+        if (regra) regra.textContent = "Cashback desativado manualmente para esta venda.";
+        if (cashbackFeedback) cashbackFeedback.textContent = "O cliente continua vinculado, mas esta venda nao vai usar nem gerar cashback.";
+        if (cashbackInput) {
+            cashbackInput.value = "0,00";
+        }
         return;
     }
 
     const minimo = parseCurrencyValue(configuracao.cashback_valor_minimo_resgate || "0");
+    const percentualLimite = parseCurrencyValue(configuracao.cashback_percentual_limite_resgate_venda || "100");
+    const limiteVenda = obterBaseTotalAntesDoCashback() * (percentualLimite / 100);
     if (regra) {
-        regra.textContent = `${configuracao.cashback_percentual || "0.00"}% de retorno, validade ${configuracao.cashback_validade_dias || 30} dias, uso minimo ${formatCurrency(minimo)}.`;
+        regra.textContent = `${configuracao.cashback_percentual || "0.00"}% de retorno, validade ${configuracao.cashback_validade_dias || 30} dias, uso minimo ${formatCurrency(minimo)} e limite de ${formatPercentValue(percentualLimite)} da venda.`;
     }
 
     if (cashbackFeedback) {
         cashbackFeedback.textContent = cashbackAplicado > 0
-            ? `Serao usados ${formatCurrency(cashbackAplicado)} nesta venda.`
-            : "Informe um valor dentro do saldo e respeitando o minimo configurado.";
+            ? `Serao usados ${formatCurrency(cashbackAplicado)} nesta venda. Limite atual: ${formatCurrency(limiteVenda)}.`
+            : "Informe um valor dentro do saldo, respeitando o minimo e o limite percentual da venda.";
     }
 }
 
@@ -973,6 +1027,7 @@ function abrirModalVenda(vendaId, focarCancelamento) {
                     <strong class="block text-white mt-2">${formatCurrency(venda.total)}</strong>
                     <p class="text-sm text-slate-400 mt-2">Subtotal ${formatCurrency(venda.subtotal)}</p>
                     <p class="text-sm text-slate-400">Desconto ${formatCurrency(venda.desconto)}</p>
+                    <p class="text-sm text-slate-400">Cashback na venda ${venda.cashback_ativado ? "ativado" : "desativado"}</p>
                     <p class="text-sm text-slate-400">Cashback usado ${formatCurrency(venda.cashback_utilizado || 0)}</p>
                     <p class="text-sm text-slate-400">Cashback gerado ${formatCurrency(venda.cashback_gerado || 0)}</p>
                 </div>
@@ -1189,6 +1244,10 @@ function abrirModalSucessoVenda(venda) {
                     <strong class="text-white">${escapeHtml(venda.cliente_nome || "Sem cliente")}</strong>
                 </div>
                 <div class="flex items-center justify-between gap-3">
+                    <span>Cashback na venda</span>
+                    <strong class="text-white">${venda.cashback_ativado ? "Ativado" : "Desativado"}</strong>
+                </div>
+                <div class="flex items-center justify-between gap-3">
                     <span>Cashback usado</span>
                     <strong class="text-white">${formatCurrency(venda.cashback_utilizado || 0)}</strong>
                 </div>
@@ -1241,6 +1300,7 @@ function montarPayloadVenda() {
     return {
         empresa_id: pdvPage.empresaId,
         cliente_id: pdvPage.clienteId || "",
+        cashback_ativado: cashbackEstaAtivadoNaVenda(),
         cupom_codigo: (document.getElementById("pdv-cupom-codigo")?.value || "").trim(),
         desconto_manual: normalizeMoneyForApi(document.getElementById("pdv-desconto-manual")?.value || "0"),
         cashback_utilizado: normalizeMoneyForApi(document.getElementById("pdv-cashback-utilizado")?.value || "0"),
@@ -1468,14 +1528,17 @@ function limparCarrinho() {
     pdvPage.carrinho = [];
     pdvPage.payloadConfirmacaoPendente = null;
     pdvPage.clienteId = "";
+    pdvPage.cashbackAtivadoNaVenda = cashbackPodeSerOperadoNaVenda();
     const cupom = document.getElementById("pdv-cupom-codigo");
     const cliente = document.getElementById("pdv-cliente");
     const cashback = document.getElementById("pdv-cashback-utilizado");
+    const cashbackToggle = document.getElementById("pdv-cashback-ativado");
     const desconto = document.getElementById("pdv-desconto-manual");
     const observacao = document.getElementById("pdv-observacao");
     if (cupom) cupom.value = "";
     if (cliente) cliente.value = "";
     if (cashback) cashback.value = "0,00";
+    if (cashbackToggle) cashbackToggle.checked = pdvPage.cashbackAtivadoNaVenda;
     if (desconto) desconto.value = "0,00";
     if (observacao) observacao.value = "";
     pdvPage.pagamentoConfirmado = false;
@@ -1680,6 +1743,14 @@ function formatCurrency(value) {
         style: "currency",
         currency: "BRL"
     }).format(Number.isNaN(parsed) ? 0 : parsed);
+}
+
+function formatPercentValue(value) {
+    const parsed = typeof value === "number" ? value : parseCurrencyValue(value);
+    return new Intl.NumberFormat("pt-BR", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(Number.isNaN(parsed) ? 0 : parsed) + "%";
 }
 
 function formatDocumentValue(value) {

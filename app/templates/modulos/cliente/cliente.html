@@ -269,10 +269,14 @@ min-h-screen flex flex-col bg-slate-950 text-white
                         <h4 class="cliente-config-title">Cashback</h4>
                         <div class="space-y-4">
                             <label class="cliente-checkline"><input id="config-cashback-ativo" type="checkbox"> <span>Habilitar cashback</span></label>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
                                     <label for="config-cashback-percentual" class="block text-sm font-medium text-slate-300 mb-2">Percentual</label>
                                     <input id="config-cashback-percentual" type="text" inputmode="decimal" class="cliente-input" value="0,00">
+                                </div>
+                                <div>
+                                    <label for="config-cashback-limite-venda" class="block text-sm font-medium text-slate-300 mb-2">Limite de uso na venda (%)</label>
+                                    <input id="config-cashback-limite-venda" type="text" inputmode="decimal" class="cliente-input" value="100,00">
                                 </div>
                                 <div>
                                     <label for="config-cashback-validade" class="block text-sm font-medium text-slate-300 mb-2">Validade em dias</label>

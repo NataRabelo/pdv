@@ -133,6 +133,22 @@ min-h-screen flex flex-col bg-slate-950 text-white
             <div id="financeiro-categorias-list" class="financeiro-stack-list"></div>
         </section>
     </section>
+
+    <section class="financeiro-panel mt-6">
+        <div class="financeiro-panel-header">
+            <div>
+                <h2 class="text-lg font-semibold text-white">Fechamentos por funcionario</h2>
+                <p class="text-sm text-slate-400">Acompanhe os caixas fechados, diferencas encontradas e quem encerrou cada operacao.</p>
+            </div>
+            <div id="financeiro-fechamentos-resumo" class="text-right text-xs text-slate-400">
+                Carregando fechamentos...
+            </div>
+        </div>
+        <div id="financeiro-fechamentos-body" class="financeiro-closure-list">
+            <p class="text-slate-400 px-1">Carregando fechamentos...</p>
+        </div>
+        <div id="financeiro-fechamentos-pagination"></div>
+    </section>
 </main>
 {% endblock %}
 

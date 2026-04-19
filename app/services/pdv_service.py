@@ -126,6 +126,7 @@ class PdvService:
             empresa_id = PdvService._to_int(data.get("empresa_id"), "Empresa")
             cliente_id = PdvService._to_optional_int(data.get("cliente_id"), "Cliente")
             desconto_manual = PdvService._to_optional_decimal(data.get("desconto_manual"), "desconto manual")
+            cashback_ativado = PdvService._to_bool(data.get("cashback_ativado", True), default=True)
             cashback_utilizado = PdvService._to_optional_decimal(data.get("cashback_utilizado"), "cashback utilizado") or Decimal("0.00")
             observacao = (data.get("observacao") or "").strip() or None
             cupom_codigo = (data.get("cupom_codigo") or "").strip() or None
@@ -177,15 +178,18 @@ class PdvService:
                 raise ValueError("O desconto total nao pode ser maior que o subtotal.")
 
             total_sem_cashback = (subtotal - desconto_total).quantize(Decimal("0.01"))
+            if not cashback_ativado:
+                cashback_utilizado = Decimal("0.00")
             if cashback_utilizado > total_sem_cashback:
                 raise ValueError("O cashback utilizado nao pode ser maior que o total liquido da venda.")
 
-            if cliente_id and cashback_utilizado > Decimal("0.00"):
+            if cliente_id and cashback_ativado and cashback_utilizado > Decimal("0.00"):
                 ClienteService.preparar_uso_cashback(
                     cliente_id=cliente_id,
                     empresa_id=empresa_id,
                     valor_solicitado=cashback_utilizado,
                     tenant_id=tenant_id,
+                    valor_base_venda=total_sem_cashback,
                 )
 
             total = (total_sem_cashback - cashback_utilizado).quantize(Decimal("0.01"))
@@ -206,6 +210,7 @@ class PdvService:
                 status=StatusVenda.FINALIZADA,
                 subtotal=subtotal,
                 desconto=desconto_total,
+                cashback_ativado=cashback_ativado,
                 cashback_utilizado=cashback_utilizado,
                 cashback_gerado=Decimal("0.00"),
                 total=total,
@@ -274,6 +279,7 @@ class PdvService:
                 valor_cashback_utilizado=cashback_utilizado,
                 tenant_id=tenant_id,
                 funcionario_id=funcionario_id,
+                cashback_ativado=cashback_ativado,
             )
 
             PdvRepository.salvar()
@@ -525,6 +531,7 @@ class PdvService:
             "status": venda.status.value,
             "subtotal": str(PdvService._to_decimal_value(venda.subtotal)),
             "desconto": str(PdvService._to_decimal_value(venda.desconto)),
+            "cashback_ativado": bool(getattr(venda, "cashback_ativado", True)),
             "cashback_utilizado": str(PdvService._to_decimal_value(getattr(venda, "cashback_utilizado", 0))),
             "cashback_gerado": str(PdvService._to_decimal_value(getattr(venda, "cashback_gerado", 0))),
             "cashback_percentual_aplicado": str(PdvService._to_decimal_value(getattr(venda, "cashback_percentual_aplicado", 0))),
@@ -738,6 +745,16 @@ class PdvService:
             return int(value)
         except (TypeError, ValueError):
             raise ValueError(f"{field_name} invalido.")
+
+    @staticmethod
+    def _to_bool(value, default=False):
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return str(value).strip().lower() in {"1", "true", "t", "sim", "yes", "on"}
 
     @staticmethod
     def _esta_dentro_janela_cancelamento(data_base, limite_horas):

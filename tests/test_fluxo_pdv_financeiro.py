@@ -233,6 +233,31 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
         self.assertEqual(fechamento["valor_inicial"], "100.00")
         self.assertEqual(fechamento["valor_final"], "80.00")
 
+    def test_listagem_de_fechamentos_retorna_operador_e_diferenca(self):
+        FinanceiroService.criar_fechamento(
+            {
+                "empresa_id": self.empresa.id,
+                "valor_inicial": "100.00",
+                "valor_final": "95.00",
+                "observacao": "Fechamento do turno da tarde",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        fechamentos = FinanceiroService.listar_fechamentos(
+            tenant_id=self.tenant.id,
+            escopo=self.escopo,
+            empresa_id=self.empresa.id,
+            limite=10,
+        )
+
+        self.assertEqual(len(fechamentos), 1)
+        self.assertEqual(fechamentos[0]["funcionario_nome"], self.funcionario.nome)
+        self.assertEqual(fechamentos[0]["observacao"], "Fechamento do turno da tarde")
+        self.assertEqual(fechamentos[0]["diferenca"], "-5.00")
+
     def test_busca_produto_por_codigo_barras_no_pdv(self):
         produto = PdvService.buscar_produto_por_codigo_barras(
             tenant_id=self.tenant.id,
@@ -374,6 +399,115 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
         self.assertEqual(str(ClienteService.calcular_saldo_disponivel(cliente.id, self.tenant.id)), "1.50")
         self.assertEqual(len(historico), 1)
         self.assertEqual(historico[0]["numero_unico"], venda["numero_unico"])
+
+    def test_cashback_respeita_limite_percentual_de_resgate_por_venda(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente Limite Cashback",
+                "documento": "12312312312",
+                "aceita_whatsapp": True,
+            },
+            self.tenant.id,
+        )
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "cashback_ativo": True,
+                "cashback_percentual": "100.00",
+                "cashback_percentual_limite_resgate_venda": "25.00",
+                "cashback_validade_dias": "30",
+                "cashback_valor_minimo_resgate": "1.00",
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "cliente_id": cliente.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 1, "valor_unitario": "7.50"}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "7.50"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        with self.assertRaisesRegex(ValueError, "25.00% do valor liquido da venda"):
+            PdvService.criar_venda(
+                {
+                    "empresa_id": self.empresa.id,
+                    "cliente_id": cliente.id,
+                    "itens": [{"produto_id": self.produto.id, "quantidade": 1, "valor_unitario": "7.50"}],
+                    "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "5.50"}],
+                    "cashback_utilizado": "2.00",
+                    "desconto_manual": "0.00",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+    def test_venda_pode_desativar_cashback_sem_afetar_carteira_existente(self):
+        cliente = ClienteService.criar(
+            {
+                "nome": "Cliente Opt-out Cashback",
+                "documento": "55511133322",
+                "aceita_whatsapp": True,
+            },
+            self.tenant.id,
+        )
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+
+        ClienteService.atualizar_configuracao_empresa(
+            self.empresa.id,
+            {
+                "cashback_ativo": True,
+                "cashback_percentual": "10.00",
+                "cashback_percentual_limite_resgate_venda": "100.00",
+                "cashback_validade_dias": "30",
+                "cashback_valor_minimo_resgate": "1.00",
+            },
+            self.tenant.id,
+            self.escopo,
+        )
+
+        PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "cliente_id": cliente.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 2, "valor_unitario": "7.50"}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "15.00"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        venda = PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "cliente_id": cliente.id,
+                "cashback_ativado": False,
+                "cashback_utilizado": "1.00",
+                "itens": [{"produto_id": self.produto.id, "quantidade": 1, "valor_unitario": "7.50"}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "7.50"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        self.assertFalse(venda["cashback_ativado"])
+        self.assertEqual(venda["cashback_utilizado"], "0.00")
+        self.assertEqual(venda["cashback_gerado"], "0.00")
+        self.assertEqual(str(ClienteService.calcular_saldo_disponivel(cliente.id, self.tenant.id)), "1.50")
 
     def test_cliente_sem_vendas_serializa_total_zero(self):
         cliente = ClienteService.criar(

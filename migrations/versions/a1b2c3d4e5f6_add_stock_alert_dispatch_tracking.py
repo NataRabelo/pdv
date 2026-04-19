@@ -16,13 +16,24 @@ branch_labels = None
 depends_on = None
 
 
+def _get_existing_columns(table_name):
+    inspector = sa.inspect(op.get_bind())
+    return {column["name"] for column in inspector.get_columns(table_name)}
+
+
 def upgrade():
+    existing_columns = _get_existing_columns("produtos_empresa")
     with op.batch_alter_table("produtos_empresa") as batch_op:
-        batch_op.add_column(sa.Column("ultimo_alerta_estoque_status", sa.String(length=30), nullable=True))
-        batch_op.add_column(sa.Column("ultimo_alerta_estoque_em", sa.DateTime(), nullable=True))
+        if "ultimo_alerta_estoque_status" not in existing_columns:
+            batch_op.add_column(sa.Column("ultimo_alerta_estoque_status", sa.String(length=30), nullable=True))
+        if "ultimo_alerta_estoque_em" not in existing_columns:
+            batch_op.add_column(sa.Column("ultimo_alerta_estoque_em", sa.DateTime(), nullable=True))
 
 
 def downgrade():
+    existing_columns = _get_existing_columns("produtos_empresa")
     with op.batch_alter_table("produtos_empresa") as batch_op:
-        batch_op.drop_column("ultimo_alerta_estoque_em")
-        batch_op.drop_column("ultimo_alerta_estoque_status")
+        if "ultimo_alerta_estoque_em" in existing_columns:
+            batch_op.drop_column("ultimo_alerta_estoque_em")
+        if "ultimo_alerta_estoque_status" in existing_columns:
+            batch_op.drop_column("ultimo_alerta_estoque_status")

@@ -529,6 +529,7 @@ class Venda(ModeloBase):
     status = db.Column(db.Enum(StatusVenda), nullable=False, default=StatusVenda.ABERTA)
     subtotal = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    cashback_ativado = db.Column(db.Boolean, nullable=False, default=True)
     cashback_utilizado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     cashback_gerado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     cashback_percentual_aplicado = db.Column(db.Numeric(5, 2), nullable=False, default=0)
@@ -672,6 +673,7 @@ class ConfiguracaoClienteEmpresa(ModeloBase):
     empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
     cashback_ativo = db.Column(db.Boolean, nullable=False, default=False)
     cashback_percentual = db.Column(db.Numeric(5, 2), nullable=False, default=0)
+    cashback_percentual_limite_resgate_venda = db.Column(db.Numeric(5, 2), nullable=False, default=100)
     cashback_validade_dias = db.Column(db.Integer, nullable=False, default=30)
     cashback_valor_minimo_resgate = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     cancelamento_venda_limite_horas = db.Column(db.Integer, nullable=False, default=24)
@@ -701,6 +703,10 @@ class ConfiguracaoClienteEmpresa(ModeloBase):
     __table_args__ = (
         UniqueConstraint("tenant_id", "empresa_id", name="uq_config_cliente_empresa_tenant"),
         CheckConstraint("cashback_percentual >= 0 AND cashback_percentual <= 100", name="ck_config_cliente_cashback_percentual_range"),
+        CheckConstraint(
+            "cashback_percentual_limite_resgate_venda >= 0 AND cashback_percentual_limite_resgate_venda <= 100",
+            name="ck_config_cliente_cashback_limite_resgate_range",
+        ),
         CheckConstraint("cashback_validade_dias >= 1", name="ck_config_cliente_cashback_validade_positive"),
         CheckConstraint("cashback_valor_minimo_resgate >= 0", name="ck_config_cliente_cashback_resgate_non_negative"),
         CheckConstraint("cancelamento_venda_limite_horas >= 0", name="ck_config_cliente_cancelamento_venda_non_negative"),
