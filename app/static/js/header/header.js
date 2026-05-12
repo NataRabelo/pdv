@@ -18,20 +18,21 @@ document.addEventListener("DOMContentLoaded", () => {
     function setSidebarState(state, persist = true) {
         if (!sidebar) return;
 
+        const normalizedState = state === "collapsed" ? "collapsed" : "expanded";
         document.body.classList.add("has-tenant-sidebar");
-        document.body.dataset.sidebarState = state;
-        updateSidebarToggleIcons(state);
+        document.body.dataset.sidebarState = normalizedState;
+        updateSidebarToggleIcons(normalizedState);
 
         sidebarToggleButtons.forEach((toggleButton) => {
-            toggleButton.setAttribute("aria-expanded", String(state === "expanded"));
+            toggleButton.setAttribute("aria-expanded", String(normalizedState === "expanded"));
             toggleButton.setAttribute(
                 "aria-label",
-                state === "expanded" ? "Recolher menu lateral" : "Expandir menu lateral"
+                normalizedState === "expanded" ? "Recolher menu lateral" : "Expandir menu lateral"
             );
         });
 
         if (persist) {
-            window.localStorage.setItem(sidebarStateStorageKey, state);
+            window.localStorage.setItem(sidebarStateStorageKey, normalizedState);
         }
     }
 
@@ -51,7 +52,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (sidebar && sidebarToggleButtons.length) {
         const storedSidebarState = window.localStorage.getItem(sidebarStateStorageKey);
         const defaultSidebarState = window.innerWidth <= 1440 ? "collapsed" : "expanded";
-        setSidebarState(storedSidebarState || defaultSidebarState, false);
+        const initialSidebarState = document.body.dataset.sidebarState || storedSidebarState || defaultSidebarState;
+        setSidebarState(initialSidebarState, false);
 
         sidebarToggleButtons.forEach((toggleButton) => {
             toggleButton.addEventListener("click", () => {

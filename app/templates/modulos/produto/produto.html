@@ -56,7 +56,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
         </div>
 
         <div class="overflow-x-auto">
-            <table class="w-full min-w-[1320px]">
+            <table class="w-full min-w-[1540px]">
                 <thead class="bg-slate-950/70">
                     <tr class="border-b border-slate-800">
                         <th class="text-left text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
@@ -81,7 +81,13 @@ min-h-screen flex flex-col bg-slate-950 text-white
                             Compra
                         </th>
                         <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
-                            Venda
+                            Varejo
+                        </th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Atacado
+                        </th>
+                        <th class="text-right text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4">
+                            Min. atacado
                         </th>
                         <th
                             class="text-center text-xs font-semibold uppercase tracking-wider text-slate-400 px-5 py-4 w-[140px]">
@@ -92,7 +98,7 @@ min-h-screen flex flex-col bg-slate-950 text-white
 
                 <tbody id="produto-table-body" class="divide-y divide-slate-800">
                     <tr>
-                        <td colspan="9" class="px-5 py-8 text-center text-slate-400">
+                        <td colspan="11" class="px-5 py-8 text-center text-slate-400">
                             Carregando produtos...
                         </td>
                     </tr>
@@ -185,9 +191,23 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 </div>
 
                 <div>
-                    <label for="cadastro-valor_venda" class="block text-sm font-medium text-slate-300 mb-2">Valor de
-                        venda</label>
-                    <input id="cadastro-valor_venda" name="valor_venda" type="text" inputmode="decimal" value="0,00"
+                    <label for="cadastro-valor_varejo" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        varejo</label>
+                    <input id="cadastro-valor_varejo" name="valor_varejo" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="cadastro-valor_atacado" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        atacado</label>
+                    <input id="cadastro-valor_atacado" name="valor_atacado" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="cadastro-quantidade_minima_atacado" class="block text-sm font-medium text-slate-300 mb-2">Qtd.
+                        minima atacado</label>
+                    <input id="cadastro-quantidade_minima_atacado" name="quantidade_minima_atacado" type="text" inputmode="numeric" value="1"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
 
@@ -308,9 +328,23 @@ min-h-screen flex flex-col bg-slate-950 text-white
                 </div>
 
                 <div>
-                    <label for="edicao-valor_venda" class="block text-sm font-medium text-slate-300 mb-2">Valor de
-                        venda</label>
-                    <input id="edicao-valor_venda" name="valor_venda" type="text" inputmode="decimal" value="0,00"
+                    <label for="edicao-valor_varejo" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        varejo</label>
+                    <input id="edicao-valor_varejo" name="valor_varejo" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="edicao-valor_atacado" class="block text-sm font-medium text-slate-300 mb-2">Valor de
+                        atacado</label>
+                    <input id="edicao-valor_atacado" name="valor_atacado" type="text" inputmode="decimal" value="0,00"
+                        class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
+                </div>
+
+                <div>
+                    <label for="edicao-quantidade_minima_atacado" class="block text-sm font-medium text-slate-300 mb-2">Qtd.
+                        minima atacado</label>
+                    <input id="edicao-quantidade_minima_atacado" name="quantidade_minima_atacado" type="text" inputmode="numeric" value="1"
                         class="w-full bg-slate-950 border border-slate-800 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 rounded-xl px-4 py-3 text-white outline-none transition">
                 </div>
 

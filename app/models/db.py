@@ -54,6 +54,12 @@ class TipoDesconto(enum.Enum):
     VALOR = "VALOR"
 
 
+class ModalidadePrecoVenda(enum.Enum):
+    VAREJO = "VAREJO"
+    ATACADO = "ATACADO"
+    AUTOMATICO = "AUTOMATICO"
+
+
 class StatusVenda(enum.Enum):
     ABERTA = "ABERTA"
     FINALIZADA = "FINALIZADA"
@@ -76,10 +82,30 @@ class CanalMensagemCliente(enum.Enum):
     WHATSAPP = "WHATSAPP"
 
 
+class AmbienteFiscal(enum.Enum):
+    HOMOLOGACAO = "HOMOLOGACAO"
+    PRODUCAO = "PRODUCAO"
+
+
+class RegimeTributarioFiscal(enum.Enum):
+    SIMPLES_NACIONAL = "SIMPLES_NACIONAL"
+    LUCRO_PRESUMIDO = "LUCRO_PRESUMIDO"
+    LUCRO_REAL = "LUCRO_REAL"
+
+
 class StatusMensagemCliente(enum.Enum):
     PENDENTE = "PENDENTE"
     ENVIADO = "ENVIADO"
     ERRO = "ERRO"
+
+
+class StatusNotaFiscal(enum.Enum):
+    PENDENTE = "PENDENTE"
+    VALIDACAO_ERRO = "VALIDACAO_ERRO"
+    PRONTA_PARA_EMISSAO = "PRONTA_PARA_EMISSAO"
+    EMITIDA = "EMITIDA"
+    REJEITADA = "REJEITADA"
+    CANCELADA = "CANCELADA"
 
 
 class TipoMovimentoCarteiraCliente(enum.Enum):
@@ -371,6 +397,9 @@ class ProdutoEmpresa(ModeloBase):
     estoque_minimo = db.Column(db.Integer, nullable=False, default=0)
     valor_compra = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     valor_venda = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    valor_varejo = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    valor_atacado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    quantidade_minima_atacado = db.Column(db.Integer, nullable=False, default=1)
     data_validade = db.Column(db.Date, nullable=True)
     ultimo_alerta_estoque_status = db.Column(db.String(30), nullable=True)
     ultimo_alerta_estoque_em = db.Column(db.DateTime, nullable=True)
@@ -385,6 +414,9 @@ class ProdutoEmpresa(ModeloBase):
         CheckConstraint("estoque_minimo >= 0", name="ck_produto_empresa_estoque_minimo_non_negative"),
         CheckConstraint("valor_compra >= 0", name="ck_produto_empresa_valor_compra_non_negative"),
         CheckConstraint("valor_venda >= 0", name="ck_produto_empresa_valor_venda_non_negative"),
+        CheckConstraint("valor_varejo >= 0", name="ck_produto_empresa_valor_varejo_non_negative"),
+        CheckConstraint("valor_atacado >= 0", name="ck_produto_empresa_valor_atacado_non_negative"),
+        CheckConstraint("quantidade_minima_atacado >= 1", name="ck_produto_empresa_qtd_min_atacado_positive"),
     )
 
 
@@ -527,6 +559,11 @@ class Venda(ModeloBase):
     cancelado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
     numero_unico = db.Column(db.String(50), nullable=False)
     status = db.Column(db.Enum(StatusVenda), nullable=False, default=StatusVenda.ABERTA)
+    modalidade_preco = db.Column(
+        db.Enum(ModalidadePrecoVenda),
+        nullable=False,
+        default=ModalidadePrecoVenda.VAREJO,
+    )
     subtotal = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     desconto = db.Column(db.Numeric(12, 2), nullable=False, default=0)
     cashback_ativado = db.Column(db.Boolean, nullable=False, default=True)
@@ -569,6 +606,11 @@ class ItemVenda(ModeloBase):
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=False)
     produto_id = db.Column(db.Integer, db.ForeignKey("produtos.id"), nullable=False)
     cancelado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
+    modalidade_preco_aplicada = db.Column(
+        db.Enum(ModalidadePrecoVenda),
+        nullable=False,
+        default=ModalidadePrecoVenda.VAREJO,
+    )
     quantidade = db.Column(db.Integer, nullable=False)
     quantidade_cancelada = db.Column(db.Integer, nullable=False, default=0)
     valor_unitario = db.Column(db.Numeric(12, 2), nullable=False)
@@ -714,6 +756,83 @@ class ConfiguracaoClienteEmpresa(ModeloBase):
         CheckConstraint("cancelamento_movimento_limite_horas >= 0", name="ck_config_cliente_cancelamento_movimento_non_negative"),
         CheckConstraint("smtp_port >= 1", name="ck_config_cliente_smtp_port_positive"),
         CheckConstraint("request_timeout_segundos >= 1", name="ck_config_cliente_timeout_positive"),
+    )
+
+
+class ConfiguracaoFiscalEmpresa(ModeloBase):
+    __tablename__ = "configuracoes_fiscais_empresa"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    ambiente = db.Column(db.Enum(AmbienteFiscal), nullable=False, default=AmbienteFiscal.HOMOLOGACAO)
+    regime_tributario = db.Column(
+        db.Enum(RegimeTributarioFiscal),
+        nullable=False,
+        default=RegimeTributarioFiscal.SIMPLES_NACIONAL,
+    )
+    serie_nfce = db.Column(db.Integer, nullable=False, default=1)
+    proximo_numero_nfce = db.Column(db.Integer, nullable=False, default=1)
+    inscricao_estadual = db.Column(db.String(30), nullable=True)
+    inscricao_municipal = db.Column(db.String(30), nullable=True)
+    cnae = db.Column(db.String(20), nullable=True)
+    uf = db.Column(db.String(2), nullable=True)
+    municipio_nome = db.Column(db.String(120), nullable=True)
+    municipio_codigo_ibge = db.Column(db.String(7), nullable=True)
+    cep = db.Column(db.String(10), nullable=True)
+    logradouro = db.Column(db.String(180), nullable=True)
+    numero = db.Column(db.String(20), nullable=True)
+    complemento = db.Column(db.String(120), nullable=True)
+    bairro = db.Column(db.String(120), nullable=True)
+    certificado_caminho = db.Column(db.String(255), nullable=True)
+    certificado_senha_env = db.Column(db.String(120), nullable=True)
+    csc_id = db.Column(db.String(20), nullable=True)
+    csc_token = db.Column(db.String(255), nullable=True)
+    contingencia_ativa = db.Column(db.Boolean, nullable=False, default=False)
+    ultimo_teste_certificado_em = db.Column(db.DateTime, nullable=True)
+    ultimo_teste_certificado_status = db.Column(db.String(30), nullable=True)
+    ultimo_teste_certificado_detalhe = db.Column(db.Text, nullable=True)
+
+    empresa = db.relationship(
+        "Empresa",
+        backref=db.backref("configuracao_fiscal", uselist=False, lazy=True, cascade="all, delete-orphan"),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "empresa_id", name="uq_config_fiscal_empresa_tenant"),
+        CheckConstraint("serie_nfce >= 1", name="ck_config_fiscal_serie_positive"),
+        CheckConstraint("proximo_numero_nfce >= 1", name="ck_config_fiscal_proximo_numero_positive"),
+    )
+
+
+class NotaFiscalVenda(ModeloBase):
+    __tablename__ = "notas_fiscais_venda"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=False)
+    configuracao_fiscal_id = db.Column(db.Integer, db.ForeignKey("configuracoes_fiscais_empresa.id"), nullable=True)
+    ambiente = db.Column(db.Enum(AmbienteFiscal), nullable=False, default=AmbienteFiscal.HOMOLOGACAO)
+    status = db.Column(db.Enum(StatusNotaFiscal), nullable=False, default=StatusNotaFiscal.PENDENTE)
+    serie = db.Column(db.Integer, nullable=True)
+    numero = db.Column(db.Integer, nullable=True)
+    chave_acesso = db.Column(db.String(60), nullable=True)
+    recibo = db.Column(db.String(60), nullable=True)
+    protocolo = db.Column(db.String(60), nullable=True)
+    xml_path = db.Column(db.String(255), nullable=True)
+    mensagem_retorno = db.Column(db.Text, nullable=True)
+    enviado_em = db.Column(db.DateTime, nullable=True)
+    emitida_em = db.Column(db.DateTime, nullable=True)
+    cancelada_em = db.Column(db.DateTime, nullable=True)
+
+    empresa = db.relationship("Empresa", backref=db.backref("notas_fiscais", lazy=True))
+    venda = db.relationship("Venda", backref=db.backref("nota_fiscal", uselist=False, lazy=True))
+    configuracao_fiscal = db.relationship(
+        "ConfiguracaoFiscalEmpresa",
+        backref=db.backref("notas_emitidas", lazy=True),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "venda_id", name="uq_nota_fiscal_venda_tenant"),
+        UniqueConstraint("tenant_id", "empresa_id", "serie", "numero", name="uq_nota_fiscal_tenant_empresa_serie_numero"),
+        Index("ix_nota_fiscal_tenant_empresa_status", "tenant_id", "empresa_id", "status"),
     )
 
 

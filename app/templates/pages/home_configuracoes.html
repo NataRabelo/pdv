@@ -1,0 +1,114 @@
+{% extends "bases/base.html" %}
+
+{% block title %}OceanBlue - Configuracoes{% endblock %}
+
+{% block body_class %}
+min-h-screen flex flex-col
+{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
+{% endblock %}
+
+{% block content %}
+{% set modulo_name = "Configuracoes" %}
+{% set modulo_icon = "sliders-horizontal" %}
+{% include "componentes/header_subpages.html" %}
+
+<main class="flex-1 page-shell-home">
+    <section class="glass rounded-[2rem] border border-white/10 px-6 py-8 md:px-8 md:py-10 mb-8">
+        <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div class="max-w-3xl">
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300/80">Governanca do sistema</p>
+                <h2 class="mt-3 text-4xl font-light text-white">
+                    Ajustes sensiveis em uma area <span class="font-bold">dedicada</span>
+                </h2>
+                <p class="mt-3 text-slate-400">
+                    Fiscal, alertas, regras de relacionamento e controle de acesso foram reunidos aqui para dar
+                    mais versatilidade ao usuario sem misturar operacao com configuracao.
+                </p>
+            </div>
+
+            <a href="{{ url_for('main.home') }}"
+                class="inline-flex items-center gap-2 self-start rounded-2xl border border-slate-700 bg-slate-900/80 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-800">
+                <i data-lucide="layout-grid" class="w-4 h-4"></i>
+                Voltar para operacao
+            </a>
+        </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {% if ui_flags.can_view_fiscal %}
+        <a href="/api/fiscal/view" class="action-card min-h-[13rem] items-start">
+            <div class="action-icon">
+                <i data-lucide="receipt"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold text-lg">Fiscal</h4>
+                <p class="text-slate-400 text-sm mt-2">Ambiente fiscal por empresa, serie, numeracao, certificado e prevalidacao de emissao.</p>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if ui_flags.can_view_notifications %}
+        <a href="{{ url_for('estoque.pagina_alertas') }}" class="action-card min-h-[13rem] items-start">
+            <div class="action-icon">
+                <i data-lucide="shield-alert"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold text-lg">Alertas operacionais</h4>
+                <p class="text-slate-400 text-sm mt-2">Resumo de estoque baixo, ruptura, validade e configuracoes de notificacao.</p>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if ui_flags.can_manage_customer_settings and ui_flags.can_view_customers %}
+        <a href="/api/clientes/view" class="action-card min-h-[13rem] items-start">
+            <div class="action-icon">
+                <i data-lucide="contact-round"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold text-lg">Regras de clientes</h4>
+                <p class="text-slate-400 text-sm mt-2">Cashback, cancelamentos, comunicacao e canais por empresa em uma gestao centralizada.</p>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if ui_flags.can_view_staff %}
+        <a href="/api/funcionarios/view" class="action-card min-h-[13rem] items-start">
+            <div class="action-icon">
+                <i data-lucide="users"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold text-lg">Equipe</h4>
+                <p class="text-slate-400 text-sm mt-2">Cadastro de funcionarios, empresas vinculadas e responsabilidades de cada usuario.</p>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if ui_flags.can_view_roles %}
+        <a href="/api/roles/view" class="action-card min-h-[13rem] items-start">
+            <div class="action-icon">
+                <i data-lucide="shield-check"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold text-lg">Roles</h4>
+                <p class="text-slate-400 text-sm mt-2">Perfis operacionais padronizados para distribuir acesso sem misturar responsabilidades.</p>
+            </div>
+        </a>
+        {% endif %}
+
+        {% if ui_flags.can_view_permissions %}
+        <a href="/api/permissions/view" class="action-card min-h-[13rem] items-start">
+            <div class="action-icon">
+                <i data-lucide="key-round"></i>
+            </div>
+            <div>
+                <h4 class="text-white font-bold text-lg">Permissions</h4>
+                <p class="text-slate-400 text-sm mt-2">Controle fino das permissoes disponiveis para reforcar seguranca e evitar acesso indevido.</p>
+            </div>
+        </a>
+        {% endif %}
+    </section>
+</main>
+{% endblock %}

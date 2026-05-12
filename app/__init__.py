@@ -29,12 +29,21 @@ def register_context_processors(app: Flask) -> None:
             "active_prefixes": ["/home"],
         },
         {
+            "label": "Configuracoes",
+            "endpoint": "main.settings_home",
+            "icon": "sliders-horizontal",
+            "permission": None,
+            "flag": "can_view_settings",
+            "group": "Configuracoes",
+            "active_prefixes": ["/configuracoes/home"],
+        },
+        {
             "label": "PDV",
             "endpoint": "main.pdv_home",
             "icon": "shopping-cart",
             "permission": "visualizar_pdv",
             "group": "Operacao",
-            "active_prefixes": ["/pdv/home", "/api/pdv/"],
+            "active_prefixes": ["/pdv/home", "/api/pdv/view"],
         },
         {
             "label": "Estoque",
@@ -42,7 +51,7 @@ def register_context_processors(app: Flask) -> None:
             "icon": "boxes",
             "permission": "visualizar_produto",
             "group": "Operacao",
-            "active_prefixes": ["/estoque/home", "/api/estoque/", "/api/produtos/", "/api/categorias/"],
+            "active_prefixes": ["/estoque/home", "/api/estoque/view", "/api/estoque/indicadores/view"],
         },
         {
             "label": "Financeiro",
@@ -50,7 +59,20 @@ def register_context_processors(app: Flask) -> None:
             "icon": "landmark",
             "permission": "visualizar_financeiro",
             "group": "Operacao",
-            "active_prefixes": ["/financeiro/home", "/api/financeiro/"],
+            "active_prefixes": [
+                "/financeiro/home",
+                "/api/financeiro/view",
+                "/api/financeiro/lancamentos/view",
+                "/api/financeiro/relatorios/view",
+            ],
+        },
+        {
+            "label": "Fiscal",
+            "href": "/api/fiscal/view",
+            "icon": "receipt",
+            "permission": "visualizar_fiscal",
+            "group": "Configuracoes",
+            "active_prefixes": ["/api/fiscal/"],
         },
         {
             "label": "Clientes",
@@ -58,7 +80,15 @@ def register_context_processors(app: Flask) -> None:
             "icon": "contact-round",
             "permission": "visualizar_cliente",
             "group": "Relacionamento",
-            "active_prefixes": ["/api/clientes/"],
+            "active_prefixes": ["/api/clientes/view"],
+        },
+        {
+            "label": "Alertas",
+            "href": "/api/estoque/alertas/view",
+            "icon": "shield-alert",
+            "permission": "visualizar_notificacao",
+            "group": "Configuracoes",
+            "active_prefixes": ["/api/estoque/alertas/view"],
         },
         {
             "label": "Produtos",
@@ -66,7 +96,7 @@ def register_context_processors(app: Flask) -> None:
             "icon": "package-plus",
             "permission": "visualizar_produto",
             "group": "Cadastros",
-            "active_prefixes": ["/api/produtos/"],
+            "active_prefixes": ["/api/produtos/view"],
         },
         {
             "label": "Categorias",
@@ -74,15 +104,15 @@ def register_context_processors(app: Flask) -> None:
             "icon": "layers",
             "permission": "visualizar_categoria",
             "group": "Cadastros",
-            "active_prefixes": ["/api/categorias/"],
+            "active_prefixes": ["/api/categorias/view"],
         },
         {
             "label": "Funcionarios",
             "href": "/api/funcionarios/view",
             "icon": "users",
             "permission": "visualizar_funcionario",
-            "group": "Cadastros",
-            "active_prefixes": ["/api/funcionarios/"],
+            "group": "Configuracoes",
+            "active_prefixes": ["/api/funcionarios/view"],
         },
         {
             "label": "Cupons",
@@ -90,7 +120,7 @@ def register_context_processors(app: Flask) -> None:
             "icon": "ticket-percent",
             "permission": "visualizar_cupom",
             "group": "Cadastros",
-            "active_prefixes": ["/api/cupons/"],
+            "active_prefixes": ["/api/cupons/view"],
         },
         {
             "label": "Vales",
@@ -98,31 +128,31 @@ def register_context_processors(app: Flask) -> None:
             "icon": "wallet-cards",
             "permission": "visualizar_adiantamento",
             "group": "Cadastros",
-            "active_prefixes": ["/api/adiantamentos/"],
+            "active_prefixes": ["/api/adiantamentos/view"],
         },
         {
             "label": "Importacao em Lote",
             "href": "/api/importacao-exportacao/view",
             "icon": "sheet",
             "permission": "visualizar_importacao_exportacao",
-            "group": "Administracao",
-            "active_prefixes": ["/api/importacao-exportacao/"],
+            "group": "Cadastros",
+            "active_prefixes": ["/api/importacao-exportacao/view"],
         },
         {
             "label": "Roles",
             "href": "/api/roles/view",
             "icon": "shield-check",
             "permission": "visualizar_role",
-            "group": "Administracao",
-            "active_prefixes": ["/api/roles/"],
+            "group": "Configuracoes",
+            "active_prefixes": ["/api/roles/view"],
         },
         {
             "label": "Permissions",
             "href": "/api/permissions/view",
             "icon": "key-round",
             "permission": "visualizar_permission",
-            "group": "Administracao",
-            "active_prefixes": ["/api/permissions/"],
+            "group": "Configuracoes",
+            "active_prefixes": ["/api/permissions/view"],
         },
     ]
 
@@ -161,9 +191,12 @@ def register_context_processors(app: Flask) -> None:
     def _get_permission_codes(funcionario):
         return AcessoEmpresaService.extrair_codigos_permissao(funcionario)
 
-    def _build_navigation(permission_codes):
+    def _build_navigation(permission_codes, ui_flags):
         navigation = []
         for item in tenant_navigation_items:
+            flag = item.get("flag")
+            if flag and not ui_flags.get(flag):
+                continue
             permission = item.get("permission")
             if permission and permission not in permission_codes:
                 continue
@@ -212,6 +245,8 @@ def register_context_processors(app: Flask) -> None:
             "can_view_finance_reports": "visualizar_relatorio_financeiro" in permission_codes,
             "can_manage_finance_entries": "criar_lancamento_financeiro" in permission_codes,
             "can_close_cashier": "fechar_caixa" in permission_codes,
+            "can_view_fiscal": "visualizar_fiscal" in permission_codes,
+            "can_manage_fiscal": "gerenciar_fiscal" in permission_codes,
             "can_view_notifications": "visualizar_notificacao" in permission_codes,
             "can_manage_stock_alerts": "gerenciar_alerta_estoque" in permission_codes,
             "can_view_staff": "visualizar_funcionario" in permission_codes,
@@ -220,6 +255,9 @@ def register_context_processors(app: Flask) -> None:
             "can_view_coupons": "visualizar_cupom" in permission_codes,
             "can_view_advance": "visualizar_adiantamento" in permission_codes,
             "can_view_import_export": "visualizar_importacao_exportacao" in permission_codes,
+            "can_view_settings": AcessoEmpresaService.possui_acesso_configuracoes({
+                "permission_codes": permission_codes,
+            }),
         }
 
     @app.context_processor
@@ -258,7 +296,7 @@ def register_context_processors(app: Flask) -> None:
                     "storageKey": "oceanblue:empresa-visual-selecionada",
                 }
                 ui_flags = _build_template_flags(permission_codes)
-                navigation_items = _build_navigation(permission_codes)
+                navigation_items = _build_navigation(permission_codes, ui_flags)
                 return {
                     "current_user": funcionario,
                     "current_platform_owner": None,

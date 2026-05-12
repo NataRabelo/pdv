@@ -417,6 +417,9 @@ class ImportExportService:
             produto_empresa.estoque_minimo = estoque_minimo
             produto_empresa.valor_compra = valor_compra
             produto_empresa.valor_venda = valor_venda
+            produto_empresa.valor_varejo = valor_venda
+            produto_empresa.valor_atacado = valor_venda
+            produto_empresa.quantidade_minima_atacado = 1
             produto_empresa.data_validade = data_validade
             produto_empresa.ativo = ativo
             produto_empresa.atualizado_em = TimeService.now_utc_naive()
@@ -430,6 +433,9 @@ class ImportExportService:
             estoque_minimo=estoque_minimo,
             valor_compra=valor_compra,
             valor_venda=valor_venda,
+            valor_varejo=valor_venda,
+            valor_atacado=valor_venda,
+            quantidade_minima_atacado=1,
             data_validade=data_validade,
             ativo=ativo,
             criado_em=TimeService.now_utc_naive(),

@@ -7,6 +7,15 @@ from app.security.permissions import (
 
 
 class AcessoEmpresaService:
+    CONFIGURATION_PERMISSION_CODES = (
+        "visualizar_fiscal",
+        "visualizar_notificacao",
+        "gerenciar_alerta_estoque",
+        "gerenciar_configuracao_cliente",
+        "visualizar_funcionario",
+        "visualizar_role",
+        "visualizar_permission",
+    )
 
     @staticmethod
     def extrair_codigos_permissao(funcionario):
@@ -58,6 +67,14 @@ class AcessoEmpresaService:
     @staticmethod
     def possui_permissao(escopo, permission_code):
         return permission_code in escopo["permission_codes"]
+
+    @staticmethod
+    def possui_acesso_configuracoes(escopo):
+        permission_codes = set((escopo or {}).get("permission_codes") or [])
+        return any(
+            permission_code in permission_codes
+            for permission_code in AcessoEmpresaService.CONFIGURATION_PERMISSION_CODES
+        )
 
     @staticmethod
     def eh_admin(escopo):

@@ -42,7 +42,10 @@ def listar():
                     "estoque_atual": int(item.estoque_atual),
                     "estoque_minimo": int(item.estoque_minimo),
                     "valor_compra": str(item.valor_compra),
-                    "valor_venda": str(item.valor_venda),
+                    "valor_venda": str(item.valor_varejo),
+                    "valor_varejo": str(item.valor_varejo),
+                    "valor_atacado": str(item.valor_atacado),
+                    "quantidade_minima_atacado": int(item.quantidade_minima_atacado),
                     "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                     "ativo": item.ativo
                 }
@@ -101,7 +104,10 @@ def criar():
                 "estoque_atual": int(item.estoque_atual),
                 "estoque_minimo": int(item.estoque_minimo),
                 "valor_compra": str(item.valor_compra),
-                "valor_venda": str(item.valor_venda),
+                "valor_venda": str(item.valor_varejo),
+                "valor_varejo": str(item.valor_varejo),
+                "valor_atacado": str(item.valor_atacado),
+                "quantidade_minima_atacado": int(item.quantidade_minima_atacado),
                 "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                 "ativo": item.ativo
             }
@@ -137,7 +143,10 @@ def atualizar(produto_empresa_id):
                 "estoque_atual": int(item.estoque_atual),
                 "estoque_minimo": int(item.estoque_minimo),
                 "valor_compra": str(item.valor_compra),
-                "valor_venda": str(item.valor_venda),
+                "valor_venda": str(item.valor_varejo),
+                "valor_varejo": str(item.valor_varejo),
+                "valor_atacado": str(item.valor_atacado),
+                "quantidade_minima_atacado": int(item.quantidade_minima_atacado),
                 "data_validade": item.data_validade.isoformat() if item.data_validade else None,
                 "ativo": item.ativo
             },

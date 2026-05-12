@@ -1,10 +1,11 @@
 from pathlib import Path
 
 from flask import Blueprint, current_app, flash, redirect, render_template, send_from_directory, url_for
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.security.decorators import ui_permission_required
 from app.security.jwt import get_auth_scope
+from app.services.acesso_empresa_service import AcessoEmpresaService
 
 main_bp = Blueprint("main", __name__)
 
@@ -32,6 +33,12 @@ def _redirecionar_platform_owner():
         flash("Esse ambiente pertence ao tenant. Use o painel da plataforma.", "warning")
         return redirect(url_for("platform.home"))
     return None
+
+
+def _obter_escopo_tenant():
+    tenant_id = get_jwt().get("tenant_id")
+    funcionario_id = int(get_jwt_identity())
+    return AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
 
 
 @main_bp.route("/", methods=["GET"])
@@ -70,6 +77,29 @@ def home():
     except Exception as e:
         flash("Erro ao redirecionar para a home: " + str(e), "warning")
         return redirect(url_for("auth.login"))
+
+
+@main_bp.route("/configuracoes/home", methods=["GET"])
+@jwt_required()
+def settings_home():
+    try:
+        redirect_response = _redirecionar_platform_owner()
+        if redirect_response:
+            return redirect_response
+
+        escopo = _obter_escopo_tenant()
+        if not AcessoEmpresaService.possui_acesso_configuracoes(escopo):
+            flash("Voce nao tem permissao para acessar as configuracoes do sistema.", "warning")
+            return redirect(url_for("main.home"))
+
+        return render_template("pages/home_configuracoes.html")
+
+    except PermissionError as e:
+        flash(str(e), "warning")
+        return redirect(url_for("main.home"))
+    except Exception as e:
+        flash("Erro ao redirecionar para as configuracoes: " + str(e), "warning")
+        return redirect(url_for("main.home"))
 
 
 @main_bp.route("/pdv/home", methods=["GET"])

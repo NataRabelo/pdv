@@ -58,15 +58,9 @@
                 <i data-lucide="layout-grid" class="w-4 h-4"></i> Visao geral
             </a>
 
-            {% if ui_flags.can_view_notifications %}
-            <a href="{{ url_for('estoque.pagina_alertas') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="shield-alert" class="w-4 h-4"></i> Alertas de estoque
-            </a>
-            {% endif %}
-
-            {% if ui_flags.can_manage_customer_settings and ui_flags.can_view_customers %}
-            <a href="/api/clientes/view" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Regras de clientes
+            {% if ui_flags.can_view_settings %}
+            <a href="{{ url_for('main.settings_home') }}" class="flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Configuracoes
             </a>
             {% endif %}
 

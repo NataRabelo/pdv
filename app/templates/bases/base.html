@@ -16,6 +16,10 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/core/core.css') }}">
   <script>
     window.__tenantThemeConfig = {{ tenant_theme_config|tojson }};
+    window.__tenantUiConfig = {
+      hasTenantSidebar: {{ (current_auth_scope != "platform" and tenant_navigation_groups)|tojson }},
+      sidebarStateStorageKey: "oceanblue:tenant-sidebar-state"
+    };
     window.__uiFlags = {{ ui_flags|tojson }};
     window.__permissionCodes = {{ current_permission_codes|tojson }};
     window.userHasPermission = function (code) {
@@ -27,6 +31,36 @@
 </head>
 
 <body data-theme-mode="{{ current_visual_mode }}" class="{% block body_class %}min-h-screen{% endblock %}">
+  <script>
+    (function () {
+      const body = document.body;
+      const themeConfig = window.__tenantThemeConfig || {};
+      const uiConfig = window.__tenantUiConfig || {};
+      const defaultMode = themeConfig.defaultMode === "classic" ? "classic" : "modern";
+      const companyModes = themeConfig.companyModes || {};
+      const themeStorageKey = themeConfig.storageKey || "oceanblue:empresa-visual-selecionada";
+
+      body.classList.add("ui-booting");
+
+      const storedCompanyId = window.localStorage.getItem(themeStorageKey);
+      const initialMode = storedCompanyId && companyModes[String(storedCompanyId)]
+        ? companyModes[String(storedCompanyId)]
+        : defaultMode;
+      body.setAttribute("data-theme-mode", initialMode);
+
+      if (uiConfig.hasTenantSidebar) {
+        const sidebarStateStorageKey = uiConfig.sidebarStateStorageKey || "oceanblue:tenant-sidebar-state";
+        const storedSidebarState = window.localStorage.getItem(sidebarStateStorageKey);
+        const defaultSidebarState = window.innerWidth <= 1440 ? "collapsed" : "expanded";
+        const initialSidebarState = storedSidebarState === "collapsed" || storedSidebarState === "expanded"
+          ? storedSidebarState
+          : defaultSidebarState;
+
+        body.classList.add("has-tenant-sidebar");
+        body.dataset.sidebarState = initialSidebarState;
+      }
+    })();
+  </script>
 
   {% include "componentes/flash_mensagem.html" %}
 
@@ -170,6 +204,9 @@
 
         document.getElementById("global-stock-alert-close")?.addEventListener("click", closeStockAlertModal);
         window.addEventListener("resize", toggleScreenLock);
+        requestAnimationFrame(() => {
+          document.body.classList.remove("ui-booting");
+        });
       });
     })();
   </script>

@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
-from app.models.db import ItemVenda, PagamentoVenda, StatusVenda, TipoDesconto, Venda
+from app.models.db import ItemVenda, ModalidadePrecoVenda, PagamentoVenda, StatusVenda, TipoDesconto, Venda
 from app.repositorys.pdv_repository import PdvRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.cliente_service import ClienteService
@@ -125,6 +125,7 @@ class PdvService:
 
             empresa_id = PdvService._to_int(data.get("empresa_id"), "Empresa")
             cliente_id = PdvService._to_optional_int(data.get("cliente_id"), "Cliente")
+            modalidade_preco = PdvService._to_modalidade_preco(data.get("modalidade_preco"))
             desconto_manual = PdvService._to_optional_decimal(data.get("desconto_manual"), "desconto manual")
             cashback_ativado = PdvService._to_bool(data.get("cashback_ativado", True), default=True)
             cashback_utilizado = PdvService._to_optional_decimal(data.get("cashback_utilizado"), "cashback utilizado") or Decimal("0.00")
@@ -153,12 +154,12 @@ class PdvService:
                 if not produto_empresa or not produto_empresa.ativo or not produto_empresa.produto.ativo:
                     raise ValueError("Um dos produtos informados nao esta disponivel para venda.")
 
-                valor_unitario = PdvService._to_optional_decimal(item_data.get("valor_unitario"), "valor unitario")
-                if valor_unitario is None:
-                    valor_unitario = PdvService._to_decimal_value(produto_empresa.valor_venda)
-
-                if valor_unitario < 0:
-                    raise ValueError("Valor unitario invalido para um dos itens.")
+                precificacao_item = PdvService._resolver_precificacao_item(
+                    produto_empresa=produto_empresa,
+                    quantidade=quantidade,
+                    modalidade_solicitada=modalidade_preco,
+                )
+                valor_unitario = precificacao_item["valor_unitario"]
 
                 valor_total = (valor_unitario * quantidade).quantize(Decimal("0.01"))
                 subtotal += valor_total
@@ -168,6 +169,7 @@ class PdvService:
                     "quantidade": quantidade,
                     "valor_unitario": valor_unitario,
                     "valor_total": valor_total,
+                    "modalidade_preco_aplicada": precificacao_item["modalidade_aplicada"],
                 })
 
             cupom = PdvService._validar_cupom(cupom_codigo, tenant_id)
@@ -208,6 +210,7 @@ class PdvService:
                 cupom_id=cupom.id if cupom else None,
                 numero_unico=PdvService._gerar_numero_unico(empresa_id),
                 status=StatusVenda.FINALIZADA,
+                modalidade_preco=modalidade_preco,
                 subtotal=subtotal,
                 desconto=desconto_total,
                 cashback_ativado=cashback_ativado,
@@ -226,6 +229,7 @@ class PdvService:
                     tenant_id=tenant_id,
                     venda_id=venda.id,
                     produto_id=item["produto_id"],
+                    modalidade_preco_aplicada=item["modalidade_preco_aplicada"],
                     quantidade=item["quantidade"],
                     valor_unitario=item["valor_unitario"],
                     valor_total=item["valor_total"],
@@ -500,7 +504,10 @@ class PdvService:
             "codigo_barras": item.produto.codigo_barras,
             "estoque_atual": int(item.estoque_atual),
             "estoque_minimo": int(item.estoque_minimo),
-            "valor_venda": str(PdvService._to_decimal_value(item.valor_venda)),
+            "valor_venda": str(PdvService._obter_valor_varejo_produto(item)),
+            "valor_varejo": str(PdvService._obter_valor_varejo_produto(item)),
+            "valor_atacado": str(PdvService._obter_valor_atacado_produto(item)),
+            "quantidade_minima_atacado": int(getattr(item, "quantidade_minima_atacado", 1) or 1),
             "valor_compra": str(PdvService._to_decimal_value(item.valor_compra)),
             "ativo": item.ativo,
         }
@@ -529,6 +536,7 @@ class PdvService:
             "cliente_documento": venda.cliente.documento if venda.cliente else None,
             "numero_unico": venda.numero_unico,
             "status": venda.status.value,
+            "modalidade_preco": getattr(venda.modalidade_preco, "value", ModalidadePrecoVenda.VAREJO.value),
             "subtotal": str(PdvService._to_decimal_value(venda.subtotal)),
             "desconto": str(PdvService._to_decimal_value(venda.desconto)),
             "cashback_ativado": bool(getattr(venda, "cashback_ativado", True)),
@@ -550,6 +558,11 @@ class PdvService:
                     "quantidade": int(item.quantidade),
                     "quantidade_cancelada": int(getattr(item, "quantidade_cancelada", 0) or 0),
                     "quantidade_disponivel_cancelamento": int(item.quantidade) - int(getattr(item, "quantidade_cancelada", 0) or 0),
+                    "modalidade_preco_aplicada": getattr(
+                        item.modalidade_preco_aplicada,
+                        "value",
+                        ModalidadePrecoVenda.VAREJO.value,
+                    ),
                     "valor_unitario": str(PdvService._to_decimal_value(item.valor_unitario)),
                     "valor_total": str(PdvService._to_decimal_value(item.valor_total)),
                     "valor_cancelado": str(PdvService._to_decimal_value(getattr(item, "valor_cancelado", 0))),
@@ -663,6 +676,63 @@ class PdvService:
         return f"VEN-{empresa_id}-{timestamp}-{uuid4().hex[:6].upper()}"
 
     @staticmethod
+    def _resolver_precificacao_item(produto_empresa, quantidade, modalidade_solicitada):
+        valor_varejo = PdvService._obter_valor_varejo_produto(produto_empresa)
+        valor_atacado = PdvService._obter_valor_atacado_produto(produto_empresa)
+        quantidade_minima_atacado = int(getattr(produto_empresa, "quantidade_minima_atacado", 1) or 1)
+        possui_regra_atacado = (
+            valor_atacado > Decimal("0.00")
+            and valor_atacado < valor_varejo
+            and quantidade_minima_atacado >= 1
+        )
+
+        if modalidade_solicitada == ModalidadePrecoVenda.ATACADO:
+            if not possui_regra_atacado:
+                raise ValueError(
+                    f"O produto '{produto_empresa.produto.nome}' nao possui preco de atacado configurado."
+                )
+            if int(quantidade) < quantidade_minima_atacado:
+                raise ValueError(
+                    "A quantidade informada nao atinge o minimo para venda em atacado "
+                    f"do produto '{produto_empresa.produto.nome}' ({quantidade_minima_atacado})."
+                )
+            return {
+                "valor_unitario": valor_atacado,
+                "modalidade_aplicada": ModalidadePrecoVenda.ATACADO,
+            }
+
+        if modalidade_solicitada == ModalidadePrecoVenda.AUTOMATICO:
+            if possui_regra_atacado and int(quantidade) >= quantidade_minima_atacado:
+                return {
+                    "valor_unitario": valor_atacado,
+                    "modalidade_aplicada": ModalidadePrecoVenda.ATACADO,
+                }
+
+        return {
+            "valor_unitario": valor_varejo,
+            "modalidade_aplicada": ModalidadePrecoVenda.VAREJO,
+        }
+
+    @staticmethod
+    def _obter_valor_varejo_produto(produto_empresa):
+        valor_varejo = getattr(produto_empresa, "valor_varejo", None)
+        valor_venda_legado = getattr(produto_empresa, "valor_venda", 0)
+        valor_varejo_decimal = PdvService._to_decimal_value(valor_varejo)
+        if valor_varejo is None or (
+            valor_varejo_decimal <= Decimal("0.00")
+            and PdvService._to_decimal_value(valor_venda_legado) > Decimal("0.00")
+        ):
+            return PdvService._to_decimal_value(valor_venda_legado)
+        return valor_varejo_decimal
+
+    @staticmethod
+    def _obter_valor_atacado_produto(produto_empresa):
+        valor_atacado = getattr(produto_empresa, "valor_atacado", None)
+        if valor_atacado is None:
+            valor_atacado = getattr(produto_empresa, "valor_venda", 0)
+        return PdvService._to_decimal_value(valor_atacado)
+
+    @staticmethod
     def _to_optional_status(value):
         if value in (None, ""):
             return None
@@ -671,6 +741,17 @@ class PdvService:
             return StatusVenda[(value or "").strip().upper()]
         except KeyError:
             raise ValueError("Status de venda invalido.")
+
+    @staticmethod
+    def _to_modalidade_preco(value):
+        raw_value = (value or "").strip().upper()
+        if not raw_value:
+            return ModalidadePrecoVenda.VAREJO
+
+        try:
+            return ModalidadePrecoVenda[raw_value]
+        except KeyError:
+            raise ValueError("Modalidade de preco invalida.")
 
     @staticmethod
     def _to_int(value, field_name):

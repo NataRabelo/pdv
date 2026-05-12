@@ -12,6 +12,7 @@ min-h-screen flex flex-col
 
 {% block content %}
 {% set modulo_name = "Estoque" %}
+{% set modulo_icon = "boxes" %}
 {% include "componentes/header_subpages.html"%}
 
 <main class="flex-1 page-shell-home">
@@ -19,7 +20,7 @@ min-h-screen flex flex-col
         <h2 class="text-4xl font-light text-white mb-2">
             Controle de <span class="font-bold">Estoque</span>
         </h2>
-        <p class="text-slate-400">Operacao enxuta para cadastro, conferencia e reposicao.</p>
+        <p class="text-slate-400">Cadastro, conferencia e reposicao em uma area dedicada ao estoque.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -77,18 +78,6 @@ min-h-screen flex flex-col
             <div>
                 <h4 class="text-white font-bold">Giro de produtos</h4>
                 <p class="text-slate-400 text-sm">Mais vendidos por semana, mes ou periodo</p>
-            </div>
-        </a>
-        {% endif %}
-
-        {% if ui_flags.can_view_import_export %}
-        <a href="/api/importacao-exportacao/view" class="action-card">
-            <div class="action-icon">
-                <i data-lucide="sheet"></i>
-            </div>
-            <div>
-                <h4 class="text-white font-bold">Importacao em lote</h4>
-                <p class="text-slate-400 text-sm">Carga de produtos, categorias e cadastros por Excel</p>
             </div>
         </a>
         {% endif %}

@@ -1,4 +1,5 @@
 import os
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -30,6 +31,7 @@ from app.services.adiantamento_service import AdiantamentoService
 from app.services.cliente_service import ClienteService
 from app.services.comunicacao_service import ComunicacaoService
 from app.services.estoque_service import EstoqueService
+from app.services.fiscal_service import FiscalService
 from app.services.financeiro_service import FinanceiroService
 from app.services.pdv_service import PdvService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
@@ -123,6 +125,9 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
             estoque_minimo=2,
             valor_compra=4.50,
             valor_venda=7.50,
+            valor_varejo=7.50,
+            valor_atacado=6.90,
+            quantidade_minima_atacado=3,
             ativo=True,
         )
         db.session.add(produto_empresa)
@@ -162,6 +167,118 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
         self.assertEqual(venda["total"], "15.00")
         self.assertEqual(LancamentoFinanceiro.query.count(), 1)
         self.assertEqual(MovimentoEstoque.query.count(), 1)
+
+    def test_venda_automatica_aplica_preco_atacado_ao_atingir_quantidade_minima(self):
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+
+        venda = PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "modalidade_preco": "AUTOMATICO",
+                "itens": [{"produto_id": self.produto.id, "quantidade": 3}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "20.70"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        self.assertEqual(venda["modalidade_preco"], "AUTOMATICO")
+        self.assertEqual(venda["subtotal"], "20.70")
+        self.assertEqual(venda["itens"][0]["modalidade_preco_aplicada"], "ATACADO")
+
+    def test_venda_em_atacado_exige_quantidade_minima_configurada(self):
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+
+        with self.assertRaisesRegex(ValueError, "minimo para venda em atacado"):
+            PdvService.criar_venda(
+                {
+                    "empresa_id": self.empresa.id,
+                    "modalidade_preco": "ATACADO",
+                    "itens": [{"produto_id": self.produto.id, "quantidade": 2}],
+                    "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "13.80"}],
+                    "desconto_manual": "0.00",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+    def test_prevalidacao_fiscal_aponta_pendencias_sem_configuracao(self):
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+        venda = PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 1}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "7.50"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        resultado = FiscalService.prevalidar_venda(venda["id"], self.tenant.id, self.escopo)
+
+        self.assertEqual(resultado["status"], "VALIDACAO_ERRO")
+        self.assertTrue(any("configuracao fiscal" in item.lower() for item in resultado["pendencias"]))
+
+    def test_prevalidacao_fiscal_fica_pronta_com_base_minima_preenchida(self):
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+        venda = PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 1}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "7.50"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        self.produto.possui_ncm = True
+        self.produto.ncm = "22021000"
+        db.session.commit()
+
+        with tempfile.NamedTemporaryFile(suffix=".pfx", delete=False) as certificado:
+            certificado.write(b"dummy-cert")
+            certificado_path = certificado.name
+
+        os.environ["SEFAZ_CERT_PASSWORD_TEST"] = "123456"
+        try:
+            FiscalService.atualizar_configuracao(
+                self.empresa.id,
+                {
+                    "ambiente": "HOMOLOGACAO",
+                    "regime_tributario": "SIMPLES_NACIONAL",
+                    "serie_nfce": 1,
+                    "proximo_numero_nfce": 1,
+                    "inscricao_estadual": "123456789",
+                    "uf": "SP",
+                    "municipio_nome": "Sao Paulo",
+                    "municipio_codigo_ibge": "3550308",
+                    "cep": "01001000",
+                    "logradouro": "Rua Fiscal",
+                    "numero": "100",
+                    "bairro": "Centro",
+                    "certificado_caminho": certificado_path,
+                    "certificado_senha_env": "SEFAZ_CERT_PASSWORD_TEST",
+                    "csc_id": "000001",
+                    "csc_token": "TOKEN-CSC",
+                },
+                self.tenant.id,
+                self.escopo,
+            )
+
+            resultado = FiscalService.prevalidar_venda(venda["id"], self.tenant.id, self.escopo)
+            self.assertEqual(resultado["status"], "PRONTA_PARA_EMISSAO")
+            self.assertEqual(resultado["pendencias"], [])
+        finally:
+            if os.path.exists(certificado_path):
+                os.remove(certificado_path)
+            os.environ.pop("SEFAZ_CERT_PASSWORD_TEST", None)
 
     def test_cancelamento_reverte_estoque_e_financeiro(self):
         venda = PdvService.criar_venda(

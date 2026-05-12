@@ -38,7 +38,9 @@ document.addEventListener("DOMContentLoaded", () => {
             estoque_minimo: formatIntegerForDisplay(item.estoque_minimo),
             data_validade: item.data_validade || "",
             valor_compra: formatDecimalForDisplay(item.valor_compra, 2),
-            valor_venda: formatDecimalForDisplay(item.valor_venda, 2),
+            valor_varejo: formatDecimalForDisplay(item.valor_varejo ?? item.valor_venda, 2),
+            valor_atacado: formatDecimalForDisplay(item.valor_atacado ?? item.valor_venda, 2),
+            quantidade_minima_atacado: formatIntegerForDisplay(item.quantidade_minima_atacado ?? 1),
             ativo: !!item.ativo
         }),
 
@@ -52,7 +54,16 @@ document.addEventListener("DOMContentLoaded", () => {
             const estoqueAtual = formatInteger(item.estoque_atual);
             const validade = formatDateForDisplay(item.data_validade);
             const valorCompra = formatCurrency(item.valor_compra);
-            const valorVenda = formatCurrency(item.valor_venda);
+            const valorVarejoNumerico = Number(String(item.valor_varejo ?? item.valor_venda ?? 0).replace(",", "."));
+            const valorAtacadoNumerico = Number(String(item.valor_atacado ?? item.valor_venda ?? 0).replace(",", "."));
+            const atacadoConfigurado = valorAtacadoNumerico > 0 && valorAtacadoNumerico < valorVarejoNumerico;
+            const valorVarejo = formatCurrency(item.valor_varejo ?? item.valor_venda);
+            const valorAtacado = atacadoConfigurado
+                ? formatCurrency(item.valor_atacado ?? item.valor_venda)
+                : "Nao configurado";
+            const quantidadeMinimaAtacado = atacadoConfigurado
+                ? formatInteger(item.quantidade_minima_atacado ?? 1)
+                : "-";
             const ativoBadge = item.ativo
                 ? `<span class="inline-flex items-center rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 text-[11px] font-medium text-emerald-400">Ativo</span>`
                 : `<span class="inline-flex items-center rounded-full bg-slate-700/40 border border-slate-700 px-2.5 py-1 text-[11px] font-medium text-slate-400">Inativo</span>`;
@@ -135,7 +146,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     </td>
 
                     <td class="px-5 py-4 align-middle text-right text-white font-semibold">
-                        ${valorVenda}
+                        ${valorVarejo}
+                    </td>
+
+                    <td class="px-5 py-4 align-middle text-right text-slate-300 font-medium">
+                        ${valorAtacado}
+                    </td>
+
+                    <td class="px-5 py-4 align-middle text-right text-slate-300 font-medium">
+                        ${quantidadeMinimaAtacado}
                     </td>
 
                     <td class="px-5 py-4 align-middle">
@@ -204,10 +223,14 @@ function enhanceProdutoPage(page) {
     page.bindMasks = function () {
         setupIntegerMask("cadastro-estoque_minimo");
         setupIntegerMask("edicao-estoque_minimo");
+        setupIntegerMask("cadastro-quantidade_minima_atacado");
+        setupIntegerMask("edicao-quantidade_minima_atacado");
         setupDecimalMask("cadastro-valor_compra", 2);
         setupDecimalMask("edicao-valor_compra", 2);
-        setupDecimalMask("cadastro-valor_venda", 2);
-        setupDecimalMask("edicao-valor_venda", 2);
+        setupDecimalMask("cadastro-valor_varejo", 2);
+        setupDecimalMask("edicao-valor_varejo", 2);
+        setupDecimalMask("cadastro-valor_atacado", 2);
+        setupDecimalMask("edicao-valor_atacado", 2);
         setupDigitsMask("cadastro-codigo_barras", 50);
         setupDigitsMask("edicao-codigo_barras", 50);
         setupNcmMask("cadastro-ncm");
@@ -231,8 +254,10 @@ function enhanceProdutoPage(page) {
         }
 
         applyIntegerDisplay("cadastro-estoque_minimo");
+        applyIntegerDisplay("cadastro-quantidade_minima_atacado");
         applyDecimalDisplay("cadastro-valor_compra", 2);
-        applyDecimalDisplay("cadastro-valor_venda", 2);
+        applyDecimalDisplay("cadastro-valor_varejo", 2);
+        applyDecimalDisplay("cadastro-valor_atacado", 2);
     };
 
     const originalFillForm = page.fillForm.bind(page);
@@ -287,12 +312,16 @@ function enhanceProdutoPage(page) {
         }
 
         const estoqueMinimo = form.querySelector('[name="estoque_minimo"]');
+        const quantidadeMinimaAtacado = form.querySelector('[name="quantidade_minima_atacado"]');
         const valorCompra = form.querySelector('[name="valor_compra"]');
-        const valorVenda = form.querySelector('[name="valor_venda"]');
+        const valorVarejo = form.querySelector('[name="valor_varejo"]');
+        const valorAtacado = form.querySelector('[name="valor_atacado"]');
 
         if (estoqueMinimo) estoqueMinimo.value = "0";
+        if (quantidadeMinimaAtacado) quantidadeMinimaAtacado.value = "1";
         if (valorCompra) valorCompra.value = "0,00";
-        if (valorVenda) valorVenda.value = "0,00";
+        if (valorVarejo) valorVarejo.value = "0,00";
+        if (valorAtacado) valorAtacado.value = "0,00";
     };
 }
 
@@ -347,9 +376,11 @@ function normalizeProdutoPayload(payload, isEdit) {
     data.possui_ncm = getCheckboxValue(isEdit ? "edicao-possui_ncm" : "cadastro-possui_ncm");
     data.ncm = normalizeNcm(data.ncm);
     data.estoque_minimo = normalizeIntegerForApi(data.estoque_minimo);
+    data.quantidade_minima_atacado = normalizeIntegerForApi(data.quantidade_minima_atacado || "1");
     data.data_validade = data.data_validade || "";
     data.valor_compra = normalizeDecimalForApi(data.valor_compra, 2);
-    data.valor_venda = normalizeDecimalForApi(data.valor_venda, 2);
+    data.valor_varejo = normalizeDecimalForApi(data.valor_varejo, 2);
+    data.valor_atacado = normalizeDecimalForApi(data.valor_atacado, 2);
     data.ativo = getCheckboxValue(isEdit ? "edicao-ativo" : "cadastro-ativo");
 
     if (!data.possui_ncm) {

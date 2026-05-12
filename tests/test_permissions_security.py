@@ -92,6 +92,13 @@ class PermissionsSecurityTestCase(unittest.TestCase):
             "criar_lancamento_financeiro",
             "fechar_caixa",
             "visualizar_relatorio_financeiro",
+            "visualizar_fiscal",
+            "visualizar_notificacao",
+            "gerenciar_alerta_estoque",
+            "gerenciar_configuracao_cliente",
+            "visualizar_funcionario",
+            "visualizar_role",
+            "visualizar_permission",
         ]
         permission_ids = [
             item.id
@@ -143,6 +150,20 @@ class PermissionsSecurityTestCase(unittest.TestCase):
         self.assertNotIn(b"/financeiro/home", home_response.data)
 
         blocked_response = self.client.get("/financeiro/home", follow_redirects=False)
+        self.assertEqual(blocked_response.status_code, 302)
+        self.assertIn("/home", blocked_response.headers.get("Location", ""))
+
+    def test_login_nao_renderiza_configuracoes_e_bloqueia_url_direta(self):
+        self._login_operador()
+
+        escopo = AcessoEmpresaService.obter_escopo(self.operador.id, self.tenant.id)
+        self.assertFalse(AcessoEmpresaService.possui_acesso_configuracoes(escopo))
+
+        home_response = self.client.get("/home")
+        self.assertEqual(home_response.status_code, 200)
+        self.assertNotIn(b"/configuracoes/home", home_response.data)
+
+        blocked_response = self.client.get("/configuracoes/home", follow_redirects=False)
         self.assertEqual(blocked_response.status_code, 302)
         self.assertIn("/home", blocked_response.headers.get("Location", ""))
 

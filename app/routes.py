@@ -4,6 +4,7 @@ from app.controllers.categoria_controller import categoria_bp
 from app.controllers.cliente_controller import cliente_bp
 from app.controllers.cupom_controller import cupom_bp
 from app.controllers.estoque_controller import estoque_bp
+from app.controllers.fiscal_controller import fiscal_bp
 from app.controllers.financeiro_controller import financeiro_bp
 from app.controllers.funcionario_controller import funcionario_bp
 from app.controllers.import_export_controller import import_export_bp
@@ -28,6 +29,7 @@ def register_blueprints(app):
     app.register_blueprint(estoque_bp, url_prefix="/api/estoque")
     app.register_blueprint(pdv_bp, url_prefix="/api/pdv")
     app.register_blueprint(financeiro_bp, url_prefix="/api/financeiro")
+    app.register_blueprint(fiscal_bp, url_prefix="/api/fiscal")
     app.register_blueprint(import_export_bp, url_prefix="/api/importacao-exportacao")
     app.register_blueprint(categoria_bp, url_prefix="/api/categorias")
     app.register_blueprint(funcionario_bp, url_prefix="/api/funcionarios")

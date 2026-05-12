@@ -18,6 +18,7 @@ window.pdvPage = {
     paymentCounter: 1,
     empresaConfiguracaoAtual: null,
     cashbackAtivadoNaVenda: true,
+    modalidadePreco: "AUTOMATICO",
     paginacao: {
         produtos: { paginaAtual: 1, porPagina: 10 },
         vendas: { paginaAtual: 1, porPagina: 10 }
@@ -107,6 +108,7 @@ function bindPdvFilters() {
     const buscaInput = document.getElementById("pdv-busca");
     const cashbackInput = document.getElementById("pdv-cashback-utilizado");
     const cashbackToggle = document.getElementById("pdv-cashback-ativado");
+    const modalidadePrecoSelect = document.getElementById("pdv-modalidade-preco");
     const barcodeInput = document.getElementById("pdv-barcode-input");
     const barcodeSubmit = document.getElementById("pdv-barcode-submit");
     const statusSelect = document.getElementById("pdv-status-venda");
@@ -168,6 +170,17 @@ function bindPdvFilters() {
             pdvPage.statusVenda = statusSelect.value || "";
             pdvPage.paginacao.vendas.paginaAtual = 1;
             await carregarVendas();
+        });
+    }
+
+    if (modalidadePrecoSelect) {
+        modalidadePrecoSelect.value = pdvPage.modalidadePreco;
+        modalidadePrecoSelect.addEventListener("change", () => {
+            pdvPage.modalidadePreco = modalidadePrecoSelect.value || "AUTOMATICO";
+            marcarPagamentoPendente();
+            recalcularPrecosCarrinho();
+            renderCarrinho();
+            atualizarResumoModalidadePreco();
         });
     }
 
@@ -384,6 +397,7 @@ function popularEmpresas() {
 
     popularClientesPdv();
     atualizarResumoClientePdv();
+    atualizarResumoModalidadePreco();
 }
 
 function popularClientesPdv() {
@@ -403,6 +417,113 @@ function popularClientesPdv() {
 
 function obterEmpresaAtualPdv() {
     return (pdvPage.auxiliares.empresas || []).find((item) => String(item.id) === String(pdvPage.empresaId)) || null;
+}
+
+function obterModalidadePrecoSelecionada() {
+    const modalidade = String(pdvPage.modalidadePreco || "AUTOMATICO").toUpperCase();
+    if (["AUTOMATICO", "VAREJO", "ATACADO"].includes(modalidade)) {
+        return modalidade;
+    }
+    return "AUTOMATICO";
+}
+
+function produtoPossuiPrecoAtacado(produto) {
+    const valorAtacado = parseCurrencyValue(produto?.valor_atacado || "0");
+    const valorVarejo = parseCurrencyValue(produto?.valor_varejo ?? produto?.valor_venda ?? "0");
+    return valorAtacado > 0 && valorAtacado < valorVarejo;
+}
+
+function resolverPrecoItem(produto, quantidade) {
+    const valorVarejo = parseCurrencyValue(produto?.valor_varejo ?? produto?.valor_venda ?? "0");
+    const valorAtacado = parseCurrencyValue(produto?.valor_atacado ?? produto?.valor_venda ?? "0");
+    const quantidadeMinimaAtacado = Math.max(Number(produto?.quantidade_minima_atacado || 1), 1);
+    const modalidade = obterModalidadePrecoSelecionada();
+    const possuiAtacado = produtoPossuiPrecoAtacado(produto);
+    const atingiuMinimo = Number(quantidade || 0) >= quantidadeMinimaAtacado;
+
+    if (modalidade === "ATACADO") {
+        if (possuiAtacado && atingiuMinimo) {
+            return {
+                valorUnitario: valorAtacado,
+                modalidadeAplicada: "ATACADO",
+                atacadoPendente: false,
+                atacadoIndisponivel: false,
+            };
+        }
+
+        return {
+            valorUnitario: valorVarejo,
+            modalidadeAplicada: "VAREJO",
+            atacadoPendente: possuiAtacado && !atingiuMinimo,
+            atacadoIndisponivel: !possuiAtacado,
+        };
+    }
+
+    if (modalidade === "AUTOMATICO" && possuiAtacado && atingiuMinimo) {
+        return {
+            valorUnitario: valorAtacado,
+            modalidadeAplicada: "ATACADO",
+            atacadoPendente: false,
+            atacadoIndisponivel: false,
+        };
+    }
+
+    return {
+        valorUnitario: valorVarejo,
+        modalidadeAplicada: "VAREJO",
+        atacadoPendente: false,
+        atacadoIndisponivel: false,
+    };
+}
+
+function atualizarPrecoItemCarrinho(item) {
+    if (!item) return;
+    const resolucao = resolverPrecoItem(item, item.quantidade);
+    item.valor_venda = String(resolucao.valorUnitario.toFixed(2));
+    item.modalidade_preco_aplicada = resolucao.modalidadeAplicada;
+    item.atacado_pendente = Boolean(resolucao.atacadoPendente);
+    item.atacado_indisponivel = Boolean(resolucao.atacadoIndisponivel);
+}
+
+function recalcularPrecosCarrinho() {
+    pdvPage.carrinho.forEach((item) => atualizarPrecoItemCarrinho(item));
+}
+
+function formatModalidadePrecoLabel(value) {
+    if (value === "ATACADO") return "Atacado";
+    if (value === "VAREJO") return "Varejo";
+    return "Automatico";
+}
+
+function atualizarResumoModalidadePreco() {
+    const feedback = document.getElementById("pdv-modalidade-feedback");
+    if (!feedback) return;
+
+    const modalidade = obterModalidadePrecoSelecionada();
+    if (modalidade === "ATACADO") {
+        const pendentes = pdvPage.carrinho.filter((item) => item.atacado_pendente);
+        const indisponiveis = pdvPage.carrinho.filter((item) => item.atacado_indisponivel);
+
+        if (indisponiveis.length) {
+            feedback.textContent = "Alguns itens do carrinho nao possuem preco de atacado configurado. O fechamento sera bloqueado ate a regra ser corrigida.";
+            return;
+        }
+
+        if (pendentes.length) {
+            feedback.textContent = "Modo atacado ativo. Alcance a quantidade minima em todos os itens para liberar o fechamento com preco atacado.";
+            return;
+        }
+
+        feedback.textContent = "Modo atacado ativo. Todos os itens do carrinho estao aptos para preco atacado.";
+        return;
+    }
+
+    if (modalidade === "VAREJO") {
+        feedback.textContent = "Modo varejo ativo. O sistema mantem o preco de balcão em todos os itens.";
+        return;
+    }
+
+    feedback.textContent = "Modo automatico ativo. O sistema aplica atacado ao atingir a quantidade minima configurada.";
 }
 
 function cashbackPodeSerOperadoNaVenda() {
@@ -577,6 +698,8 @@ function renderProdutos() {
     grid.innerHTML = itensPagina.map((produto) => {
         const baixoEstoque = Number(produto.estoque_atual) <= Number(produto.estoque_minimo);
         const semEstoque = Number(produto.estoque_atual) <= 0;
+        const possuiAtacado = produtoPossuiPrecoAtacado(produto);
+        const quantidadeMinimaAtacado = Math.max(Number(produto.quantidade_minima_atacado || 1), 1);
         const botaoDesabilitado = semEstoque || !podeRegistrarVenda;
         const badge = semEstoque
             ? `<span class="pdv-tag pdv-tag-danger">Sem estoque</span>`
@@ -607,8 +730,14 @@ function renderProdutos() {
 
                     <div class="pdv-product-footer">
                         <div>
-                            <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Preco de venda</p>
-                            <strong class="text-lg text-white">${formatCurrency(produto.valor_venda)}</strong>
+                            <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Tabela de preco</p>
+                            <div class="space-y-1">
+                                <div class="text-sm text-slate-300">Varejo ${formatCurrency(produto.valor_varejo ?? produto.valor_venda)}</div>
+                                <div class="text-sm text-slate-300">
+                                    Atacado ${formatCurrency(produto.valor_atacado ?? produto.valor_venda)}
+                                    ${possuiAtacado ? `a partir de ${formatInteger(quantidadeMinimaAtacado)} un.` : "(nao configurado)"}
+                                </div>
+                            </div>
                         </div>
 
                         <button type="button"
@@ -697,22 +826,29 @@ function adicionarProdutoAoCarrinho(produto) {
             return false;
         }
         existente.quantidade += 1;
+        atualizarPrecoItemCarrinho(existente);
     } else {
         if (Number(produto.estoque_atual) <= 0) {
             showMessage("Produto sem estoque disponivel.", "error");
             return false;
         }
-        pdvPage.carrinho.push({
+        const itemCarrinho = {
             produto_id: produtoId,
             nome: produto.nome,
             categoria_nome: produto.categoria_nome,
-            valor_venda: produto.valor_venda,
+            valor_varejo: produto.valor_varejo ?? produto.valor_venda,
+            valor_atacado: produto.valor_atacado ?? produto.valor_venda,
+            quantidade_minima_atacado: Number(produto.quantidade_minima_atacado || 1),
+            valor_venda: produto.valor_varejo ?? produto.valor_venda,
             estoque_atual: Number(produto.estoque_atual),
             quantidade: 1
-        });
+        };
+        atualizarPrecoItemCarrinho(itemCarrinho);
+        pdvPage.carrinho.push(itemCarrinho);
     }
 
     marcarPagamentoPendente();
+    atualizarResumoModalidadePreco();
     renderCarrinho();
     return true;
 }
@@ -793,13 +929,16 @@ function alterarQuantidadeCarrinho(produtoId, delta) {
     }
 
     item.quantidade = novaQuantidade;
+    atualizarPrecoItemCarrinho(item);
     marcarPagamentoPendente();
+    atualizarResumoModalidadePreco();
     renderCarrinho();
 }
 
 function removerDoCarrinho(produtoId) {
     pdvPage.carrinho = pdvPage.carrinho.filter((item) => Number(item.produto_id) !== Number(produtoId));
     marcarPagamentoPendente();
+    atualizarResumoModalidadePreco();
     renderCarrinho();
 }
 
@@ -825,7 +964,17 @@ function renderCarrinho() {
             <div>
                 <p class="font-semibold text-white">${escapeHtml(item.nome)}</p>
                 <p class="text-sm text-slate-400">${escapeHtml(item.categoria_nome || "Sem categoria")}</p>
-                <p class="text-sm text-slate-500 mt-2">Unitario ${formatCurrency(item.valor_venda)}</p>
+                <p class="text-sm text-slate-500 mt-2">
+                    ${formatModalidadePrecoLabel(item.modalidade_preco_aplicada)} ${formatCurrency(item.valor_venda)}
+                </p>
+                ${item.atacado_pendente ? `
+                    <p class="text-xs text-amber-300 mt-2">
+                        Faltam ${formatInteger(Math.max(Number(item.quantidade_minima_atacado || 1) - Number(item.quantidade || 0), 0))} un. para liberar atacado.
+                    </p>
+                ` : ""}
+                ${item.atacado_indisponivel ? `
+                    <p class="text-xs text-rose-300 mt-2">Produto sem preco de atacado configurado.</p>
+                ` : ""}
             </div>
 
             <div class="flex flex-col items-end gap-3">
@@ -851,6 +1000,7 @@ function renderCarrinho() {
         </article>
     `).join("");
 
+    atualizarResumoModalidadePreco();
     atualizarResumoVenda();
     atualizarStatusPagamento();
     if (window.lucide) {
@@ -964,6 +1114,7 @@ function renderVendas() {
                     <p class="font-semibold text-white">${escapeHtml(venda.numero_unico)}</p>
                     <p class="text-xs text-slate-500">${escapeHtml(venda.funcionario_nome || "Sem operador")}</p>
                     <p class="text-xs text-slate-500">${escapeHtml(venda.cliente_nome || "Sem cliente")}</p>
+                    <p class="text-xs text-slate-500">Preco ${escapeHtml(formatModalidadePrecoLabel(venda.modalidade_preco))}</p>
                 </td>
                 <td class="px-5 py-4 align-middle text-slate-300">${formatDateTime(venda.data_venda)}</td>
                 <td class="px-5 py-4 align-middle text-slate-300">${escapeHtml(venda.empresa_nome || "-")}</td>
@@ -1021,6 +1172,7 @@ function abrirModalVenda(vendaId, focarCancelamento) {
                     <strong class="block text-white mt-2">${escapeHtml(venda.numero_unico)}</strong>
                     <p class="text-sm text-slate-400 mt-2">${escapeHtml(venda.empresa_nome || "-")}</p>
                     <p class="text-sm text-slate-400">${formatDateTime(venda.data_venda)}</p>
+                    <p class="text-sm text-slate-400">Modalidade ${escapeHtml(formatModalidadePrecoLabel(venda.modalidade_preco))}</p>
                 </div>
                 <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                     <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Resumo financeiro</p>
@@ -1051,7 +1203,10 @@ function abrirModalVenda(vendaId, focarCancelamento) {
                         <div class="flex items-start justify-between gap-4">
                             <div class="flex-1">
                                 <p class="font-medium text-white">${escapeHtml(item.produto_nome || "-")}</p>
-                                <p class="text-sm text-slate-400">${formatInteger(item.quantidade)} x ${formatCurrency(item.valor_unitario)}</p>
+                                <p class="text-sm text-slate-400">
+                                    ${formatInteger(item.quantidade)} x ${formatCurrency(item.valor_unitario)}
+                                    (${escapeHtml(formatModalidadePrecoLabel(item.modalidade_preco_aplicada))})
+                                </p>
                                 <p class="text-xs text-slate-500">Cancelado ${formatInteger(item.quantidade_cancelada || 0)} | Disponivel ${formatInteger(item.quantidade_disponivel_cancelamento || 0)}</p>
                                 ${item.motivo_cancelamento ? `<p class="text-xs text-rose-300 mt-2">${escapeHtml(item.motivo_cancelamento)}</p>` : ""}
                             </div>
@@ -1142,9 +1297,10 @@ function abrirModalConfirmacaoVenda(payload) {
     const empresa = pdvPage.auxiliares.empresas.find((item) => String(item.id) === String(payload.empresa_id));
     const cliente = obterClienteSelecionadoPdv();
     const cashback = parseCurrencyValue(payload.cashback_utilizado || "0");
+    const modalidadePreco = formatModalidadePrecoLabel(payload.modalidade_preco);
 
     content.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Empresa</p>
                 <strong class="block text-white mt-2">${escapeHtml(empresa?.nome || "-")}</strong>
@@ -1152,6 +1308,10 @@ function abrirModalConfirmacaoVenda(payload) {
             <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Itens</p>
                 <strong class="block text-white mt-2">${formatInteger(payload.itens.length)}</strong>
+            </div>
+            <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Preco</p>
+                <strong class="block text-white mt-2">${escapeHtml(modalidadePreco)}</strong>
             </div>
             <div class="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
                 <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Total</p>
@@ -1183,7 +1343,10 @@ function abrirModalConfirmacaoVenda(payload) {
                     <div class="flex items-center justify-between gap-4">
                         <div>
                             <p class="font-medium text-white">${escapeHtml(item.nome)}</p>
-                            <p class="text-sm text-slate-400">${formatInteger(item.quantidade)} x ${formatCurrency(item.valor_venda)}</p>
+                            <p class="text-sm text-slate-400">
+                                ${formatInteger(item.quantidade)} x ${formatCurrency(item.valor_venda)}
+                                (${escapeHtml(formatModalidadePrecoLabel(item.modalidade_preco_aplicada))})
+                            </p>
                         </div>
                         <strong class="text-white">${formatCurrency(multiplicar(item.valor_venda, item.quantidade))}</strong>
                     </div>
@@ -1238,6 +1401,10 @@ function abrirModalSucessoVenda(venda) {
                 <div class="flex items-center justify-between gap-3">
                     <span>Itens</span>
                     <strong class="text-white">${formatInteger(venda.itens_quantidade)}</strong>
+                </div>
+                <div class="flex items-center justify-between gap-3">
+                    <span>Preco</span>
+                    <strong class="text-white">${escapeHtml(formatModalidadePrecoLabel(venda.modalidade_preco))}</strong>
                 </div>
                 <div class="flex items-center justify-between gap-3">
                     <span>Cliente</span>
@@ -1295,11 +1462,13 @@ function montarPayloadVenda() {
         throw new Error("Adicione pelo menos um item ao carrinho.");
     }
 
+    validarModalidadePrecoCarrinho();
     const pagamentos = validarPagamentosConfigurados();
 
     return {
         empresa_id: pdvPage.empresaId,
         cliente_id: pdvPage.clienteId || "",
+        modalidade_preco: obterModalidadePrecoSelecionada(),
         cashback_ativado: cashbackEstaAtivadoNaVenda(),
         cupom_codigo: (document.getElementById("pdv-cupom-codigo")?.value || "").trim(),
         desconto_manual: normalizeMoneyForApi(document.getElementById("pdv-desconto-manual")?.value || "0"),
@@ -1314,7 +1483,28 @@ function montarPayloadVenda() {
     };
 }
 
+function validarModalidadePrecoCarrinho() {
+    if (obterModalidadePrecoSelecionada() !== "ATACADO") {
+        return;
+    }
+
+    const indisponiveis = pdvPage.carrinho
+        .filter((item) => item.atacado_indisponivel)
+        .map((item) => item.nome);
+    if (indisponiveis.length) {
+        throw new Error(`Os produtos ${indisponiveis.join(", ")} nao possuem preco de atacado configurado.`);
+    }
+
+    const pendentes = pdvPage.carrinho
+        .filter((item) => item.atacado_pendente)
+        .map((item) => `${item.nome} (minimo ${formatInteger(item.quantidade_minima_atacado || 1)})`);
+    if (pendentes.length) {
+        throw new Error(`A venda em atacado exige quantidade minima nos itens: ${pendentes.join(", ")}.`);
+    }
+}
+
 function atualizarResumoVenda() {
+    recalcularPrecosCarrinho();
     const subtotal = pdvPage.carrinho.reduce((sum, item) => sum + multiplicar(item.valor_venda, item.quantidade), 0);
     const descontoManual = parseCurrencyValue(document.getElementById("pdv-desconto-manual")?.value || "0");
     const cupom = obterCupomSelecionado();
@@ -1528,15 +1718,18 @@ function limparCarrinho() {
     pdvPage.carrinho = [];
     pdvPage.payloadConfirmacaoPendente = null;
     pdvPage.clienteId = "";
+    pdvPage.modalidadePreco = "AUTOMATICO";
     pdvPage.cashbackAtivadoNaVenda = cashbackPodeSerOperadoNaVenda();
     const cupom = document.getElementById("pdv-cupom-codigo");
     const cliente = document.getElementById("pdv-cliente");
+    const modalidadePreco = document.getElementById("pdv-modalidade-preco");
     const cashback = document.getElementById("pdv-cashback-utilizado");
     const cashbackToggle = document.getElementById("pdv-cashback-ativado");
     const desconto = document.getElementById("pdv-desconto-manual");
     const observacao = document.getElementById("pdv-observacao");
     if (cupom) cupom.value = "";
     if (cliente) cliente.value = "";
+    if (modalidadePreco) modalidadePreco.value = pdvPage.modalidadePreco;
     if (cashback) cashback.value = "0,00";
     if (cashbackToggle) cashbackToggle.checked = pdvPage.cashbackAtivadoNaVenda;
     if (desconto) desconto.value = "0,00";
@@ -1544,6 +1737,7 @@ function limparCarrinho() {
     pdvPage.pagamentoConfirmado = false;
     pdvPage.pagamentoConfirmadoTotal = null;
     atualizarResumoClientePdv();
+    atualizarResumoModalidadePreco();
     renderCarrinho();
 }
 

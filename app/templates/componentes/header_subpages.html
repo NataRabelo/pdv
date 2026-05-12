@@ -2,6 +2,7 @@
 {% set display_name = perfil.nome if perfil else "Usuario Administrativo" %}
 {% set display_scope = "Dono da Plataforma" if current_auth_scope == "platform" else ((current_user.role.nome) if current_user and current_user.role else "Usuario do Tenant") %}
 {% set display_initials = (display_name[:2]).upper() %}
+{% set modulo_icon = modulo_icon or "package" %}
 
 {% if current_auth_scope != "platform" %}
 {% include "componentes/tenant_sidebar.html" %}
@@ -26,7 +27,7 @@
         <div class="min-w-0">
             <p class="tenant-topbar__eyebrow">Modulo ativo</p>
             <h1 class="tenant-topbar__title flex items-center gap-2">
-                <i data-lucide="package" class="w-5 h-5 text-sky-400 shrink-0"></i>
+                <i data-lucide="{{ modulo_icon }}" class="w-5 h-5 text-sky-400 shrink-0"></i>
                 <span class="tracking-tight truncate">{{ modulo_name }}</span>
             </h1>
         </div>
@@ -65,15 +66,9 @@
 
             <div class="h-[1px] bg-white/5 my-2"></div>
 
-            {% if ui_flags.can_view_notifications %}
-            <a href="{{ url_for('estoque.pagina_alertas') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="shield-alert" class="w-4 h-4"></i> Alertas de estoque
-            </a>
-            {% endif %}
-
-            {% if ui_flags.can_manage_customer_settings and ui_flags.can_view_customers %}
-            <a href="/api/clientes/view" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
-                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Regras de clientes
+            {% if ui_flags.can_view_settings %}
+            <a href="{{ url_for('main.settings_home') }}" class="flex items-center gap-3 px-4 py-2.5 text-sm text-slate-300 hover:bg-sky-500/10 hover:text-sky-400 transition-colors">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4"></i> Configuracoes
             </a>
             {% endif %}
 

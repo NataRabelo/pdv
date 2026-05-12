@@ -34,7 +34,21 @@ class ProdutoService:
         ncm = (data.get("ncm") or "").strip() or None
         estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
         valor_compra = ProdutoService._to_decimal(data.get("valor_compra", 0), "valor de compra", 2)
-        valor_venda = ProdutoService._to_decimal(data.get("valor_venda", 0), "valor de venda", 2)
+        valor_varejo = ProdutoService._to_decimal(
+            data.get("valor_varejo", data.get("valor_venda", 0)),
+            "valor de varejo",
+            2,
+        )
+        valor_atacado = ProdutoService._to_decimal(
+            data.get("valor_atacado", data.get("valor_varejo", data.get("valor_venda", 0))),
+            "valor de atacado",
+            2,
+        )
+        quantidade_minima_atacado = ProdutoService._to_positive_int(
+            data.get("quantidade_minima_atacado", 1),
+            "quantidade minima para atacado",
+            default=1,
+        )
         data_validade = ProdutoService._to_optional_date(data.get("data_validade"))
         ativo = ProdutoService._to_bool(data.get("ativo", True))
 
@@ -68,6 +82,9 @@ class ProdutoService:
         if possui_ncm and not ncm:
             raise ValueError("Informe o NCM quando 'possui NCM' estiver marcado.")
 
+        if valor_atacado > valor_varejo:
+            raise ValueError("O valor de atacado nao pode ser maior que o valor de varejo.")
+
         produto = Produto(
             tenant_id=tenant_id,
             categoria_id=categoria.id if categoria else None,
@@ -89,7 +106,10 @@ class ProdutoService:
             estoque_atual=0,
             estoque_minimo=estoque_minimo,
             valor_compra=valor_compra,
-            valor_venda=valor_venda,
+            valor_venda=valor_varejo,
+            valor_varejo=valor_varejo,
+            valor_atacado=valor_atacado,
+            quantidade_minima_atacado=quantidade_minima_atacado,
             data_validade=data_validade,
             ativo=ativo
         )
@@ -117,7 +137,21 @@ class ProdutoService:
         ncm = (data.get("ncm") or "").strip() or None
         estoque_minimo = ProdutoService._to_non_negative_int(data.get("estoque_minimo", 0), "estoque minimo")
         valor_compra = ProdutoService._to_decimal(data.get("valor_compra", 0), "valor de compra", 2)
-        valor_venda = ProdutoService._to_decimal(data.get("valor_venda", 0), "valor de venda", 2)
+        valor_varejo = ProdutoService._to_decimal(
+            data.get("valor_varejo", data.get("valor_venda", 0)),
+            "valor de varejo",
+            2,
+        )
+        valor_atacado = ProdutoService._to_decimal(
+            data.get("valor_atacado", data.get("valor_varejo", data.get("valor_venda", 0))),
+            "valor de atacado",
+            2,
+        )
+        quantidade_minima_atacado = ProdutoService._to_positive_int(
+            data.get("quantidade_minima_atacado", 1),
+            "quantidade minima para atacado",
+            default=1,
+        )
         data_validade = ProdutoService._to_optional_date(data.get("data_validade"))
         ativo = ProdutoService._to_bool(data.get("ativo", True))
 
@@ -161,6 +195,9 @@ class ProdutoService:
         if possui_ncm and not ncm:
             raise ValueError("Informe o NCM quando 'possui NCM' estiver marcado.")
 
+        if valor_atacado > valor_varejo:
+            raise ValueError("O valor de atacado nao pode ser maior que o valor de varejo.")
+
         if ProdutoRepository.existe_produto_empresa(
             produto.id,
             empresa.id,
@@ -180,7 +217,10 @@ class ProdutoService:
         produto_empresa.empresa_id = empresa.id
         produto_empresa.estoque_minimo = estoque_minimo
         produto_empresa.valor_compra = valor_compra
-        produto_empresa.valor_venda = valor_venda
+        produto_empresa.valor_venda = valor_varejo
+        produto_empresa.valor_varejo = valor_varejo
+        produto_empresa.valor_atacado = valor_atacado
+        produto_empresa.quantidade_minima_atacado = quantidade_minima_atacado
         produto_empresa.data_validade = data_validade
         produto_empresa.ativo = ativo
 
@@ -234,6 +274,23 @@ class ProdutoService:
 
         if valor < 0:
             raise ValueError(f"{field_name.capitalize()} nao pode ser negativo.")
+
+        return valor
+
+    @staticmethod
+    def _to_positive_int(value, field_name, default=None):
+        if value in (None, ""):
+            if default is not None:
+                return int(default)
+            raise ValueError(f"{field_name.capitalize()} e obrigatoria.")
+
+        try:
+            valor = int(str(value).strip().replace(".", "").replace(",", ""))
+        except (TypeError, ValueError):
+            raise ValueError(f"Valor invalido para {field_name}.")
+
+        if valor <= 0:
+            raise ValueError(f"{field_name.capitalize()} deve ser maior que zero.")
 
         return valor
 
