@@ -28,6 +28,21 @@
         const configForm = document.getElementById("fiscal-config-form");
         const prevalidacaoForm = document.getElementById("fiscal-prevalidacao-form");
 
+        document.addEventListener("click", async (event) => {
+            const emitirButton = event.target.closest("[data-fiscal-emitir-venda]");
+            const xmlButton = event.target.closest("[data-fiscal-baixar-xml]");
+
+            if (emitirButton) {
+                event.preventDefault();
+                await emitirNotaFiscal(emitirButton.dataset.fiscalEmitirVenda);
+            }
+
+            if (xmlButton) {
+                event.preventDefault();
+                baixarXmlNota(xmlButton.dataset.fiscalBaixarXml);
+            }
+        });
+
         if (empresaSelect) {
             empresaSelect.addEventListener("change", async () => {
                 fiscalPage.empresaId = empresaSelect.value || "";
@@ -110,6 +125,32 @@
         const result = await requestFiscal("/api/fiscal/notas?limite=20", { method: "GET" });
         fiscalPage.notas = Array.isArray(result.data) ? result.data : [];
         renderizarNotasFiscais();
+    }
+
+    async function emitirNotaFiscal(vendaId) {
+        if (!vendaId) {
+            mostrarMensagemFiscal("Informe a venda que deseja emitir.", "error");
+            return;
+        }
+
+        try {
+            const result = await requestFiscal("/api/fiscal/notas/emitir", {
+                method: "POST",
+                headers: getFiscalHeaders(true),
+                body: JSON.stringify({ venda_id: vendaId })
+            });
+            await carregarNotasFiscais();
+            renderizarResultadoEmissao(result.data || null);
+            mostrarMensagemFiscal(result.message || "Nota fiscal emitida com sucesso.");
+        } catch (error) {
+            mostrarMensagemFiscal(error.message || "Erro ao emitir a nota fiscal.", "error");
+        }
+    }
+
+    function baixarXmlNota(notaId) {
+        if (!notaId) return;
+        const url = new URL(`/api/fiscal/notas/${notaId}/xml`, window.location.origin);
+        window.open(url.toString(), "_blank", "noopener");
     }
 
     function popularSelectsFiscal() {
@@ -301,9 +342,48 @@
                     <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-100">
                         Venda pronta para a etapa de emissao fiscal.
                     </div>
+                    <button type="button" data-fiscal-emitir-venda="${escapeHtml(resultado.venda_id)}"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold px-4 py-3 transition w-full">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                        Emitir NFC-e
+                    </button>
                 `}
             </div>
         `;
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
+
+    function renderizarResultadoEmissao(nota) {
+        const container = document.getElementById("fiscal-prevalidacao-resultado");
+        if (!container || !nota) return;
+
+        container.innerHTML = `
+            <div class="space-y-3">
+                <div class="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-3 text-sm text-emerald-100">
+                    NFC-e emitida internamente e XML gerado.
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Nota</p>
+                    <strong class="block text-white mt-2">Serie ${escapeHtml(nota.serie || "-")} / Numero ${escapeHtml(nota.numero || "-")}</strong>
+                </div>
+                <div>
+                    <p class="text-xs uppercase tracking-[0.14em] text-slate-500">Chave de acesso</p>
+                    <p class="break-all text-slate-300 mt-2">${escapeHtml(nota.chave_acesso || "-")}</p>
+                </div>
+                <button type="button" data-fiscal-baixar-xml="${escapeHtml(nota.id)}"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold px-4 py-3 transition w-full">
+                    <i data-lucide="download" class="w-4 h-4"></i>
+                    Baixar XML
+                </button>
+            </div>
+        `;
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     }
 
     function renderizarNotasFiscais() {
@@ -321,14 +401,36 @@
                     <div>
                         <p class="font-semibold text-white">${escapeHtml(nota.venda_numero || `Venda #${nota.venda_id}`)}</p>
                         <p class="text-sm text-slate-400">${escapeHtml(nota.empresa_nome || "-")}</p>
+                        ${nota.numero ? `<p class="text-xs text-slate-500 mt-1">Serie ${escapeHtml(nota.serie || "-")} / Numero ${escapeHtml(nota.numero)}</p>` : ""}
                     </div>
                     <span class="text-xs uppercase tracking-[0.14em] ${nota.status === "PRONTA_PARA_EMISSAO" ? "text-emerald-300" : "text-amber-300"}">
                         ${escapeHtml(nota.status || "-")}
                     </span>
                 </div>
+                ${nota.chave_acesso ? `<p class="text-xs text-slate-500 mt-3 break-all">${escapeHtml(nota.chave_acesso)}</p>` : ""}
                 <p class="text-xs text-slate-500 mt-3">${escapeHtml(nota.mensagem_retorno || "Sem retorno de validacao.")}</p>
+                <div class="flex flex-col sm:flex-row gap-2 mt-4">
+                    ${nota.status !== "EMITIDA" ? `
+                        <button type="button" data-fiscal-emitir-venda="${escapeHtml(nota.venda_id)}"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-200 hover:bg-sky-500/20 font-semibold px-3 py-2 transition">
+                            <i data-lucide="send" class="w-4 h-4"></i>
+                            Emitir
+                        </button>
+                    ` : ""}
+                    ${nota.xml_disponivel ? `
+                        <button type="button" data-fiscal-baixar-xml="${escapeHtml(nota.id)}"
+                            class="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-100 hover:border-sky-500/30 px-3 py-2 transition">
+                            <i data-lucide="download" class="w-4 h-4"></i>
+                            XML
+                        </button>
+                    ` : ""}
+                </div>
             </article>
         `).join("");
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
     }
 
     function atualizarStatusConfiguracao(html) {

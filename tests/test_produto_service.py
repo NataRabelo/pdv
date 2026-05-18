@@ -117,6 +117,39 @@ class ProdutoServiceTestCase(unittest.TestCase):
         self.assertEqual(len(codigo), 13)
         self.assertEqual(codigo[-1], str(ProdutoService._calcular_digito_ean13(base)))
 
+    def test_limite_de_produtos_do_plano_bloqueia_novo_cadastro(self):
+        self.tenant.limite_produtos = 1
+        db.session.commit()
+
+        ProdutoService.criar(
+            {
+                "nome": "Feijao Tipo 1",
+                "categoria_id": self.categoria.id,
+                "empresa_id": self.empresa.id,
+                "valor_varejo": "8.90",
+                "valor_atacado": "8.50",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        with self.assertRaises(ValueError) as contexto:
+            ProdutoService.criar(
+                {
+                    "nome": "Cafe Torrado",
+                    "categoria_id": self.categoria.id,
+                    "empresa_id": self.empresa.id,
+                    "valor_varejo": "14.90",
+                    "valor_atacado": "13.90",
+                },
+                self.tenant.id,
+                self.escopo,
+                self.funcionario.id,
+            )
+
+        self.assertIn("Limite de produtos", str(contexto.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

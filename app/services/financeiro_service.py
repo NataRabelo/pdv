@@ -1062,7 +1062,7 @@ class FinanceiroService:
 
     @staticmethod
     def _resolver_periodo_relatorio(data_inicio, data_fim):
-        hoje = date.today()
+        hoje = TimeService.today_br()
         inicio = FinanceiroService._to_optional_date(data_inicio) or date(hoje.year, hoje.month, 1)
         fim = FinanceiroService._to_optional_date(data_fim) or hoje
 

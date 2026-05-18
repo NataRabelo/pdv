@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, render_template, request
 
 from app.security.decorators import platform_owner_required
 from app.services.platform_service import PlatformService
+from app.services.saas_plan_service import SaasPlanService
 
 platform_bp = Blueprint("platform", __name__)
 
@@ -20,6 +21,12 @@ def listar_tenants():
         return jsonify({"success": True, "data": tenants})
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 500
+
+
+@platform_bp.route("/api/platform/planos", methods=["GET"])
+@platform_owner_required(api=True)
+def listar_planos():
+    return jsonify({"success": True, "data": list(SaasPlanService.PLANS.values())})
 
 
 @platform_bp.route("/api/platform/tenants", methods=["POST"])
@@ -68,6 +75,19 @@ def criar_admin(tenant_id):
         data = request.get_json(silent=True) or {}
         admin = PlatformService.criar_admin(tenant_id, data)
         return jsonify({"success": True, "data": admin}), 201
+    except ValueError as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
+@platform_bp.route("/api/platform/tenants/<int:tenant_id>/assinatura", methods=["PUT"])
+@platform_owner_required(api=True)
+def atualizar_assinatura(tenant_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        tenant = PlatformService.atualizar_assinatura(tenant_id, data)
+        return jsonify({"success": True, "data": tenant})
     except ValueError as e:
         return jsonify({"success": False, "message": str(e)}), 400
     except Exception as e:

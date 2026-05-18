@@ -16,38 +16,12 @@ min-h-screen flex flex-col
 
 <main class="flex-1 page-shell-home">
     <div class="space-y-10">
-        <section class="glass rounded-[2rem] border border-white/10 px-6 py-8 md:px-8 md:py-10">
-            <div class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                <div class="max-w-3xl">
-                    <p class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300/80">Painel operacional</p>
-                    <h2 class="mt-3 text-4xl font-light text-white">
-                        Acesso organizado por <span class="font-bold">contexto</span>
-                    </h2>
-                    <p class="mt-3 text-slate-400">
-                        Cada home agora concentra somente o proprio dominio de trabalho. Ajustes administrativos,
-                        fiscais e de acesso ficam reunidos em Configuracoes.
-                    </p>
-                </div>
-
-                {% if ui_flags.can_view_settings %}
-                <a href="{{ url_for('main.settings_home') }}"
-                    class="inline-flex items-center gap-2 self-start rounded-2xl border border-sky-500/30 bg-sky-500/10 px-5 py-3 text-sm font-semibold text-sky-100 transition hover:bg-sky-500/20">
-                    <i data-lucide="sliders-horizontal" class="w-4 h-4"></i>
-                    Abrir configuracoes
-                </a>
-                {% endif %}
-            </div>
-        </section>
-
         <section>
             <div class="mb-5 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operacao</p>
-                    <h3 class="text-2xl font-semibold text-white">Modulos liberados para o seu perfil</h3>
+                    <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Operação</p>
+                    <h3 class="text-2xl font-semibold text-white">Módulos liberados para o seu perfil</h3>
                 </div>
-                <p class="max-w-2xl text-sm text-slate-400">
-                    Use apenas os modulos necessarios para sua rotina. Configuracoes sensiveis foram separadas da operacao.
-                </p>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-8">

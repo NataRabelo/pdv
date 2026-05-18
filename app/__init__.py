@@ -7,6 +7,7 @@ from app.config import get_config
 from app.extensions import db, jwt, migrate
 from app.models.db import Funcionario, ModoVisualEmpresa, PlatformOwner
 from app.routes import register_blueprints
+from app.security.headers import register_security_headers
 from app.security.jwt import get_auth_scope
 from app.seeds.seed import run_seed
 from app.services.acesso_empresa_service import AcessoEmpresaService
@@ -339,11 +340,15 @@ def register_commands(app: Flask) -> None:
 
 
 def create_app() -> Flask:
+    config_class = get_config()
+    config_class.validate_runtime()
+
     app = Flask(__name__)
-    app.config.from_object(get_config())
+    app.config.from_object(config_class)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 
     register_extensions(app)
+    register_security_headers(app)
     register_blueprints(app)
     register_context_processors(app)
     register_commands(app)

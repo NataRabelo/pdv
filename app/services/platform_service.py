@@ -2,6 +2,8 @@ from app.models.db import Empresa, Funcionario, FuncionarioEmpresa, ModoVisualEm
 from app.repositorys.platform_repository import PlatformRepository
 from app.security.password import hash_password
 from app.security.permissions import ADMIN_ROLE_CODE
+from app.services.audit_service import AuditService
+from app.services.saas_plan_service import SaasPlanService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
 from app.services.time_service import TimeService
 
@@ -40,6 +42,11 @@ class PlatformService:
                 raise ValueError("Ja existe um tenant com esse nome.")
 
             tenant = Tenant(nome=tenant_nome)
+            SaasPlanService.apply_plan(
+                tenant,
+                codigo=data.get("plano_codigo"),
+                status=data.get("assinatura_status") or "trial",
+            )
             PlatformRepository.adicionar(tenant)
             PlatformRepository.flush()
 
@@ -59,6 +66,14 @@ class PlatformService:
             PlatformRepository.flush()
 
             PlatformService._sincronizar_admins_do_tenant(tenant.id)
+            AuditService.registrar(
+                "platform.tenant_created",
+                tenant_id=tenant.id,
+                actor_scope="platform",
+                entity_type="tenant",
+                entity_id=tenant.id,
+                details=f"Plano: {tenant.plano_codigo}",
+            )
             PlatformRepository.salvar()
 
             tenant = PlatformRepository.buscar_tenant_por_id(tenant.id)
@@ -74,10 +89,19 @@ class PlatformService:
             raise ValueError("Tenant nao encontrado.")
 
         try:
+            PlatformService._validar_limite_empresas(tenant)
             empresa = PlatformService._criar_empresa_obj(tenant.id, data)
             PlatformRepository.adicionar(empresa)
             PlatformRepository.flush()
             PlatformService._sincronizar_admins_do_tenant(tenant.id)
+            AuditService.registrar(
+                "platform.company_created",
+                tenant_id=tenant.id,
+                empresa_id=empresa.id,
+                actor_scope="platform",
+                entity_type="empresa",
+                entity_id=empresa.id,
+            )
             PlatformRepository.salvar()
             return PlatformService._serializar_empresa(empresa)
         except Exception:
@@ -97,6 +121,15 @@ class PlatformService:
         try:
             empresa.visual_modo = PlatformService._to_visual_mode(data.get("visual_modo"))
             PlatformRepository.adicionar(empresa)
+            AuditService.registrar(
+                "platform.company_visual_updated",
+                tenant_id=tenant.id,
+                empresa_id=empresa.id,
+                actor_scope="platform",
+                entity_type="empresa",
+                entity_id=empresa.id,
+                details=f"Modo visual: {empresa.visual_modo.value}",
+            )
             PlatformRepository.salvar()
             return PlatformService._serializar_empresa(empresa)
         except Exception:
@@ -120,6 +153,7 @@ class PlatformService:
             role_admin = roles[ADMIN_ROLE_CODE]
 
         try:
+            PlatformService._validar_limite_funcionarios(tenant)
             admin_obj = PlatformService._criar_admin_obj(
                 tenant.id,
                 data,
@@ -130,6 +164,14 @@ class PlatformService:
             PlatformRepository.flush()
 
             PlatformService._sincronizar_admins_do_tenant(tenant.id)
+            AuditService.registrar(
+                "platform.admin_created",
+                tenant_id=tenant.id,
+                empresa_id=empresa.id,
+                actor_scope="platform",
+                entity_type="funcionario",
+                entity_id=admin_obj.id,
+            )
             PlatformRepository.salvar()
 
             return {
@@ -140,6 +182,37 @@ class PlatformService:
                 "ativo": admin_obj.ativo,
                 "empresa_nome": empresa.nome_fantasia,
             }
+        except Exception:
+            PlatformRepository.rollback()
+            raise
+
+    @staticmethod
+    def atualizar_assinatura(tenant_id, data):
+        tenant = PlatformRepository.buscar_tenant_por_id(tenant_id)
+        if not tenant:
+            raise ValueError("Tenant nao encontrado.")
+
+        try:
+            SaasPlanService.apply_plan(
+                tenant,
+                codigo=data.get("plano_codigo") or tenant.plano_codigo,
+                status=data.get("assinatura_status") or tenant.assinatura_status,
+            )
+            if data.get("trial_ate"):
+                tenant.trial_ate = PlatformService._to_date(data.get("trial_ate"), "trial ate")
+
+            PlatformRepository.adicionar(tenant)
+            AuditService.registrar(
+                "platform.subscription_updated",
+                tenant_id=tenant.id,
+                actor_scope="platform",
+                entity_type="tenant",
+                entity_id=tenant.id,
+                details=f"Plano: {tenant.plano_codigo}; status: {tenant.assinatura_status}",
+            )
+            PlatformRepository.salvar()
+            tenant = PlatformRepository.buscar_tenant_por_id(tenant.id)
+            return PlatformService._serializar_tenant(tenant)
         except Exception:
             PlatformRepository.rollback()
             raise
@@ -222,6 +295,15 @@ class PlatformService:
             "criado_em": TimeService.serialize_utc_iso(tenant.criado_em),
             "quantidade_empresas": len(empresas),
             "quantidade_admins": len(admins),
+            "plano": SaasPlanService.serializar_plano(getattr(tenant, "plano_codigo", "starter")),
+            "assinatura_status": tenant.assinatura_status,
+            "trial_ate": tenant.trial_ate.isoformat() if tenant.trial_ate else None,
+            "limites": {
+                "empresas": tenant.limite_empresas,
+                "funcionarios": tenant.limite_funcionarios,
+                "produtos": tenant.limite_produtos,
+                "vendas_mes": tenant.limite_vendas_mes,
+            },
             "empresas": [PlatformService._serializar_empresa(empresa) for empresa in empresas],
             "admins": [
                 {
@@ -291,6 +373,20 @@ class PlatformService:
         return True
 
     @staticmethod
+    def _validar_limite_empresas(tenant):
+        limite = int(getattr(tenant, "limite_empresas", 1) or 1)
+        total = len(getattr(tenant, "empresas", []) or PlatformRepository.listar_empresas_por_tenant(tenant.id))
+        if total >= limite:
+            raise ValueError("Limite de empresas do plano atingido. Atualize o plano para continuar.")
+
+    @staticmethod
+    def _validar_limite_funcionarios(tenant):
+        limite = int(getattr(tenant, "limite_funcionarios", 5) or 5)
+        total = len(getattr(tenant, "funcionarios", []) or PlatformRepository.listar_admins_por_tenant(tenant.id))
+        if total >= limite:
+            raise ValueError("Limite de funcionarios do plano atingido. Atualize o plano para continuar.")
+
+    @staticmethod
     def _to_tipo_empresa(value):
         try:
             return TipoEmpresa[(value or "").strip().upper()]
@@ -319,6 +415,15 @@ class PlatformService:
             return int(value)
         except (TypeError, ValueError):
             raise ValueError(f"{field_name} invalida.")
+
+    @staticmethod
+    def _to_date(value, field_name):
+        from datetime import datetime
+
+        try:
+            return datetime.strptime(str(value), "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            raise ValueError(f"Data invalida para {field_name}. Use YYYY-MM-DD.")
 
     @staticmethod
     def _normalizar_cpf(value):

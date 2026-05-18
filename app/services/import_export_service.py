@@ -133,6 +133,7 @@ class ImportExportService:
         "import": "importar_dados_cadastrais",
         "export": "exportar_dados_cadastrais",
     }
+    MAX_IMPORT_ROWS = 5000
 
     @classmethod
     def obter_contexto_painel(cls, tenant_id, escopo):
@@ -263,6 +264,8 @@ class ImportExportService:
 
         if not rows:
             raise ValueError("A planilha nao possui dados para importar.")
+        if len(rows) - 1 > cls.MAX_IMPORT_ROWS:
+            raise ValueError(f"A planilha excede o limite de {cls.MAX_IMPORT_ROWS} linhas por importacao.")
 
         config = cls._get_entity_config(entidade)
         index_map = cls._build_header_map(rows[0], config["columns"])

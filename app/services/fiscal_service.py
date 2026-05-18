@@ -1,4 +1,10 @@
+import hashlib
 import os
+from decimal import Decimal
+from pathlib import Path
+from xml.etree import ElementTree as ET
+
+from flask import current_app
 
 from app.models.db import (
     AmbienteFiscal,
@@ -8,6 +14,7 @@ from app.models.db import (
     StatusNotaFiscal,
     StatusVenda,
 )
+from app.security.field_crypto import FieldCrypto
 from app.repositorys.fiscal_repository import FiscalRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.time_service import TimeService
@@ -107,7 +114,10 @@ class FiscalService:
                 uppercase=True,
             )
             configuracao.csc_id = FiscalService._optional_text(data.get("csc_id"), max_length=20)
-            configuracao.csc_token = FiscalService._optional_text(data.get("csc_token"), max_length=255)
+            if "csc_token" in data:
+                configuracao.csc_token = FieldCrypto.encrypt(
+                    FiscalService._optional_text(data.get("csc_token"), max_length=255)
+                )
             configuracao.contingencia_ativa = FiscalService._to_bool(data.get("contingencia_ativa"), default=False)
 
             FiscalService._atualizar_status_certificado(configuracao)
@@ -167,6 +177,75 @@ class FiscalService:
         except Exception:
             FiscalRepository.rollback()
             raise
+
+    @staticmethod
+    def emitir_nota_venda(venda_id, tenant_id, escopo):
+        try:
+            empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+            venda = FiscalRepository.buscar_venda(venda_id, tenant_id, empresa_ids=empresa_ids)
+            if not venda:
+                raise ValueError("Venda nao encontrada.")
+
+            configuracao = FiscalRepository.buscar_configuracao_por_empresa(venda.empresa_id, tenant_id)
+            pendencias = FiscalService._validar_prontidao_venda(venda, configuracao)
+            nota = FiscalRepository.buscar_nota_por_venda(venda.id, tenant_id)
+            if not nota:
+                nota = NotaFiscalVenda(
+                    tenant_id=tenant_id,
+                    empresa_id=venda.empresa_id,
+                    venda_id=venda.id,
+                    status=StatusNotaFiscal.PENDENTE,
+                )
+                FiscalRepository.adicionar(nota)
+                FiscalRepository.flush()
+
+            nota.configuracao_fiscal_id = configuracao.id if configuracao else None
+            nota.ambiente = configuracao.ambiente if configuracao else AmbienteFiscal.HOMOLOGACAO
+
+            if nota.status == StatusNotaFiscal.EMITIDA:
+                return FiscalService._serializar_nota(nota)
+
+            if pendencias:
+                nota.status = StatusNotaFiscal.VALIDACAO_ERRO
+                nota.mensagem_retorno = "\n".join(pendencias)
+                nota.enviado_em = TimeService.now_utc_naive()
+                FiscalRepository.salvar()
+                raise ValueError("A venda ainda possui pendencias fiscais: " + "; ".join(pendencias))
+
+            nota.serie = int(configuracao.serie_nfce or 1)
+            nota.numero = int(configuracao.proximo_numero_nfce or 1)
+            nota.chave_acesso = FiscalService._gerar_chave_acesso(venda, configuracao, nota.numero, nota.serie)
+            nota.recibo = FiscalService._gerar_recibo(nota.chave_acesso)
+            nota.protocolo = FiscalService._gerar_protocolo(nota.chave_acesso)
+            nota.xml_path = FiscalService._salvar_xml_nota(venda, configuracao, nota)
+            nota.status = StatusNotaFiscal.EMITIDA
+            nota.mensagem_retorno = (
+                "NFC-e emitida internamente em modo operacional. "
+                "XML gerado e pronto para integracao/autorizacao SEFAZ."
+            )
+            nota.enviado_em = TimeService.now_utc_naive()
+            nota.emitida_em = TimeService.now_utc_naive()
+            configuracao.proximo_numero_nfce = nota.numero + 1
+
+            FiscalRepository.salvar()
+            nota = FiscalRepository.buscar_nota_por_venda(venda.id, tenant_id)
+            return FiscalService._serializar_nota(nota)
+        except Exception:
+            FiscalRepository.rollback()
+            raise
+
+    @staticmethod
+    def obter_xml_nota(nota_id, tenant_id, escopo):
+        empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
+        nota = FiscalRepository.buscar_nota_por_id(nota_id, tenant_id, empresa_ids=empresa_ids)
+        if not nota:
+            raise ValueError("Nota fiscal nao encontrada.")
+        if nota.status != StatusNotaFiscal.EMITIDA or not nota.xml_path:
+            raise ValueError("A nota ainda nao possui XML emitido.")
+        path = Path(nota.xml_path)
+        if not path.exists():
+            raise ValueError("Arquivo XML da nota nao encontrado.")
+        return nota, path
 
     @staticmethod
     def _validar_prontidao_venda(venda, configuracao):
@@ -235,7 +314,8 @@ class FiscalService:
             "certificado_caminho": configuracao.certificado_caminho or "",
             "certificado_senha_env": configuracao.certificado_senha_env or "",
             "csc_id": configuracao.csc_id or "",
-            "csc_token": configuracao.csc_token or "",
+            "csc_token": "",
+            "csc_token_configurado": bool(configuracao.csc_token),
             "contingencia_ativa": bool(configuracao.contingencia_ativa),
             "certificado_ok": certificado_ok,
             "certificado_detalhe": certificado_detalhe,
@@ -260,6 +340,8 @@ class FiscalService:
             "numero": nota.numero,
             "chave_acesso": nota.chave_acesso,
             "protocolo": nota.protocolo,
+            "recibo": nota.recibo,
+            "xml_disponivel": bool(nota.xml_path),
             "mensagem_retorno": nota.mensagem_retorno,
             "enviado_em": TimeService.serialize_utc_iso(nota.enviado_em),
             "emitida_em": TimeService.serialize_utc_iso(nota.emitida_em),
@@ -317,6 +399,159 @@ class FiscalService:
             return False, "Utilize um certificado A1 no formato .pfx ou .p12."
 
         return True, "Certificado localizado e pronto para uso pelo integrador fiscal."
+
+    @staticmethod
+    def _salvar_xml_nota(venda, configuracao, nota):
+        base_dir = Path(current_app.instance_path) / "fiscal" / f"tenant_{venda.tenant_id}" / f"empresa_{venda.empresa_id}"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"nfce_{nota.serie}_{nota.numero}_{nota.chave_acesso}.xml"
+        path = base_dir / filename
+        xml_content = FiscalService._montar_xml_nota(venda, configuracao, nota)
+        path.write_text(xml_content, encoding="utf-8")
+        return str(path)
+
+    @staticmethod
+    def _montar_xml_nota(venda, configuracao, nota):
+        root = ET.Element("NFCe", versao="4.00", ambiente=getattr(nota.ambiente, "value", str(nota.ambiente)))
+        inf = ET.SubElement(root, "infNFe", Id=f"NFe{nota.chave_acesso}", versao="4.00")
+
+        ide = ET.SubElement(inf, "ide")
+        FiscalService._xml_text(ide, "cUF", FiscalService._codigo_uf(configuracao.uf))
+        FiscalService._xml_text(ide, "mod", "65")
+        FiscalService._xml_text(ide, "serie", nota.serie)
+        FiscalService._xml_text(ide, "nNF", nota.numero)
+        FiscalService._xml_text(ide, "dhEmi", TimeService.serialize_utc_iso(nota.emitida_em or TimeService.now_utc_naive()))
+        FiscalService._xml_text(ide, "tpAmb", "2" if nota.ambiente == AmbienteFiscal.HOMOLOGACAO else "1")
+        FiscalService._xml_text(ide, "cNF", nota.chave_acesso[-9:-1])
+        FiscalService._xml_text(ide, "natOp", "VENDA")
+
+        emit = ET.SubElement(inf, "emit")
+        FiscalService._xml_text(emit, "CNPJ", FiscalService._only_digits(getattr(venda.empresa, "cnpj", ""), max_length=14))
+        FiscalService._xml_text(emit, "xNome", getattr(venda.empresa, "razao_social", None) or getattr(venda.empresa, "nome_fantasia", ""))
+        FiscalService._xml_text(emit, "xFant", getattr(venda.empresa, "nome_fantasia", ""))
+        FiscalService._xml_text(emit, "IE", configuracao.inscricao_estadual)
+
+        ender = ET.SubElement(emit, "enderEmit")
+        FiscalService._xml_text(ender, "xLgr", configuracao.logradouro)
+        FiscalService._xml_text(ender, "nro", configuracao.numero)
+        FiscalService._xml_text(ender, "xCpl", configuracao.complemento or "")
+        FiscalService._xml_text(ender, "xBairro", configuracao.bairro)
+        FiscalService._xml_text(ender, "cMun", configuracao.municipio_codigo_ibge)
+        FiscalService._xml_text(ender, "xMun", configuracao.municipio_nome)
+        FiscalService._xml_text(ender, "UF", configuracao.uf)
+        FiscalService._xml_text(ender, "CEP", configuracao.cep)
+
+        if venda.cliente:
+            dest = ET.SubElement(inf, "dest")
+            documento = FiscalService._only_digits(getattr(venda.cliente, "documento", ""))
+            FiscalService._xml_text(dest, "CPF" if len(documento) <= 11 else "CNPJ", documento)
+            FiscalService._xml_text(dest, "xNome", venda.cliente.nome)
+
+        total_produtos = Decimal("0.00")
+        for index, item in enumerate(venda.itens, start=1):
+            produto = item.produto
+            det = ET.SubElement(inf, "det", nItem=str(index))
+            prod = ET.SubElement(det, "prod")
+            valor_total = FiscalService._to_decimal(item.valor_total)
+            total_produtos += valor_total
+            FiscalService._xml_text(prod, "cProd", item.produto_id)
+            FiscalService._xml_text(prod, "xProd", produto.nome if produto else f"Produto {item.produto_id}")
+            FiscalService._xml_text(prod, "NCM", (produto.ncm or "").replace(".", "") if produto else "")
+            FiscalService._xml_text(prod, "CFOP", "5102")
+            FiscalService._xml_text(prod, "uCom", "UN")
+            FiscalService._xml_text(prod, "qCom", int(item.quantidade))
+            FiscalService._xml_text(prod, "vUnCom", FiscalService._money(item.valor_unitario))
+            FiscalService._xml_text(prod, "vProd", FiscalService._money(valor_total))
+
+            imposto = ET.SubElement(det, "imposto")
+            icms = ET.SubElement(imposto, "ICMS")
+            FiscalService._xml_text(icms, "orig", "0")
+            FiscalService._xml_text(icms, "CSOSN" if configuracao.regime_tributario == RegimeTributarioFiscal.SIMPLES_NACIONAL else "CST", "102")
+
+        total = ET.SubElement(inf, "total")
+        icmstot = ET.SubElement(total, "ICMSTot")
+        FiscalService._xml_text(icmstot, "vProd", FiscalService._money(total_produtos))
+        FiscalService._xml_text(icmstot, "vDesc", FiscalService._money(venda.desconto))
+        FiscalService._xml_text(icmstot, "vNF", FiscalService._money(venda.total))
+
+        pag = ET.SubElement(inf, "pag")
+        for pagamento in venda.pagamentos:
+            det_pag = ET.SubElement(pag, "detPag")
+            FiscalService._xml_text(det_pag, "tPag", "99")
+            FiscalService._xml_text(det_pag, "xPag", pagamento.forma_pagamento.nome if pagamento.forma_pagamento else "Pagamento")
+            FiscalService._xml_text(det_pag, "vPag", FiscalService._money(pagamento.valor))
+        if FiscalService._to_decimal(venda.cashback_utilizado) > Decimal("0.00"):
+            det_pag = ET.SubElement(pag, "detPag")
+            FiscalService._xml_text(det_pag, "tPag", "99")
+            FiscalService._xml_text(det_pag, "xPag", "Cashback")
+            FiscalService._xml_text(det_pag, "vPag", FiscalService._money(venda.cashback_utilizado))
+
+        prot = ET.SubElement(root, "protNFe")
+        FiscalService._xml_text(prot, "chNFe", nota.chave_acesso)
+        FiscalService._xml_text(prot, "nProt", nota.protocolo)
+        FiscalService._xml_text(prot, "digVal", hashlib.sha1(nota.chave_acesso.encode("utf-8")).hexdigest())
+        FiscalService._xml_text(prot, "xMotivo", "Autorizacao interna para fluxo operacional")
+
+        ET.indent(root, space="  ")
+        return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    @staticmethod
+    def _gerar_chave_acesso(venda, configuracao, numero, serie):
+        cuf = FiscalService._codigo_uf(configuracao.uf)
+        aamm = TimeService.now_utc_naive().strftime("%y%m")
+        cnpj = FiscalService._only_digits(getattr(venda.empresa, "cnpj", ""), max_length=14) or "0"
+        cnpj = cnpj.zfill(14)
+        modelo = "65"
+        serie_formatada = str(int(serie)).zfill(3)
+        numero_formatado = str(int(numero)).zfill(9)
+        tipo_emissao = "1"
+        codigo = hashlib.sha1(f"{venda.id}:{venda.numero_unico}:{numero}".encode("utf-8")).hexdigest()
+        cnf = str(int(codigo[:8], 16))[-8:].zfill(8)
+        base = f"{cuf}{aamm}{cnpj}{modelo}{serie_formatada}{numero_formatado}{tipo_emissao}{cnf}"
+        return f"{base}{FiscalService._calcular_dv_chave(base)}"
+
+    @staticmethod
+    def _calcular_dv_chave(base):
+        pesos = [2, 3, 4, 5, 6, 7, 8, 9]
+        total = 0
+        for index, char in enumerate(reversed(base)):
+            total += int(char) * pesos[index % len(pesos)]
+        resto = total % 11
+        dv = 11 - resto
+        return str(0 if dv >= 10 else dv)
+
+    @staticmethod
+    def _gerar_recibo(chave):
+        return hashlib.sha1(f"recibo:{chave}".encode("utf-8")).hexdigest()[:15].upper()
+
+    @staticmethod
+    def _gerar_protocolo(chave):
+        return hashlib.sha1(f"protocolo:{chave}".encode("utf-8")).hexdigest()[:15].upper()
+
+    @staticmethod
+    def _codigo_uf(uf):
+        return {
+            "RO": "11", "AC": "12", "AM": "13", "RR": "14", "PA": "15", "AP": "16", "TO": "17",
+            "MA": "21", "PI": "22", "CE": "23", "RN": "24", "PB": "25", "PE": "26", "AL": "27",
+            "SE": "28", "BA": "29", "MG": "31", "ES": "32", "RJ": "33", "SP": "35", "PR": "41",
+            "SC": "42", "RS": "43", "MS": "50", "MT": "51", "GO": "52", "DF": "53",
+        }.get((uf or "").upper(), "35")
+
+    @staticmethod
+    def _xml_text(parent, tag, value):
+        child = ET.SubElement(parent, tag)
+        child.text = "" if value is None else str(value)
+        return child
+
+    @staticmethod
+    def _money(value):
+        return f"{FiscalService._to_decimal(value):.2f}"
+
+    @staticmethod
+    def _to_decimal(value):
+        if isinstance(value, Decimal):
+            return value.quantize(Decimal("0.01"))
+        return Decimal(str(value or "0")).quantize(Decimal("0.01"))
 
     @staticmethod
     def _to_ambiente(value):

@@ -2,7 +2,7 @@
 
 ## 1. Objetivo
 
-Este manual foi escrito para o usuario operacional do sistema. Ele explica como usar os modulos principais no dia a dia:
+Este manual foi escrito para o usuario operacional do sistema. Ele explica como usar os Módulos principais no dia a dia:
 
 - Estoque
 - PDV

@@ -96,6 +96,25 @@ class FiscalRepository:
         )
 
     @staticmethod
+    def buscar_nota_por_id(nota_id, tenant_id, empresa_ids=None):
+        query = (
+            NotaFiscalVenda.query
+            .options(
+                joinedload(NotaFiscalVenda.empresa),
+                joinedload(NotaFiscalVenda.venda),
+            )
+            .filter(
+                NotaFiscalVenda.id == nota_id,
+                NotaFiscalVenda.tenant_id == tenant_id,
+            )
+        )
+
+        if empresa_ids is not None:
+            query = query.filter(NotaFiscalVenda.empresa_id.in_(empresa_ids))
+
+        return query.first()
+
+    @staticmethod
     def listar_notas(tenant_id, empresa_ids=None, limite=50):
         query = (
             NotaFiscalVenda.query

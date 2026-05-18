@@ -22,6 +22,15 @@ class TimeService:
         return TimeService.now_utc().replace(tzinfo=None)
 
     @staticmethod
+    def today_br():
+        return TimeService.now_utc().astimezone(TimeService.TZ_BR).date()
+
+    @staticmethod
+    def local_date_start_to_utc_naive(local_date):
+        local_dt = datetime.combine(local_date, datetime.min.time(), tzinfo=TimeService.TZ_BR)
+        return local_dt.astimezone(TimeService.TZ_UTC).replace(tzinfo=None)
+
+    @staticmethod
     def to_utc(dt: datetime | None) -> datetime | None:
         if dt is None:
             return None

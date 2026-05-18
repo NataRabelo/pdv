@@ -29,7 +29,7 @@ Camadas principais:
 - `app/repositorys`: acesso a dados e consultas ORM
 - `app/models`: entidades e enums do dominio
 - `app/templates`: telas Jinja2
-- `app/static/js`: comportamento dos modulos no frontend
+- `app/static/js`: comportamento dos Módulos no frontend
 - `app/static/css`: estilos por modulo
 - `migrations`: historico de banco
 - `docs`: documentacao do sistema

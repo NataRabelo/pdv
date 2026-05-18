@@ -18,9 +18,9 @@ min-h-screen flex flex-col
 <main class="flex-1 page-shell-home">
     <div class="mb-8">
         <h2 class="text-4xl font-light text-white mb-2">
-            Operacao de <span class="font-bold">Caixa</span>
+            Operação de <span class="font-bold">Caixa</span>
         </h2>
-        <p class="text-slate-400">Somente os fluxos do caixa ficam aqui. Ajustes de outros modulos agora seguem separados.</p>
+        <p class="text-slate-400">Fluxo de venda</p>
     </div>
 
     <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] gap-6">
@@ -29,31 +29,13 @@ min-h-screen flex flex-col
                 <i data-lucide="shopping-cart"></i>
             </div>
             <div>
-                <h4 class="text-white font-bold text-xl">Abrir PDV</h4>
-                <p class="text-slate-400 text-sm mt-2">Atender clientes, montar carrinho, aplicar regras comerciais e concluir vendas em uma unica tela.</p>
+                <h4 class="text-white font-bold text-xl">Acessar PDV</h4>
+                <p class="text-slate-400 text-sm mt-2">Atendedimento de clientes, montagem de carrinho e conclusão de vendas.</p>
             </div>
             <span class="inline-flex items-center gap-2 rounded-full bg-slate-950/70 px-4 py-2 text-xs uppercase tracking-[0.16em] text-sky-100">
                 Fluxo principal do caixa
             </span>
         </a>
-
-        <div class="grid grid-cols-1 gap-4">
-            <article class="glass rounded-3xl border border-white/10 p-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Fluxo protegido</p>
-                <h4 class="mt-3 text-lg font-semibold text-white">Sem atalhos cruzados</h4>
-                <p class="mt-2 text-sm text-slate-400">
-                    Estoque, financeiro, fiscal e acessos administrativos foram removidos desta home para evitar mistura entre modulos.
-                </p>
-            </article>
-
-            <article class="glass rounded-3xl border border-white/10 p-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dentro do PDV</p>
-                <h4 class="mt-3 text-lg font-semibold text-white">Venda, historico e fechamento</h4>
-                <p class="mt-2 text-sm text-slate-400">
-                    Ultimas vendas, recebimentos, cashback, cupons e fechamento continuam concentrados na tela operacional do caixa.
-                </p>
-            </article>
-        </div>
     </div>
 </main>
 {% endblock %}

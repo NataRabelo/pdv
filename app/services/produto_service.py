@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation
 from app.models.db import Produto, ProdutoEmpresa
 from app.repositorys.produto_repository import ProdutoRepository
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.tenant_entitlement_service import TenantEntitlementService
 
 
 class ProdutoService:
@@ -25,6 +26,10 @@ class ProdutoService:
 
     @staticmethod
     def criar(data, tenant_id, escopo, funcionario_id=None):
+        TenantEntitlementService.validar_limite_produtos(
+            tenant_id,
+            ProdutoRepository.contar_produtos(tenant_id),
+        )
         nome = (data.get("nome") or "").strip()
         descricao = (data.get("descricao") or "").strip() or None
         categoria_id = ProdutoService._to_int(data.get("categoria_id"), "Categoria")

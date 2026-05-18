@@ -1,0 +1,36 @@
+from flask import request
+
+
+def register_security_headers(app):
+    @app.before_request
+    def enforce_https():
+        if not app.config.get("FORCE_HTTPS"):
+            return None
+
+        forwarded_proto = request.headers.get("X-Forwarded-Proto", request.scheme)
+        if forwarded_proto == "https" or request.is_secure:
+            return None
+
+        return ("HTTPS obrigatorio em producao.", 403)
+
+    @app.after_request
+    def add_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+        if app.config.get("JWT_COOKIE_SECURE"):
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "font-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'none';"
+        )
+        return response

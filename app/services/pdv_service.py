@@ -8,6 +8,7 @@ from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.cliente_service import ClienteService
 from app.services.estoque_service import EstoqueService
 from app.services.financeiro_service import FinanceiroService
+from app.services.tenant_entitlement_service import TenantEntitlementService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
 from app.services.time_service import TimeService
 
@@ -21,7 +22,7 @@ class PdvService:
         empresa_ids = AcessoEmpresaService.filtrar_empresa_ids(escopo)
         empresas = PdvRepository.listar_empresas(tenant_id, empresa_ids=empresa_ids)
         formas_pagamento = PdvRepository.listar_formas_pagamento(tenant_id)
-        cupons = PdvRepository.listar_cupons_ativos(tenant_id, data_referencia=date.today())
+        cupons = PdvRepository.listar_cupons_ativos(tenant_id, data_referencia=TimeService.today_br())
         clientes = ClienteService.listar_para_pdv(tenant_id)
 
         return {
@@ -122,6 +123,7 @@ class PdvService:
     def criar_venda(data, tenant_id, escopo, funcionario_id):
         try:
             PdvService._garantir_base_operacional(tenant_id)
+            TenantEntitlementService.validar_limite_vendas_mes(tenant_id)
 
             empresa_id = PdvService._to_int(data.get("empresa_id"), "Empresa")
             cliente_id = PdvService._to_optional_int(data.get("cliente_id"), "Cliente")
@@ -608,7 +610,7 @@ class PdvService:
         if not cupom or not cupom.ativo:
             raise ValueError("Cupom nao encontrado.")
 
-        if cupom.data_validade < date.today():
+        if cupom.data_validade < TimeService.today_br():
             raise ValueError("Cupom expirado.")
 
         return cupom

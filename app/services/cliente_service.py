@@ -16,6 +16,7 @@ from app.models.db import (
     TipoPessoa,
 )
 from app.repositorys.cliente_repository import ClienteRepository
+from app.security.field_crypto import FieldCrypto
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.comunicacao_service import ComunicacaoService
 from app.services.time_service import TimeService
@@ -291,7 +292,7 @@ class ClienteService:
         AcessoEmpresaService.validar_empresa(empresa_id, escopo)
         configuracao_base = ClienteService.obter_modelo_configuracao_empresa(empresa_id, tenant_id)
         configuracao = ClienteService._clonar_configuracao_empresa(configuracao_base)
-        ClienteService._aplicar_payload_configuracao(configuracao, data.get("configuracao") or {})
+        ClienteService._aplicar_payload_configuracao(configuracao, data.get("configuracao") or {}, encrypt_sensitive=False)
         canal = ClienteService._to_canal(data.get("canal"))
         ClienteService._validar_canal_habilitado(configuracao, canal)
         destinatario = (data.get("destinatario") or "").strip()
@@ -1291,16 +1292,16 @@ class ClienteService:
             smtp_host=configuracao.smtp_host,
             smtp_port=int(configuracao.smtp_port or 587),
             smtp_usuario=configuracao.smtp_usuario,
-            smtp_senha=configuracao.smtp_senha,
+            smtp_senha=FieldCrypto.decrypt(configuracao.smtp_senha),
             smtp_tls=bool(configuracao.smtp_tls),
             smtp_ssl=bool(configuracao.smtp_ssl),
             whatsapp_habilitado=bool(configuracao.whatsapp_habilitado),
             whatsapp_api_url=configuracao.whatsapp_api_url,
-            whatsapp_token=configuracao.whatsapp_token,
+            whatsapp_token=FieldCrypto.decrypt(configuracao.whatsapp_token),
             whatsapp_remetente=configuracao.whatsapp_remetente,
             sms_habilitado=bool(configuracao.sms_habilitado),
             sms_api_url=configuracao.sms_api_url,
-            sms_token=configuracao.sms_token,
+            sms_token=FieldCrypto.decrypt(configuracao.sms_token),
             sms_remetente=configuracao.sms_remetente,
             request_timeout_segundos=int(configuracao.request_timeout_segundos or 15),
         )
@@ -1309,7 +1310,7 @@ class ClienteService:
         return clone
 
     @staticmethod
-    def _aplicar_payload_configuracao(configuracao, data):
+    def _aplicar_payload_configuracao(configuracao, data, encrypt_sensitive=True):
         configuracao.cashback_ativo = ClienteService._to_bool(data.get("cashback_ativo", configuracao.cashback_ativo))
         configuracao.cashback_percentual = ClienteService._to_non_negative_decimal(
             data.get("cashback_percentual", configuracao.cashback_percentual),
@@ -1351,18 +1352,21 @@ class ClienteService:
         configuracao.smtp_port = ClienteService._to_positive_int(data.get("smtp_port", configuracao.smtp_port or 587), "porta SMTP")
         configuracao.smtp_usuario = (data.get("smtp_usuario", configuracao.smtp_usuario) or "").strip() or None
         if "smtp_senha" in data:
-            configuracao.smtp_senha = (data.get("smtp_senha") or "").strip() or None
+            smtp_senha = (data.get("smtp_senha") or "").strip() or None
+            configuracao.smtp_senha = FieldCrypto.encrypt(smtp_senha) if encrypt_sensitive else smtp_senha
         configuracao.smtp_tls = ClienteService._to_bool(data.get("smtp_tls", configuracao.smtp_tls))
         configuracao.smtp_ssl = ClienteService._to_bool(data.get("smtp_ssl", configuracao.smtp_ssl))
         configuracao.whatsapp_habilitado = ClienteService._to_bool(data.get("whatsapp_habilitado", configuracao.whatsapp_habilitado))
         configuracao.whatsapp_api_url = ClienteService._normalizar_url(data.get("whatsapp_api_url", configuracao.whatsapp_api_url))
         if "whatsapp_token" in data:
-            configuracao.whatsapp_token = (data.get("whatsapp_token") or "").strip() or None
+            whatsapp_token = (data.get("whatsapp_token") or "").strip() or None
+            configuracao.whatsapp_token = FieldCrypto.encrypt(whatsapp_token) if encrypt_sensitive else whatsapp_token
         configuracao.whatsapp_remetente = (data.get("whatsapp_remetente", configuracao.whatsapp_remetente) or "").strip() or None
         configuracao.sms_habilitado = ClienteService._to_bool(data.get("sms_habilitado", configuracao.sms_habilitado))
         configuracao.sms_api_url = ClienteService._normalizar_url(data.get("sms_api_url", configuracao.sms_api_url))
         if "sms_token" in data:
-            configuracao.sms_token = (data.get("sms_token") or "").strip() or None
+            sms_token = (data.get("sms_token") or "").strip() or None
+            configuracao.sms_token = FieldCrypto.encrypt(sms_token) if encrypt_sensitive else sms_token
         configuracao.sms_remetente = (data.get("sms_remetente", configuracao.sms_remetente) or "").strip() or None
         configuracao.request_timeout_segundos = ClienteService._to_positive_int(
             data.get("request_timeout_segundos", configuracao.request_timeout_segundos or 15),

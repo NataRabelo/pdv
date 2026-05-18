@@ -8,6 +8,7 @@ from urllib import error, request
 from flask import render_template
 
 from app.models.db import CanalMensagemCliente
+from app.security.field_crypto import FieldCrypto
 
 
 class ComunicacaoService:
@@ -38,7 +39,7 @@ class ComunicacaoService:
                 conteudo=conteudo,
                 remetente=configuracao.whatsapp_remetente,
                 endpoint=configuracao.whatsapp_api_url,
-                token=configuracao.whatsapp_token,
+                token=FieldCrypto.decrypt(configuracao.whatsapp_token),
                 cliente=cliente,
             )
 
@@ -50,7 +51,7 @@ class ComunicacaoService:
             conteudo=conteudo,
             remetente=configuracao.sms_remetente,
             endpoint=configuracao.sms_api_url,
-            token=configuracao.sms_token,
+            token=FieldCrypto.decrypt(configuracao.sms_token),
             cliente=cliente,
         )
 
@@ -124,7 +125,7 @@ class ComunicacaoService:
 
     @staticmethod
     def _normalizar_senha_smtp(configuracao):
-        senha = configuracao.smtp_senha or ""
+        senha = FieldCrypto.decrypt(configuracao.smtp_senha) or ""
         host = (configuracao.smtp_host or "").strip().lower()
 
         if host == "smtp.gmail.com" and re.fullmatch(r"[A-Za-z0-9]{4}( [A-Za-z0-9]{4}){3}", senha.strip()):

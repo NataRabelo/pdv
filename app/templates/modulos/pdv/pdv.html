@@ -20,7 +20,6 @@ min-h-screen flex flex-col bg-slate-950 text-white
         <div class="pdv-topbar">
             <div class="pdv-topbar-copy">
                 <h1 class="text-3xl font-bold tracking-tight text-white">Frente de caixa</h1>
-                <p class="text-slate-400 mt-2">Catalogo, leitura por codigo e fechamento de venda em uma tela mais limpa.</p>
             </div>
 
             <div class="pdv-topbar-filters">
@@ -531,6 +530,13 @@ min-h-screen flex flex-col bg-slate-950 text-white
                     <i data-lucide="printer" class="w-4 h-4"></i>
                     Imprimir comprovante
                 </button>
+                {% if ui_flags.can_manage_fiscal %}
+                <button type="button" id="pdv-success-fiscal"
+                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold px-5 py-3 transition">
+                    <i data-lucide="send" class="w-4 h-4"></i>
+                    Emitir NFC-e
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>

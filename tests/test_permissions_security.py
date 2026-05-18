@@ -1,9 +1,11 @@
 import os
 import unittest
+from datetime import timedelta
 
 from app import create_app
 from app.extensions import db
 from app.models.db import (
+    AuditLog,
     Empresa,
     Funcionario,
     FuncionarioEmpresa,
@@ -16,6 +18,7 @@ from app.models.db import (
 from app.security.password import hash_password
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.tenant_bootstrap_service import TenantBootstrapService
+from app.services.time_service import TimeService
 
 
 class PermissionsSecurityTestCase(unittest.TestCase):
@@ -188,6 +191,43 @@ class PermissionsSecurityTestCase(unittest.TestCase):
             "cancelar_movimentacao_estoque",
         }:
             self.assertIn(codigo, granted_codes)
+
+    def test_login_registra_auditoria_e_headers_de_seguranca(self):
+        response = self._login_operador()
+        self.assertEqual(response.headers.get("X-Content-Type-Options"), "nosniff")
+        self.assertEqual(response.headers.get("X-Frame-Options"), "DENY")
+
+        log = AuditLog.query.filter_by(action="auth.login", status="SUCCESS").first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.tenant_id, self.tenant.id)
+        self.assertEqual(log.actor_scope, "tenant")
+        self.assertEqual(log.actor_id, self.operador.id)
+
+    def test_rate_limit_bloqueia_excesso_de_tentativas_de_login(self):
+        for _index in range(self.app.config["LOGIN_RATE_LIMIT_ATTEMPTS"]):
+            response = self.client.post(
+                "/login",
+                data={"usuario": "usuario.bloqueado", "senha": "senha-errada"},
+                follow_redirects=False,
+            )
+            self.assertEqual(response.status_code, 401)
+
+        blocked = self.client.post(
+            "/login",
+            data={"usuario": "usuario.bloqueado", "senha": "senha-errada"},
+            follow_redirects=False,
+        )
+        self.assertEqual(blocked.status_code, 429)
+
+    def test_trial_expirado_bloqueia_modulos_do_tenant(self):
+        self.tenant.trial_ate = TimeService.today_br() - timedelta(days=1)
+        db.session.commit()
+        self._login_operador()
+
+        blocked_response = self.client.get("/pdv/home", follow_redirects=False)
+
+        self.assertEqual(blocked_response.status_code, 302)
+        self.assertIn("/home", blocked_response.headers.get("Location", ""))
 
 
 if __name__ == "__main__":

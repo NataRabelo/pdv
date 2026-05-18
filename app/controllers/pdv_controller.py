@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, render_template, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.security.decorators import permission_required, ui_permission_required
+from app.services.audit_service import AuditService
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.pdv_service import PdvService
 
@@ -104,6 +105,17 @@ def criar_venda():
         data = request.get_json(silent=True) or {}
 
         venda = PdvService.criar_venda(data, tenant_id, escopo, funcionario_id)
+        AuditService.registrar(
+            "pdv.sale_created",
+            tenant_id=tenant_id,
+            empresa_id=venda.get("empresa_id"),
+            actor_scope="tenant",
+            actor_id=funcionario_id,
+            entity_type="venda",
+            entity_id=venda.get("id"),
+            details=f"Total: {venda.get('total')}",
+            commit=True,
+        )
         return jsonify({
             "success": True,
             "message": "Venda registrada com sucesso.",
@@ -123,6 +135,17 @@ def cancelar_venda(venda_id):
         data = request.get_json(silent=True) or {}
 
         venda = PdvService.cancelar_venda(venda_id, data, tenant_id, escopo, funcionario_id)
+        AuditService.registrar(
+            "pdv.sale_cancelled",
+            tenant_id=tenant_id,
+            empresa_id=venda.get("empresa_id"),
+            actor_scope="tenant",
+            actor_id=funcionario_id,
+            entity_type="venda",
+            entity_id=venda.get("id"),
+            details=(data.get("motivo") or "")[:500],
+            commit=True,
+        )
         return jsonify({
             "success": True,
             "message": "Venda cancelada com sucesso.",
@@ -142,6 +165,17 @@ def cancelar_item_venda(venda_id, item_id):
         data = request.get_json(silent=True) or {}
 
         venda = PdvService.cancelar_item_venda(venda_id, item_id, data, tenant_id, escopo, funcionario_id)
+        AuditService.registrar(
+            "pdv.sale_item_cancelled",
+            tenant_id=tenant_id,
+            empresa_id=venda.get("empresa_id"),
+            actor_scope="tenant",
+            actor_id=funcionario_id,
+            entity_type="item_venda",
+            entity_id=item_id,
+            details=(data.get("motivo") or "")[:500],
+            commit=True,
+        )
         return jsonify({
             "success": True,
             "message": "Item cancelado com sucesso.",

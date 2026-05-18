@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request, send_file
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from app.security.decorators import permission_required, ui_permission_required
@@ -96,5 +96,46 @@ def prevalidar_venda():
             "message": "Prevalidacao fiscal executada.",
             "data": resultado,
         })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+
+@fiscal_bp.route("/notas/emitir", methods=["POST"])
+@permission_required("gerenciar_fiscal")
+def emitir_nota_venda():
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        data = request.get_json(silent=True) or {}
+        venda_id = data.get("venda_id")
+        if not venda_id:
+            return jsonify({"success": False, "message": "Informe a venda para emitir a nota fiscal."}), 400
+
+        nota = FiscalService.emitir_nota_venda(int(venda_id), tenant_id, escopo)
+        return jsonify({
+            "success": True,
+            "message": "Nota fiscal emitida e XML gerado com sucesso.",
+            "data": nota,
+        })
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 400
+
+
+@fiscal_bp.route("/notas/<int:nota_id>/xml", methods=["GET"])
+@permission_required("visualizar_fiscal")
+def baixar_xml_nota(nota_id):
+    try:
+        tenant_id = get_jwt().get("tenant_id")
+        funcionario_id = int(get_jwt_identity())
+        escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
+        nota, path = FiscalService.obter_xml_nota(nota_id, tenant_id, escopo)
+        download_name = f"nfce_{nota.serie}_{nota.numero}_{nota.chave_acesso}.xml"
+        return send_file(
+            path,
+            as_attachment=True,
+            download_name=download_name,
+            mimetype="application/xml",
+        )
     except Exception as e:
         return jsonify({"success": False, "message": str(e)}), 400

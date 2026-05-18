@@ -249,6 +249,7 @@ function bindSaleActions() {
     const salePrintBtn = document.getElementById("pdv-sale-print-button");
     const confirmSubmitBtn = document.getElementById("pdv-confirm-submit");
     const successPrintBtn = document.getElementById("pdv-success-print");
+    const successFiscalBtn = document.getElementById("pdv-success-fiscal");
     const confirmPaymentBtn = document.getElementById("pdv-confirm-payment-modal");
 
     if (finalizeBtn) {
@@ -337,6 +338,13 @@ function bindSaleActions() {
         successPrintBtn.addEventListener("click", () => {
             if (!pdvPage.ultimaVendaFinalizada?.id) return;
             abrirComprovanteVenda(pdvPage.ultimaVendaFinalizada.id);
+        });
+    }
+
+    if (successFiscalBtn) {
+        successFiscalBtn.addEventListener("click", async () => {
+            if (!pdvPage.ultimaVendaFinalizada?.id) return;
+            await emitirNotaFiscalPdv(pdvPage.ultimaVendaFinalizada.id);
         });
     }
 
@@ -1439,6 +1447,24 @@ function abrirComprovanteVenda(vendaId) {
     window.open(url.toString(), "_blank", "noopener");
 }
 
+async function emitirNotaFiscalPdv(vendaId) {
+    try {
+        const result = await requestJson("/api/fiscal/notas/emitir", {
+            method: "POST",
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ venda_id: vendaId })
+        });
+        showMessage(result.message || "Nota fiscal emitida com sucesso.", "success");
+        await carregarVendas();
+        if (result.data?.id) {
+            const url = new URL(`/api/fiscal/notas/${result.data.id}/xml`, window.location.origin);
+            window.open(url.toString(), "_blank", "noopener");
+        }
+    } catch (error) {
+        showMessage(error.message || "Erro ao emitir a nota fiscal.", "error");
+    }
+}
+
 function atualizarKpis() {
     setText("pdv-kpi-produtos", String(pdvPage.produtos.length));
     setText(
@@ -1513,7 +1539,7 @@ function atualizarResumoVenda() {
     const baseTotal = Math.max(subtotal - descontoTotal, 0);
     const cashbackAplicado = obterCashbackAplicado(baseTotal);
     const cashbackInput = document.getElementById("pdv-cashback-utilizado");
-    if (cashbackInput) {
+    if (cashbackInput && document.activeElement !== cashbackInput) {
         cashbackInput.value = formatCurrencyInput(cashbackAplicado);
     }
     const total = Math.max(baseTotal - cashbackAplicado, 0);

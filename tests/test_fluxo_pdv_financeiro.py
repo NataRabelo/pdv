@@ -16,9 +16,11 @@ from app.models.db import (
     LancamentoFinanceiro,
     MensagemCliente,
     MovimentoEstoque,
+    NotaFiscalVenda,
     Produto,
     ProdutoEmpresa,
     StatusMensagemCliente,
+    StatusNotaFiscal,
     StatusVenda,
     Tenant,
     TipoEmpresa,
@@ -26,6 +28,7 @@ from app.models.db import (
 )
 from app.repositorys.cliente_repository import ClienteRepository
 from app.security.password import hash_password
+from app.security.field_crypto import FieldCrypto
 from app.services.acesso_empresa_service import AcessoEmpresaService
 from app.services.adiantamento_service import AdiantamentoService
 from app.services.cliente_service import ClienteService
@@ -275,6 +278,69 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
             resultado = FiscalService.prevalidar_venda(venda["id"], self.tenant.id, self.escopo)
             self.assertEqual(resultado["status"], "PRONTA_PARA_EMISSAO")
             self.assertEqual(resultado["pendencias"], [])
+        finally:
+            if os.path.exists(certificado_path):
+                os.remove(certificado_path)
+            os.environ.pop("SEFAZ_CERT_PASSWORD_TEST", None)
+
+    def test_emissao_fiscal_gera_numero_chave_xml_e_incrementa_numeracao(self):
+        forma_pagamento_id = FinanceiroService.listar_auxiliares(self.tenant.id, self.escopo)["formas_pagamento"][0]["id"]
+        venda = PdvService.criar_venda(
+            {
+                "empresa_id": self.empresa.id,
+                "itens": [{"produto_id": self.produto.id, "quantidade": 1}],
+                "pagamentos": [{"forma_pagamento_id": forma_pagamento_id, "valor": "7.50"}],
+                "desconto_manual": "0.00",
+            },
+            self.tenant.id,
+            self.escopo,
+            self.funcionario.id,
+        )
+
+        self.produto.possui_ncm = True
+        self.produto.ncm = "22021000"
+        db.session.commit()
+
+        with tempfile.NamedTemporaryFile(suffix=".pfx", delete=False) as certificado:
+            certificado.write(b"dummy-cert")
+            certificado_path = certificado.name
+
+        os.environ["SEFAZ_CERT_PASSWORD_TEST"] = "123456"
+        try:
+            FiscalService.atualizar_configuracao(
+                self.empresa.id,
+                {
+                    "ambiente": "HOMOLOGACAO",
+                    "regime_tributario": "SIMPLES_NACIONAL",
+                    "serie_nfce": 3,
+                    "proximo_numero_nfce": 42,
+                    "inscricao_estadual": "123456789",
+                    "uf": "SP",
+                    "municipio_nome": "Sao Paulo",
+                    "municipio_codigo_ibge": "3550308",
+                    "cep": "01001000",
+                    "logradouro": "Rua Fiscal",
+                    "numero": "100",
+                    "bairro": "Centro",
+                    "certificado_caminho": certificado_path,
+                    "certificado_senha_env": "SEFAZ_CERT_PASSWORD_TEST",
+                    "csc_id": "000001",
+                    "csc_token": "TOKEN-CSC",
+                },
+                self.tenant.id,
+                self.escopo,
+            )
+
+            nota = FiscalService.emitir_nota_venda(venda["id"], self.tenant.id, self.escopo)
+            registro = NotaFiscalVenda.query.filter_by(venda_id=venda["id"]).first()
+
+            self.assertEqual(nota["status"], StatusNotaFiscal.EMITIDA.value)
+            self.assertEqual(nota["serie"], 3)
+            self.assertEqual(nota["numero"], 42)
+            self.assertEqual(len(nota["chave_acesso"]), 44)
+            self.assertTrue(os.path.exists(registro.xml_path))
+            self.assertIn("<NFCe", open(registro.xml_path, encoding="utf-8").read())
+            self.assertEqual(self.empresa.configuracao_fiscal.proximo_numero_nfce, 43)
         finally:
             if os.path.exists(certificado_path):
                 os.remove(certificado_path)
@@ -679,7 +745,8 @@ class FluxoPdvFinanceiroTestCase(unittest.TestCase):
 
         configuracao = ClienteService._obter_ou_criar_configuracao_empresa(self.empresa.id, self.tenant.id)
 
-        self.assertEqual(configuracao.smtp_senha, "senha-app")
+        self.assertTrue(FieldCrypto.is_encrypted(configuracao.smtp_senha))
+        self.assertEqual(FieldCrypto.decrypt(configuracao.smtp_senha), "senha-app")
         self.assertEqual(dados["smtp_senha"], "")
         self.assertTrue(dados["smtp_senha_configurada"])
 

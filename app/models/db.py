@@ -130,6 +130,13 @@ class Tenant(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(120), nullable=False, unique=True)
+    plano_codigo = db.Column(db.String(40), nullable=False, default="starter")
+    assinatura_status = db.Column(db.String(30), nullable=False, default="trial")
+    limite_empresas = db.Column(db.Integer, nullable=False, default=1)
+    limite_funcionarios = db.Column(db.Integer, nullable=False, default=5)
+    limite_produtos = db.Column(db.Integer, nullable=False, default=500)
+    limite_vendas_mes = db.Column(db.Integer, nullable=False, default=1500)
+    trial_ate = db.Column(db.Date, nullable=True)
     criado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
     atualizado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive, onupdate=TimeService.now_utc_naive)
 
@@ -138,6 +145,33 @@ class Tenant(db.Model):
     produtos = db.relationship("Produto", backref="tenant", lazy=True, cascade="all, delete-orphan")
     roles = db.relationship("Role", backref="tenant", lazy=True, cascade="all, delete-orphan")
     permissions = db.relationship("Permission", backref="tenant", lazy=True, cascade="all, delete-orphan")
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_logs"
+
+    id = db.Column(db.Integer, primary_key=True)
+    tenant_id = db.Column(db.Integer, db.ForeignKey("tenants.id"), nullable=True, index=True)
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=True, index=True)
+    actor_scope = db.Column(db.String(30), nullable=True)
+    actor_id = db.Column(db.Integer, nullable=True)
+    action = db.Column(db.String(80), nullable=False)
+    entity_type = db.Column(db.String(80), nullable=True)
+    entity_id = db.Column(db.String(80), nullable=True)
+    status = db.Column(db.String(30), nullable=False, default="SUCCESS")
+    details = db.Column(db.Text, nullable=True)
+    ip_address = db.Column(db.String(80), nullable=True)
+    user_agent = db.Column(db.String(255), nullable=True)
+    request_path = db.Column(db.String(255), nullable=True)
+    request_method = db.Column(db.String(10), nullable=True)
+    criado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+
+    tenant = db.relationship("Tenant", backref=db.backref("audit_logs", lazy=True))
+
+    __table_args__ = (
+        Index("ix_audit_logs_tenant_action_created", "tenant_id", "action", "criado_em"),
+        Index("ix_audit_logs_tenant_entity", "tenant_id", "entity_type", "entity_id"),
+    )
 
 
 class PlatformOwner(db.Model):

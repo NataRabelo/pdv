@@ -1,3 +1,5 @@
+from datetime import datetime, time, timedelta
+
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
@@ -12,6 +14,22 @@ from app.models.db import (
     TipoFinanceiro,
     Venda,
 )
+from app.services.time_service import TimeService
+
+
+def _local_date_range_to_utc_naive(data_inicio=None, data_fim=None):
+    start_utc = None
+    end_utc = None
+
+    if data_inicio is not None:
+        start_local = datetime.combine(data_inicio, time.min, tzinfo=TimeService.TZ_BR)
+        start_utc = start_local.astimezone(TimeService.TZ_UTC).replace(tzinfo=None)
+
+    if data_fim is not None:
+        end_local = datetime.combine(data_fim + timedelta(days=1), time.min, tzinfo=TimeService.TZ_BR)
+        end_utc = end_local.astimezone(TimeService.TZ_UTC).replace(tzinfo=None)
+
+    return start_utc, end_utc
 
 
 class FinanceiroRepository:
@@ -199,6 +217,7 @@ class FinanceiroRepository:
     @staticmethod
     def query_vendas(tenant_id, empresa_ids=None, empresa_id=None, data_inicio=None, data_fim=None):
         query = Venda.query.filter(Venda.tenant_id == tenant_id)
+        data_inicio_utc, data_fim_utc = _local_date_range_to_utc_naive(data_inicio, data_fim)
 
         if empresa_ids is not None:
             query = query.filter(Venda.empresa_id.in_(empresa_ids))
@@ -206,11 +225,11 @@ class FinanceiroRepository:
         if empresa_id is not None:
             query = query.filter(Venda.empresa_id == empresa_id)
 
-        if data_inicio is not None:
-            query = query.filter(db.func.date(Venda.data_venda) >= data_inicio)
+        if data_inicio_utc is not None:
+            query = query.filter(Venda.data_venda >= data_inicio_utc)
 
-        if data_fim is not None:
-            query = query.filter(db.func.date(Venda.data_venda) <= data_fim)
+        if data_fim_utc is not None:
+            query = query.filter(Venda.data_venda < data_fim_utc)
 
         return query
 

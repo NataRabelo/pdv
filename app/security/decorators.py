@@ -6,6 +6,7 @@ from flask_jwt_extended.exceptions import JWTExtendedException
 
 from app.security.jwt import get_auth_scope
 from app.services.acesso_empresa_service import AcessoEmpresaService
+from app.services.tenant_entitlement_service import TenantEntitlementService
 
 
 def permission_required(permissao_codigo):
@@ -21,6 +22,7 @@ def permission_required(permissao_codigo):
                     }), 403
 
                 tenant_id = get_jwt().get("tenant_id")
+                TenantEntitlementService.validar_assinatura(tenant_id)
                 funcionario_id = int(get_jwt_identity())
                 escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
 
@@ -63,6 +65,7 @@ def ui_permission_required(permissao_codigo, redirect_endpoint="main.home"):
                     return redirect(url_for("auth.login"))
 
                 tenant_id = get_jwt().get("tenant_id")
+                TenantEntitlementService.validar_assinatura(tenant_id)
                 funcionario_id = int(get_jwt_identity())
                 escopo = AcessoEmpresaService.obter_escopo(funcionario_id, tenant_id)
 
