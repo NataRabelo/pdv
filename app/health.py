@@ -1,9 +1,9 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, current_app, jsonify
 from sqlalchemy import text
 
 from app.extensions import db
 
-health_bp = Blueprint("health", __name__, url_prefix="/api")
+health_bp = Blueprint("health", __name__)
 
 @health_bp.route("/health", methods=["GET"])
 def healthcheck():
@@ -18,14 +18,16 @@ def healthcheck():
 def readiness():
     try:
         db.session.execute(text("SELECT 1"))
+        db.session.commit()
         return jsonify({
-            "status": "ready",
+            "status": "ok",
             "database": "ok",
             "service": "OceanBlue API",
         }), 200
     except Exception as exc:
+        db.session.rollback()
+        current_app.logger.warning("Readiness check failed: %s", exc)
         return jsonify({
-            "status": "not_ready",
+            "status": "error",
             "database": "error",
-            "message": str(exc),
         }), 503

@@ -1,4 +1,6 @@
 import os
+import logging
+import sys
 
 from flask import Flask
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
@@ -339,6 +341,22 @@ def register_commands(app: Flask) -> None:
         run_seed()
 
 
+def configure_logging(app: Flask) -> None:
+    log_level = logging.DEBUG if app.debug else logging.INFO
+    formatter = logging.Formatter("%(asctime)s %(levelname)s [%(name)s] %(message)s")
+    gunicorn_logger = logging.getLogger("gunicorn.error")
+
+    if gunicorn_logger.handlers:
+        app.logger.handlers = gunicorn_logger.handlers
+    else:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(formatter)
+        app.logger.handlers = [stream_handler]
+
+    app.logger.setLevel(log_level)
+    logging.getLogger().setLevel(log_level)
+
+
 def create_app() -> Flask:
     config_class = get_config()
     config_class.validate_runtime()
@@ -346,6 +364,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+    configure_logging(app)
 
     register_extensions(app)
     register_security_headers(app)
