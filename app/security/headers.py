@@ -7,6 +7,10 @@ def register_security_headers(app):
         if not app.config.get("FORCE_HTTPS"):
             return None
 
+        # Docker healthcheck interno usa HTTP puro via loopback, sem liberar bypass para trafego externo.
+        if request.remote_addr in {"127.0.0.1", "::1"}:
+            return None
+
         forwarded_proto = request.headers.get("X-Forwarded-Proto", request.scheme)
         if forwarded_proto == "https" or request.is_secure:
             return None
