@@ -4,6 +4,7 @@ import sys
 
 from flask import Flask
 from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import get_config
 from app.extensions import db, jwt, migrate
@@ -364,6 +365,17 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+
+    if os.getenv("TRUST_PROXY_HEADERS", "false").lower() in {"1", "true", "yes", "on"}:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=int(os.getenv("PROXY_FIX_X_FOR", "1")),
+            x_proto=int(os.getenv("PROXY_FIX_X_PROTO", "1")),
+            x_host=int(os.getenv("PROXY_FIX_X_HOST", "1")),
+            x_port=int(os.getenv("PROXY_FIX_X_PORT", "0")),
+            x_prefix=int(os.getenv("PROXY_FIX_X_PREFIX", "0")),
+        )
+
     configure_logging(app)
 
     register_extensions(app)

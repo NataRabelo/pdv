@@ -1,0 +1,53 @@
+services:
+  db:
+    image: postgres:16
+    container_name: blueocean_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - blueocean_postgres_data:/var/lib/postgresql/data
+    networks:
+      blueocean_network:
+        aliases:
+          - db
+          - postgres
+          - blueocean_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  db-backup:
+    image: postgres:16
+    container_name: blueocean_db_backup
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+    volumes:
+      - ../backups:/backups
+      - ./backup-postgres.sh:/usr/local/bin/backup-postgres.sh:ro
+    networks:
+      - blueocean_network
+    command: ["/bin/sh", "/usr/local/bin/backup-postgres.sh"]
+
+volumes:
+  blueocean_postgres_data:
+    external: true
+
+networks:
+  blueocean_network:
+    external: true
