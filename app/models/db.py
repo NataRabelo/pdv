@@ -108,6 +108,61 @@ class StatusNotaFiscal(enum.Enum):
     CANCELADA = "CANCELADA"
 
 
+class LayoutArquivoBoleto(enum.Enum):
+    CNAB240 = "CNAB240"
+    CNAB240_API = "CNAB240_API"
+    CNAB400 = "CNAB400"
+
+
+class AmbienteBoleto(enum.Enum):
+    sandbox = "sandbox"
+    producao = "producao"
+
+
+class RegraDistribuicaoParcelamento(enum.Enum):
+    proporcional = "proporcional"
+    manual = "manual"
+
+
+class TipoMultaBoleto(enum.Enum):
+    percentual = "percentual"
+    fixo = "fixo"
+    nenhum = "nenhum"
+
+
+class TipoJurosBoleto(enum.Enum):
+    diario = "diario"
+    mensal = "mensal"
+    nenhum = "nenhum"
+
+
+class BaseCalculoJurosMulta(enum.Enum):
+    valor_nominal = "valor_nominal"
+    valor_restante = "valor_restante"
+
+
+class StatusBoleto(enum.Enum):
+    PENDENTE = "PENDENTE"
+    EMITIDO = "EMITIDO"
+    VENCIDO = "VENCIDO"
+    PARCIALMENTE_PAGO = "PARCIALMENTE_PAGO"
+    PAGO = "PAGO"
+    CANCELADO = "CANCELADO"
+    ESTORNADO = "ESTORNADO"
+    BAIXA_MANUAL = "BAIXA_MANUAL"
+
+
+class TipoEventoBoleto(enum.Enum):
+    EMISSAO = "EMISSAO"
+    VENCIMENTO = "VENCIMENTO"
+    PAGAMENTO = "PAGAMENTO"
+    PAGAMENTO_PARCIAL = "PAGAMENTO_PARCIAL"
+    ESTORNO = "ESTORNO"
+    BAIXA_MANUAL = "BAIXA_MANUAL"
+    RECALCULO_JUROS = "RECALCULO_JUROS"
+    ALTERACAO_REGRA = "ALTERACAO_REGRA"
+
+
 class TipoMovimentoCarteiraCliente(enum.Enum):
     CREDITO = "CREDITO"
     DEBITO = "DEBITO"
@@ -697,6 +752,8 @@ class LancamentoFinanceiro(ModeloBase):
     forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("formas_pagamento.id"), nullable=False)
     venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=True)
     item_venda_id = db.Column(db.Integer, db.ForeignKey("itens_venda.id"), nullable=True)
+    boleto_id = db.Column(db.Integer, db.ForeignKey("boletos.id"), nullable=True)
+    parcela_boleto_id = db.Column(db.Integer, db.ForeignKey("parcelas_boleto.id"), nullable=True)
     lancamento_origem_id = db.Column(db.Integer, db.ForeignKey("lancamentos_financeiros.id"), nullable=True)
     tipo = db.Column(db.Enum(TipoFinanceiro), nullable=False)
     descricao = db.Column(db.String(255), nullable=False)
@@ -712,10 +769,196 @@ class LancamentoFinanceiro(ModeloBase):
     forma_pagamento = db.relationship("FormaPagamento", backref=db.backref("lancamentos_financeiros", lazy=True))
     venda = db.relationship("Venda", backref=db.backref("lancamentos_financeiros", lazy=True))
     item_venda = db.relationship("ItemVenda", backref=db.backref("lancamentos_financeiros", lazy=True))
+    boleto = db.relationship("Boleto", backref=db.backref("lancamentos_financeiros", lazy=True), foreign_keys=[boleto_id])
+    parcela_boleto = db.relationship("ParcelaBoleto", backref=db.backref("lancamentos_financeiros", lazy=True), foreign_keys=[parcela_boleto_id])
 
     __table_args__ = (
         CheckConstraint("valor >= 0", name="ck_lancamento_financeiro_valor_non_negative"),
         Index("ix_financeiro_tenant_empresa_data", "tenant_id", "empresa_id", "data_lancamento"),
+        Index("ix_financeiro_tenant_boleto_parcela", "tenant_id", "boleto_id", "parcela_boleto_id"),
+    )
+
+
+class BancoEmissor(ModeloBase):
+    __tablename__ = "bancos_emissores"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    banco_codigo = db.Column(db.String(20), nullable=False)
+    banco_nome = db.Column(db.String(120), nullable=False)
+    convenio = db.Column(db.String(80), nullable=True)
+    carteira = db.Column(db.String(30), nullable=False)
+    variacao_carteira = db.Column(db.String(30), nullable=True)
+    agencia = db.Column(db.String(30), nullable=False)
+    agencia_dv = db.Column(db.String(5), nullable=True)
+    conta = db.Column(db.String(30), nullable=False)
+    conta_dv = db.Column(db.String(5), nullable=True)
+    codigo_cedente = db.Column(db.String(60), nullable=False)
+    especie_documento = db.Column(db.String(10), nullable=False, default="DM")
+    layout_arquivo = db.Column(db.Enum(LayoutArquivoBoleto), nullable=False, default=LayoutArquivoBoleto.CNAB400)
+    ambiente = db.Column(db.Enum(AmbienteBoleto), nullable=False, default=AmbienteBoleto.sandbox)
+    credenciais_api_ref = db.Column(db.String(255), nullable=True)
+    is_padrao = db.Column(db.Boolean, nullable=False, default=False)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+    empresa = db.relationship("Empresa", backref=db.backref("bancos_emissores", lazy=True))
+
+    __table_args__ = (
+        Index("ix_banco_emissor_tenant_empresa", "tenant_id", "empresa_id"),
+    )
+
+
+class ConfiguracaoParcelamento(ModeloBase):
+    __tablename__ = "configuracoes_parcelamento"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    banco_emissor_id = db.Column(db.Integer, db.ForeignKey("bancos_emissores.id"), nullable=True)
+    numero_min_parcelas = db.Column(db.Integer, nullable=False, default=1)
+    numero_max_parcelas = db.Column(db.Integer, nullable=False)
+    intervalo_dias_padrao = db.Column(db.Integer, nullable=False, default=30)
+    permite_intervalo_customizado = db.Column(db.Boolean, nullable=False, default=False)
+    dia_fixo_vencimento = db.Column(db.Integer, nullable=True)
+    valor_minimo_por_parcela = db.Column(db.Numeric(12, 2), nullable=False)
+    regra_distribuicao = db.Column(
+        db.Enum(RegraDistribuicaoParcelamento),
+        nullable=False,
+        default=RegraDistribuicaoParcelamento.proporcional,
+    )
+    arredondamento_ultima_parcela = db.Column(db.Boolean, nullable=False, default=True)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+    empresa = db.relationship("Empresa", backref=db.backref("configuracoes_parcelamento", lazy=True))
+    banco_emissor = db.relationship("BancoEmissor", backref=db.backref("configuracoes_parcelamento", lazy=True))
+
+    __table_args__ = (
+        CheckConstraint("numero_min_parcelas >= 1", name="ck_config_parcelamento_min_positive"),
+        CheckConstraint("numero_max_parcelas >= numero_min_parcelas", name="ck_config_parcelamento_max_gte_min"),
+        CheckConstraint("intervalo_dias_padrao >= 1", name="ck_config_parcelamento_intervalo_positive"),
+        CheckConstraint("dia_fixo_vencimento IS NULL OR (dia_fixo_vencimento >= 1 AND dia_fixo_vencimento <= 28)", name="ck_config_parcelamento_dia_fixo_range"),
+        CheckConstraint("valor_minimo_por_parcela >= 0", name="ck_config_parcelamento_valor_minimo_non_negative"),
+        Index("ix_config_parcelamento_tenant_empresa", "tenant_id", "empresa_id"),
+    )
+
+
+class RegraJurosMulta(ModeloBase):
+    __tablename__ = "regras_juros_multa"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    banco_emissor_id = db.Column(db.Integer, db.ForeignKey("bancos_emissores.id"), nullable=True)
+    tipo_multa = db.Column(db.Enum(TipoMultaBoleto), nullable=False, default=TipoMultaBoleto.nenhum)
+    percentual_multa = db.Column(db.Numeric(8, 4), nullable=True)
+    valor_fixo_multa = db.Column(db.Numeric(12, 2), nullable=True)
+    tipo_juros = db.Column(db.Enum(TipoJurosBoleto), nullable=False, default=TipoJurosBoleto.nenhum)
+    percentual_juros = db.Column(db.Numeric(8, 4), nullable=True)
+    dias_carencia = db.Column(db.Integer, nullable=False, default=0)
+    base_calculo = db.Column(db.Enum(BaseCalculoJurosMulta), nullable=False, default=BaseCalculoJurosMulta.valor_restante)
+    percentual_maximo_teto = db.Column(db.Numeric(8, 4), nullable=False)
+    vigente_desde = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+    vigente_ate = db.Column(db.DateTime, nullable=True)
+    ativo = db.Column(db.Boolean, nullable=False, default=True)
+
+    empresa = db.relationship("Empresa", backref=db.backref("regras_juros_multa", lazy=True))
+    banco_emissor = db.relationship("BancoEmissor", backref=db.backref("regras_juros_multa", lazy=True))
+
+    __table_args__ = (
+        CheckConstraint("dias_carencia >= 0", name="ck_regra_juros_carencia_non_negative"),
+        CheckConstraint("percentual_maximo_teto >= 0", name="ck_regra_juros_teto_non_negative"),
+        Index("ix_regra_juros_tenant_empresa_vigencia", "tenant_id", "empresa_id", "banco_emissor_id", "vigente_desde", "vigente_ate"),
+    )
+
+
+class Boleto(ModeloBase):
+    __tablename__ = "boletos"
+
+    empresa_id = db.Column(db.Integer, db.ForeignKey("empresas.id"), nullable=False)
+    cliente_id = db.Column(db.Integer, db.ForeignKey("clientes.id"), nullable=False)
+    venda_id = db.Column(db.Integer, db.ForeignKey("vendas.id"), nullable=True)
+    banco_emissor_id = db.Column(db.Integer, db.ForeignKey("bancos_emissores.id"), nullable=False)
+    configuracao_parcelamento_id = db.Column(db.Integer, db.ForeignKey("configuracoes_parcelamento.id"), nullable=True)
+    numero_boleto = db.Column(db.String(60), nullable=False)
+    nosso_numero = db.Column(db.String(80), nullable=True)
+    status = db.Column(db.Enum(StatusBoleto), nullable=False, default=StatusBoleto.PENDENTE)
+    valor_nominal = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    valor_pago = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    valor_restante = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    data_emissao = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+    data_vencimento = db.Column(db.Date, nullable=False)
+    data_pagamento = db.Column(db.DateTime, nullable=True)
+    data_baixa = db.Column(db.DateTime, nullable=True)
+    forma_pagamento_id = db.Column(db.Integer, db.ForeignKey("formas_pagamento.id"), nullable=False)
+    categoria_id = db.Column(db.Integer, db.ForeignKey("categorias_financeiras.id"), nullable=False)
+    codigo_barras = db.Column(db.String(140), nullable=True)
+    linha_digitavel = db.Column(db.String(160), nullable=True)
+    arquivo_pdf_path = db.Column(db.String(255), nullable=True)
+    arquivo_html_path = db.Column(db.String(255), nullable=True)
+    observacao = db.Column(db.Text, nullable=True)
+
+    empresa = db.relationship("Empresa", backref=db.backref("boletos", lazy=True))
+    cliente = db.relationship("Cliente", backref=db.backref("boletos", lazy=True))
+    venda = db.relationship("Venda", backref=db.backref("boletos", lazy=True))
+    banco_emissor = db.relationship("BancoEmissor", backref=db.backref("boletos", lazy=True))
+    configuracao_parcelamento = db.relationship("ConfiguracaoParcelamento", backref=db.backref("boletos", lazy=True))
+    forma_pagamento = db.relationship("FormaPagamento", backref=db.backref("boletos", lazy=True))
+    categoria = db.relationship("CategoriaFinanceira", backref=db.backref("boletos", lazy=True))
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "numero_boleto", name="uq_boleto_tenant_numero"),
+        CheckConstraint("valor_nominal >= 0", name="ck_boleto_valor_nominal_non_negative"),
+        CheckConstraint("valor_pago >= 0", name="ck_boleto_valor_pago_non_negative"),
+        CheckConstraint("valor_restante >= 0", name="ck_boleto_valor_restante_non_negative"),
+        Index("ix_boleto_tenant_empresa_status", "tenant_id", "empresa_id", "status"),
+        Index("ix_boleto_tenant_empresa_vencimento", "tenant_id", "empresa_id", "data_vencimento"),
+    )
+
+
+class ParcelaBoleto(db.Model):
+    __tablename__ = "parcelas_boleto"
+
+    id = db.Column(db.Integer, primary_key=True)
+    boleto_id = db.Column(db.Integer, db.ForeignKey("boletos.id"), nullable=False)
+    numero_parcela = db.Column(db.Integer, nullable=False)
+    valor_parcela = db.Column(db.Numeric(12, 2), nullable=False)
+    valor_pago = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    valor_restante = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    data_vencimento = db.Column(db.Date, nullable=False)
+    data_pagamento = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.Enum(StatusBoleto), nullable=False, default=StatusBoleto.PENDENTE)
+    juros_calculados = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    multa_calculada = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    desconto_aplicado = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    observacao = db.Column(db.Text, nullable=True)
+
+    boleto = db.relationship("Boleto", backref=db.backref("parcelas", lazy=True, cascade="all, delete-orphan"))
+
+    __table_args__ = (
+        UniqueConstraint("boleto_id", "numero_parcela", name="uq_parcela_boleto_numero"),
+        CheckConstraint("numero_parcela >= 1", name="ck_parcela_boleto_numero_positive"),
+        CheckConstraint("valor_parcela >= 0", name="ck_parcela_boleto_valor_non_negative"),
+        CheckConstraint("valor_pago >= 0", name="ck_parcela_boleto_pago_non_negative"),
+        CheckConstraint("valor_restante >= 0", name="ck_parcela_boleto_restante_non_negative"),
+        Index("ix_parcela_boleto_status_vencimento", "status", "data_vencimento"),
+    )
+
+
+class EventoBoleto(db.Model):
+    __tablename__ = "eventos_boleto"
+
+    id = db.Column(db.Integer, primary_key=True)
+    boleto_id = db.Column(db.Integer, db.ForeignKey("boletos.id"), nullable=False)
+    parcela_id = db.Column(db.Integer, db.ForeignKey("parcelas_boleto.id"), nullable=True)
+    tipo_evento = db.Column(db.Enum(TipoEventoBoleto), nullable=False)
+    descricao = db.Column(db.Text, nullable=False)
+    valor = db.Column(db.Numeric(12, 2), nullable=True)
+    regra_juros_multa_id = db.Column(db.Integer, db.ForeignKey("regras_juros_multa.id"), nullable=True)
+    criado_por_funcionario_id = db.Column(db.Integer, db.ForeignKey("funcionarios.id"), nullable=True)
+    criado_em = db.Column(db.DateTime, nullable=False, default=TimeService.now_utc_naive)
+
+    boleto = db.relationship("Boleto", backref=db.backref("eventos", lazy=True, cascade="all, delete-orphan"))
+    parcela = db.relationship("ParcelaBoleto", backref=db.backref("eventos", lazy=True))
+    regra_juros_multa = db.relationship("RegraJurosMulta", backref=db.backref("eventos_boleto", lazy=True))
+    criado_por = db.relationship("Funcionario", backref=db.backref("eventos_boleto", lazy=True))
+
+    __table_args__ = (
+        Index("ix_evento_boleto_boleto_tipo_data", "boleto_id", "tipo_evento", "criado_em"),
     )
 
 
