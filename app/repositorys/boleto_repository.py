@@ -106,7 +106,8 @@ class BoletoRepository:
         if empresa_id is not None:
             query = query.filter(Boleto.empresa_id == empresa_id)
         if status is not None:
-            query = query.filter(Boleto.status == status)
+            status_enum = StatusBoleto(status) if isinstance(status, str) else status
+            query = query.filter(Boleto.status == status_enum)
         if banco_emissor_id is not None:
             query = query.filter(Boleto.banco_emissor_id == banco_emissor_id)
         return query.order_by(Boleto.criado_em.desc(), Boleto.id.desc()).limit(max(int(limite or 100), 1)).all()

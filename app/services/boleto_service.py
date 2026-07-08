@@ -174,8 +174,8 @@ class BoletoService:
             boleto.status = StatusBoleto.EMITIDO if parcelas else StatusBoleto.PENDENTE
             if parcelas:
                 boleto.valor_restante = sum((p.valor_restante or Decimal("0.00")) for p in parcelas)
-            BoletoRepository.salvar()
             BoletoService._registrar_evento(boleto, None, TipoEventoBoleto.EMISSAO, "Boleto emitido", None, funcionario_id)
+            BoletoRepository.salvar()
             return BoletoService.serializar_boleto(boleto)
         except Exception:
             BoletoRepository.rollback()
