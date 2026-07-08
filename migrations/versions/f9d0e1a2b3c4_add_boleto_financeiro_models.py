@@ -95,12 +95,6 @@ def upgrade():
     )
     op.create_index(op.f('ix_regra_juros_tenant_empresa_vigencia'), 'regras_juros_multa', ['tenant_id', 'empresa_id', 'banco_emissor_id', 'vigente_desde', 'vigente_ate'], unique=False)
 
-    op.add_column('lancamentos_financeiros', sa.Column('boleto_id', sa.Integer(), nullable=True))
-    op.add_column('lancamentos_financeiros', sa.Column('parcela_boleto_id', sa.Integer(), nullable=True))
-    op.create_foreign_key(None, 'lancamentos_financeiros', 'boletos', ['boleto_id'], ['id'])
-    op.create_foreign_key(None, 'lancamentos_financeiros', 'parcelas_boleto', ['parcela_boleto_id'], ['id'])
-    op.create_index(op.f('ix_financeiro_tenant_boleto_parcela'), 'lancamentos_financeiros', ['tenant_id', 'boleto_id', 'parcela_boleto_id'], unique=False)
-
     op.create_table(
         'boletos',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -163,6 +157,12 @@ def upgrade():
     )
     op.create_index(op.f('ix_parcela_boleto_status_vencimento'), 'parcelas_boleto', ['status', 'data_vencimento'], unique=False)
 
+    op.add_column('lancamentos_financeiros', sa.Column('boleto_id', sa.Integer(), nullable=True))
+    op.add_column('lancamentos_financeiros', sa.Column('parcela_boleto_id', sa.Integer(), nullable=True))
+    op.create_foreign_key(None, 'lancamentos_financeiros', 'boletos', ['boleto_id'], ['id'])
+    op.create_foreign_key(None, 'lancamentos_financeiros', 'parcelas_boleto', ['parcela_boleto_id'], ['id'])
+    op.create_index(op.f('ix_financeiro_tenant_boleto_parcela'), 'lancamentos_financeiros', ['tenant_id', 'boleto_id', 'parcela_boleto_id'], unique=False)
+
     op.create_table(
         'eventos_boleto',
         sa.Column('id', sa.Integer(), nullable=False),
@@ -185,16 +185,25 @@ def upgrade():
 
 def downgrade():
     op.drop_table('eventos_boleto')
-    op.drop_table('parcelas_boleto')
-    op.drop_table('boletos')
+
     op.drop_index(op.f('ix_financeiro_tenant_boleto_parcela'), table_name='lancamentos_financeiros')
     op.drop_constraint(None, 'lancamentos_financeiros', type_='foreignkey')
     op.drop_constraint(None, 'lancamentos_financeiros', type_='foreignkey')
     op.drop_column('lancamentos_financeiros', 'parcela_boleto_id')
     op.drop_column('lancamentos_financeiros', 'boleto_id')
+
+    op.drop_index(op.f('ix_parcela_boleto_status_vencimento'), table_name='parcelas_boleto')
+    op.drop_table('parcelas_boleto')
+
+    op.drop_index(op.f('ix_boleto_tenant_empresa_vencimento'), table_name='boletos')
+    op.drop_index(op.f('ix_boleto_tenant_empresa_status'), table_name='boletos')
+    op.drop_table('boletos')
+
     op.drop_index(op.f('ix_regra_juros_tenant_empresa_vigencia'), table_name='regras_juros_multa')
     op.drop_table('regras_juros_multa')
+
     op.drop_index(op.f('ix_config_parcelamento_tenant_empresa'), table_name='configuracoes_parcelamento')
     op.drop_table('configuracoes_parcelamento')
+
     op.drop_index(op.f('ix_banco_emissor_tenant_empresa'), table_name='bancos_emissores')
     op.drop_table('bancos_emissores')
